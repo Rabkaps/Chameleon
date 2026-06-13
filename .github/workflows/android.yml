@@ -28,8 +28,8 @@ jobs:
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    - name: Upload Debug APK
+    - name: Upload ExpressiveBox Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug-apk
+        name: ExpressiveBox-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk

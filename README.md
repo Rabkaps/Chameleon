@@ -31,7 +31,7 @@ The project adheres to modern Android development best practices, featuring **Un
 * **Minimum SDK**: Android 7.0 (API Level 24)
 * **Target SDK**: Android 16 (API Level 36)
 * **Compile SDK**: Android 16 (API Level 37)
-* **Supported ABI / Architecture**: `arm64-v8a` (specifically configured for 64-bit ARM devices due to native VPN binaries)
+* **Supported ABI / Architecture**: `arm64-v8a` (64-bit ARM devices only for early testing stage; support for additional architectures planned)
 * **UI Toolkit**: Jetpack Compose (Material 3)
 * **Language Toolchain**: Kotlin 2.x, Java 17
 
