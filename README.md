@@ -2,9 +2,15 @@
 
 ExpressiveBox is a modern, high-performance VPN client for Android built entirely with **Jetpack Compose** and **Material Design 3**. It offers secure routing, modular connection profiles, and deep integration with the Android system's native VPN frameworks.
 
+> [!NOTE]
+> **Project Status**: ExpressiveBox is currently in its **early testing stages**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, VMess, Trojan, Shadowsocks).
+> 
+> * **Persian (Farsi) language support is coming soon!**
+
 ## Key Features
 
 * **VpnService Integration**: Core routing using a high-performance native tunnel engine (`libbox`), exposing robust state monitoring and connection management.
+* **Automated Iran Routing**: Built-in rules for automatic identification of domestic Iranian domains and IP ranges. It automatically routes local Iranian traffic directly (bypassing the VPN) to guarantee optimal speeds and uninterrupted access to domestic banking and government services.
 * **Modern Material 3 UI**: Implements cohesive Material 3 design components, dynamic coloring, linear gradient headers, and card-based settings menus.
 * **Granular Split Tunneling**: Route specific application traffic through the VPN or bypass it completely. Includes an option to toggle visibility of system apps, with a memory-cached icon loading architecture that guarantees smooth, stutter-free scrolling.
 * **QR Code Parsing**: Fast configuration import by scanning QR codes using the device camera (powered by Android CameraX and Google ML Kit Barcode Scanning).
