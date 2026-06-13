@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -15,6 +18,10 @@
         android:supportsRtl="true"
         android:windowSoftInputMode="adjustResize"
         android:theme="@style/Theme.ExpressiveBox">
+
+        <meta-data
+            android:name="com.samsung.android.support.ongoing_activity"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -47,6 +54,15 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".vpn.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.hambalapps.expressivebox.vpn.ACTION_PREV_NODE" />
+                <action android:name="com.hambalapps.expressivebox.vpn.ACTION_NEXT_NODE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

@@ -1,0 +1,738 @@
+package com.hambalapps.expressivebox.vpn
+
+import android.content.Context
+import android.net.ConnectivityManager
+import android.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
+
+data class InjectorSettings(
+    val bypassIran: Boolean,
+    val secureDns: String,
+    val tunStack: String,
+    val enableFragment: Boolean,
+    val fragmentLength: String,
+    val fragmentInterval: String,
+    val enableMux: Boolean
+)
+
+object ConfigInjector {
+
+    fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
+        try {
+            val configJson = if (rawProfile.trim().startsWith("{")) {
+                JSONObject(rawProfile)
+            } else if (rawProfile.trim().startsWith("vless://") ||
+                rawProfile.trim().startsWith("trojan://") ||
+                rawProfile.trim().startsWith("ss://")) {
+                buildConfigFromUri(rawProfile, settings)
+            } else {
+                // Return default empty configuration skeleton
+                buildDefaultSkeleton(settings)
+            }
+
+            // Override log configuration to output to vpn.log
+            val logFile = java.io.File(context.cacheDir, "vpn.log")
+            try {
+                if (logFile.exists()) logFile.delete()
+            } catch (e: Exception) {}
+            val logObj = configJson.optJSONObject("log") ?: JSONObject().also { configJson.put("log", it) }
+            logObj.put("level", "info")
+            logObj.put("output", logFile.absolutePath)
+            logObj.put("timestamp", true)
+
+            // Sanitize invalid port fields in outbounds and inbounds
+            sanitizePortFields(configJson)
+
+            // 1. Inject or update inbounds (TUN interface)
+            injectTunInbound(configJson, settings)
+
+            // 2. Inject or update DNS (Split DNS rules)
+            injectDns(context, configJson, settings)
+
+            // 3. Inject or update Routing Rules (Iran bypass)
+            injectRouting(context, configJson, settings)
+
+            // 4. Inject direct/block outbounds
+            injectOutbounds(configJson, settings)
+
+            return configJson.toString(2)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return buildDefaultSkeleton(settings).toString(2)
+        }
+    }
+
+    private fun injectTunInbound(config: JSONObject, settings: InjectorSettings) {
+        val inbounds = config.optJSONArray("inbounds") ?: JSONArray().also { config.put("inbounds", it) }
+        
+        // Remove existing TUN inbounds if any
+        val newInbounds = JSONArray()
+        for (i in 0 until inbounds.length()) {
+            val inbound = inbounds.optJSONObject(i) ?: continue
+            if (inbound.optString("type") != "tun") {
+                newInbounds.put(inbound)
+            }
+        }
+
+        val tunInbound = JSONObject().apply {
+            put("type", "tun")
+            put("tag", "tun-in")
+            put("interface_name", "tun0")
+            put("stack", settings.run { if (tunStack.isEmpty()) "mixed" else tunStack })
+            put("mtu", 9000)
+            put("auto_route", true)
+            put("strict_route", true)
+            put("address", JSONArray(listOf("172.19.0.1/30")))
+        }
+        newInbounds.put(tunInbound)
+        config.put("inbounds", newInbounds)
+    }
+
+    private fun getSystemDnsServers(context: Context): List<String> {
+        val dnsList = mutableListOf<String>()
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (cm != null) {
+            try {
+                val activeNetwork = cm.activeNetwork
+                if (activeNetwork != null) {
+                    val lp = cm.getLinkProperties(activeNetwork)
+                    lp?.dnsServers?.forEach { dnsAddr ->
+                        val dnsHost = dnsAddr.hostAddress
+                        if (dnsHost != null) {
+                            val cleanHost = dnsHost.substringBefore("%")
+                            if (cleanHost.isNotEmpty() && !cleanHost.contains(":")) {
+                                dnsList.add(cleanHost)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ExpressiveBox", "Failed to get system DNS: ${e.message}")
+            }
+        }
+        return dnsList
+    }
+
+    private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
+        val serverObj = JSONObject()
+        serverObj.put("tag", tag)
+        if (detour != null) {
+            serverObj.put("detour", detour)
+        }
+
+        val trimmed = address.trim()
+        if (trimmed.startsWith("https://")) {
+            serverObj.put("type", "https")
+            val hostPart = trimmed.substringAfter("https://").substringBefore("/")
+            serverObj.put("server", hostPart)
+            val path = "/" + trimmed.substringAfter("https://").substringAfter("/", "")
+            if (path.length > 1) {
+                serverObj.put("path", path)
+            }
+        } else if (trimmed.startsWith("tls://")) {
+            serverObj.put("type", "tls")
+            serverObj.put("server", trimmed.substringAfter("tls://"))
+        } else if (trimmed.startsWith("tcp://")) {
+            serverObj.put("type", "tls")
+            serverObj.put("server", trimmed.substringAfter("tcp://"))
+        } else if (trimmed.startsWith("quic://")) {
+            serverObj.put("type", "quic")
+            serverObj.put("server", trimmed.substringAfter("quic://"))
+        } else {
+            serverObj.put("type", "udp")
+            serverObj.put("server", trimmed)
+        }
+        return serverObj
+    }
+
+    private fun injectDns(context: Context, config: JSONObject, settings: InjectorSettings) {
+        val dns = JSONObject()
+        val servers = JSONArray()
+
+        // 1. Secure DNS Server (routes via the proxy)
+        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
+        servers.put(secureServer)
+
+        // 2. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
+        val systemDnsList = getSystemDnsServers(context)
+        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
+        
+        for (dnsIp in systemDnsList) {
+            // Filter out well-known hijacked public DNS servers in Iran
+            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
+                directDnsAddr = dnsIp
+                break
+            }
+        }
+
+        android.util.Log.i("ExpressiveBox", "Direct DNS set to: $directDnsAddr (from system DNS: $systemDnsList)")
+
+        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
+        servers.put(directServer)
+        dns.put("servers", servers)
+
+        val rules = JSONArray()
+
+        // Inject bootstrap rules for proxy server domain and secure DNS DoH domain to route directly
+        val proxyHosts = getProxyServerHosts(config)
+        val secureDnsHost = extractHostFromUrl(settings.secureDns)
+        val directDomains = mutableListOf<String>()
+
+        for (host in proxyHosts) {
+            if (host.isNotEmpty() && !isIpAddress(host)) {
+                directDomains.add(host)
+            }
+        }
+        if (secureDnsHost != null && secureDnsHost.isNotEmpty() && !isIpAddress(secureDnsHost)) {
+            directDomains.add(secureDnsHost)
+        }
+
+        if (directDomains.isNotEmpty()) {
+            val bootstrapRule = JSONObject().apply {
+                put("domain", JSONArray(directDomains))
+                put("server", "dns-direct")
+            }
+            rules.put(bootstrapRule)
+        }
+        
+        if (settings.bypassIran) {
+            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
+            if (geositeFile.exists()) {
+                // Rule: Route Iranian geosite to local DNS via rule_set
+                val irGeositeRule = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("server", "dns-direct")
+                }
+                rules.put(irGeositeRule)
+            }
+
+            // Rule: Route .ir domains to local DNS
+            val irSuffixRule = JSONObject().apply {
+                put("domain_suffix", JSONArray(listOf(".ir")))
+                put("server", "dns-direct")
+            }
+            rules.put(irSuffixRule)
+        }
+
+        dns.put("rules", rules)
+        config.put("dns", dns)
+    }
+
+    private fun injectRouting(context: Context, config: JSONObject, settings: InjectorSettings) {
+        val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
+        val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
+
+        // Remove existing DNS routing and Iran rules to refresh them
+        val newRules = JSONArray()
+        for (i in 0 until rules.length()) {
+            val r = rules.optJSONObject(i) ?: continue
+            val protocol = r.optString("protocol")
+            val geosite = r.optJSONArray("geosite")
+            val geoip = r.optJSONArray("geoip")
+            val suffix = r.optJSONArray("domain_suffix")
+            val ruleSetName = r.optString("rule_set")
+            val ruleSetArrayVal = r.optJSONArray("rule_set")
+
+            val isIranRule = (geosite != null && geosite.toString().contains("ir")) ||
+                             (geoip != null && geoip.toString().contains("ir")) ||
+                             (suffix != null && suffix.toString().contains(".ir")) ||
+                             (ruleSetName != null && ruleSetName.contains("ir")) ||
+                             (ruleSetArrayVal != null && ruleSetArrayVal.toString().contains("ir"))
+            
+            if (protocol != "dns" && !isIranRule) {
+                newRules.put(r)
+            }
+        }
+
+        // Add sniffing rule at the beginning
+        val sniffRule = JSONObject().apply {
+            put("action", "sniff")
+            put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
+        }
+        newRules.put(sniffRule)
+
+        // Add standard DNS routing rule (required for internal DNS hijacking)
+        val dnsRule = JSONObject().apply {
+            put("protocol", "dns")
+            put("action", "hijack-dns")
+        }
+        newRules.put(dnsRule)
+
+        // Block Private DNS (DoT) on port 853 to force fallback to hijacked standard DNS
+        val blockDotRule = JSONObject().apply {
+            put("port", JSONArray(listOf(853)))
+            put("outbound", "block")
+        }
+        newRules.put(blockDotRule)
+
+        // Route private/local IP networks directly
+        val privateIpsRule = JSONObject().apply {
+            put("ip_cidr", JSONArray(listOf(
+                "10.0.0.0/8",
+                "172.16.0.0/12",
+                "192.168.0.0/16",
+                "127.0.0.0/8",
+                "169.254.0.0/16",
+                "::1/128",
+                "fc00::/7",
+                "fe80::/10"
+            )))
+            put("outbound", "direct")
+        }
+        newRules.put(privateIpsRule)
+
+        // Route proxy and secure DNS domains/IPs directly
+        val proxyHosts = getProxyServerHosts(config)
+        val secureDnsHost = extractHostFromUrl(settings.secureDns)
+        val directDomains = mutableListOf<String>()
+        val directIps = mutableListOf<String>()
+
+        // Add direct DNS server IP to directIps to ensure it bypasses the VPN tunnel
+        val systemDnsList = getSystemDnsServers(context)
+        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
+        for (dnsIp in systemDnsList) {
+            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
+                directDnsAddr = dnsIp
+                break
+            }
+        }
+        if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
+            directIps.add(directDnsAddr)
+        }
+
+        for (host in proxyHosts) {
+            if (host.isNotEmpty()) {
+                if (isIpAddress(host)) {
+                    directIps.add(host)
+                } else {
+                    directDomains.add(host)
+                }
+            }
+        }
+
+        if (directDomains.isNotEmpty()) {
+            val bypassBypassRule = JSONObject().apply {
+                put("domain", JSONArray(directDomains))
+                put("outbound", "direct")
+            }
+            newRules.put(bypassBypassRule)
+        }
+
+        if (directIps.isNotEmpty()) {
+            val bypassIpsRule = JSONObject().apply {
+                put("ip_cidr", JSONArray(directIps))
+                put("outbound", "direct")
+            }
+            newRules.put(bypassIpsRule)
+        }
+
+        if (settings.bypassIran) {
+            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
+            val geoipFile = java.io.File(context.filesDir, "geoip-ir.srs")
+
+            // Inject or update local rule sets declaration
+            val ruleSetArray = JSONArray().apply {
+                put(JSONObject().apply {
+                    put("tag", "geoip-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geoipFile.absolutePath)
+                })
+                put(JSONObject().apply {
+                    put("tag", "geosite-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geositeFile.absolutePath)
+                })
+            }
+            route.put("rule_set", ruleSetArray)
+
+            if (geositeFile.exists()) {
+                // Add Iran Bypass Geosite Rule via rule_set
+                val irGeosite = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeosite)
+            }
+
+            if (geoipFile.exists()) {
+                // Add Iran Bypass GeoIP Rule via rule_set
+                val irGeoip = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geoip-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeoip)
+            }
+
+            // Add Iran .ir Suffix Rule
+            val irSuffix = JSONObject().apply {
+                put("domain_suffix", JSONArray(listOf(".ir")))
+                put("outbound", "direct")
+            }
+            newRules.put(irSuffix)
+        }
+
+        route.put("rules", newRules)
+        route.put("auto_detect_interface", true)
+        route.put("override_android_vpn", true)
+    }
+
+    private fun injectOutbounds(config: JSONObject, settings: InjectorSettings) {
+        val outbounds = config.optJSONArray("outbounds") ?: JSONArray().also { config.put("outbounds", it) }
+
+        val cleanOutbounds = JSONArray()
+        var hasDirect = false
+        var hasBlock = false
+
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.optJSONObject(i) ?: continue
+            val type = out.optString("type")
+            val tag = out.optString("tag")
+            if (type == "dns" || tag == "dns-out") {
+                continue // Remove deprecated DNS outbounds
+            }
+            if (tag == "direct") hasDirect = true
+            if (tag == "block") hasBlock = true
+
+            // Inject fragmentation into proxy outbound if enabled
+            if (tag == "proxy" && settings.enableFragment) {
+                injectFragmentToOutbound(out, settings)
+            }
+            // Inject multiplexing if enabled
+            if (tag == "proxy" && settings.enableMux) {
+                val mux = JSONObject().apply {
+                    put("enabled", true)
+                    put("protocol", "smux")
+                    put("max_connections", 4)
+                    put("min_streams", 4)
+                }
+                out.put("multiplex", mux)
+            }
+            cleanOutbounds.put(out)
+        }
+
+        if (!hasDirect) {
+            cleanOutbounds.put(JSONObject().apply {
+                put("type", "direct")
+                put("tag", "direct")
+            })
+        }
+        if (!hasBlock) {
+            cleanOutbounds.put(JSONObject().apply {
+                put("type", "block")
+                put("tag", "block")
+            })
+        }
+        config.put("outbounds", cleanOutbounds)
+    }
+
+    private fun injectFragmentToOutbound(outbound: JSONObject, settings: InjectorSettings) {
+        val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
+        tls.put("enabled", true)
+        tls.put("fragment", true)
+        tls.put("record_fragment", true)
+        
+        val interval = settings.fragmentInterval.trim()
+        val delayStr = if (interval.isEmpty()) {
+            "20ms"
+        } else if (interval.endsWith("ms")) {
+            interval
+        } else {
+            "${interval}ms"
+        }
+        tls.put("fragment_fallback_delay", delayStr)
+    }
+
+    private fun buildDefaultSkeleton(settings: InjectorSettings): JSONObject {
+        return JSONObject().apply {
+            put("log", JSONObject().apply {
+                put("level", "info")
+                put("timestamp", true)
+            })
+            put("outbounds", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("type", "direct")
+                    put("tag", "proxy") // Fallback direct outbound labeled as proxy
+                })
+            })
+        }
+    }
+
+    private fun buildConfigFromUri(uriStr: String, settings: InjectorSettings): JSONObject {
+        val config = buildDefaultSkeleton(settings)
+        val outbounds = config.getJSONArray("outbounds")
+
+        try {
+            val trimmed = uriStr.trim()
+            val fragmentIdx = trimmed.indexOf("#")
+            val name = if (fragmentIdx >= 0) {
+                URLDecoder.decode(trimmed.substring(fragmentIdx + 1), "UTF-8")
+            } else {
+                "proxy"
+            }
+            
+            val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
+            val schemeIdx = rest.indexOf("://")
+            if (schemeIdx < 0) return config
+            val scheme = rest.substring(0, schemeIdx).lowercase()
+            
+            val content = rest.substring(schemeIdx + 3)
+            val queryIdx = content.indexOf("?")
+            val mainPart = if (queryIdx >= 0) content.substring(0, queryIdx) else content
+            val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
+            
+            val atIdx = mainPart.indexOf("@")
+            val userInfo = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
+            
+            val colonIdx = serverPart.lastIndexOf(":")
+            val host = if (colonIdx >= 0) serverPart.substring(0, colonIdx) else serverPart
+            val portStr = if (colonIdx >= 0) serverPart.substring(colonIdx + 1) else "443"
+            val port = portStr.toIntOrNull() ?: 443
+            
+            val queryParams = parseQueryParams(queryPart)
+            val tag = "proxy"
+            val outbound = JSONObject()
+            outbound.put("tag", tag)
+
+            if (scheme == "vless") {
+                outbound.put("type", "vless")
+                outbound.put("uuid", userInfo)
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+
+
+                // Flow control (only allowed for standard TCP transport in sing-box)
+                val type = queryParams["type"]
+                if (type != "ws" && type != "grpc") {
+                    queryParams["flow"]?.let { outbound.put("flow", it) }
+                }
+
+                // TLS
+                val security = queryParams["security"]?.lowercase()
+                val hasTls = security == "tls" || security == "reality" || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+                if (hasTls) {
+                    val tls = JSONObject()
+                    tls.put("enabled", true)
+                    queryParams["sni"]?.let { tls.put("server_name", it) }
+
+                    // Enable uTLS if security is reality or fingerprint is specified
+                    if (security == "reality" || queryParams.containsKey("fp")) {
+                        val utls = JSONObject()
+                        utls.put("enabled", true)
+                        val fingerprint = queryParams["fp"] ?: "chrome"
+                        utls.put("fingerprint", fingerprint)
+                        tls.put("utls", utls)
+                    }
+
+                    if (security == "reality") {
+                        val reality = JSONObject()
+                        reality.put("enabled", true)
+                        queryParams["pbk"]?.let { reality.put("public_key", it) }
+                        queryParams["sid"]?.let { reality.put("short_id", it) }
+                        tls.put("reality", reality)
+                    }
+                    outbound.put("tls", tls)
+                }
+
+                // Transport
+                injectTransport(outbound, queryParams)
+            } else if (scheme == "trojan") {
+                outbound.put("type", "trojan")
+                outbound.put("password", userInfo)
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+
+                val tls = JSONObject()
+                tls.put("enabled", true)
+                queryParams["sni"]?.let { tls.put("server_name", it) }
+
+                if (queryParams.containsKey("fp")) {
+                    val utls = JSONObject()
+                    utls.put("enabled", true)
+                    val fingerprint = queryParams["fp"] ?: "chrome"
+                    utls.put("fingerprint", fingerprint)
+                    tls.put("utls", utls)
+                }
+                outbound.put("tls", tls)
+
+                // Transport
+                injectTransport(outbound, queryParams)
+            } else if (scheme == "ss") {
+                outbound.put("type", "shadowsocks")
+                // Shadowsocks format: ss://base64(method:password)@host:port or ss://base64(method:password@host:port)
+                if (userInfo.isEmpty()) {
+                    // Modern format base64
+                    val decoded = String(Base64.decode(mainPart, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), StandardCharsets.UTF_8)
+                    if (decoded.contains("@")) {
+                        val parts = decoded.split("@")
+                        val creds = parts[0].split(":")
+                        outbound.put("method", creds[0])
+                        outbound.put("password", creds[1])
+                        
+                        val serverParts = parts[1].split(":")
+                        outbound.put("server", serverParts[0])
+                        outbound.put("server_port", serverParts[1].toInt())
+                    }
+                } else {
+                    // Classic format
+                    val decodedCreds = if (userInfo.contains(":")) {
+                        userInfo
+                    } else {
+                        String(Base64.decode(userInfo, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), StandardCharsets.UTF_8)
+                    }
+                    val creds = decodedCreds.split(":")
+                    outbound.put("method", creds[0])
+                    outbound.put("password", creds[1])
+                    outbound.put("server", host)
+                    outbound.put("server_port", port)
+                }
+            }
+
+            // Replace the fallback direct outbound in index 0
+            outbounds.put(0, outbound)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return config
+    }
+
+    private fun parseQueryParams(query: String): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        if (query.isEmpty()) return result
+        val pairs = query.split("&")
+        for (pair in pairs) {
+            val idx = pair.indexOf("=")
+            if (idx > 0) {
+                val key = URLDecoder.decode(pair.substring(0, idx), "UTF-8")
+                val value = URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+                result[key] = value
+            }
+        }
+        return result
+    }
+
+    private fun sanitizePortFields(config: JSONObject) {
+        // 1. Sanitize outbounds
+        val outbounds = config.optJSONArray("outbounds")
+        if (outbounds != null) {
+            for (i in 0 until outbounds.length()) {
+                val outbound = outbounds.optJSONObject(i) ?: continue
+                if (outbound.has("port")) {
+                    val portVal = outbound.get("port")
+                    outbound.remove("port")
+                    if (!outbound.has("server_port") || outbound.optInt("server_port") == 0) {
+                        outbound.put("server_port", portVal)
+                    }
+                }
+            }
+        }
+
+        // 2. Sanitize inbounds
+        val inbounds = config.optJSONArray("inbounds")
+        if (inbounds != null) {
+            for (i in 0 until inbounds.length()) {
+                val inbound = inbounds.optJSONObject(i) ?: continue
+                if (inbound.has("port")) {
+                    val portVal = inbound.get("port")
+                    inbound.remove("port")
+                    if (!inbound.has("listen_port") || inbound.optInt("listen_port") == 0) {
+                        inbound.put("listen_port", portVal)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun injectTransport(outbound: JSONObject, queryParams: Map<String, String>) {
+        val type = queryParams["type"] ?: return
+        if (type == "ws" || type == "grpc" || type == "httpupgrade" || type == "xhttp") {
+            val transport = JSONObject()
+            transport.put("type", type)
+            if (type == "ws") {
+                val path = queryParams["path"] ?: "/"
+                transport.put("path", path)
+                val host = queryParams["host"] ?: queryParams["sni"]
+                if (host != null && host.isNotEmpty()) {
+                    val headers = JSONObject()
+                    headers.put("Host", host)
+                    transport.put("headers", headers)
+                }
+            } else if (type == "grpc") {
+                val serviceName = queryParams["serviceName"] ?: queryParams["service_name"] ?: ""
+                transport.put("service_name", serviceName)
+            } else if (type == "httpupgrade") {
+                val path = queryParams["path"] ?: "/"
+                transport.put("path", path)
+                val host = queryParams["host"] ?: queryParams["sni"]
+                if (host != null && host.isNotEmpty()) {
+                    val headers = JSONObject()
+                    headers.put("Host", host)
+                    transport.put("headers", headers)
+                }
+            } else if (type == "xhttp") {
+                val path = queryParams["path"] ?: "/"
+                transport.put("path", path)
+                val host = queryParams["host"] ?: queryParams["sni"] ?: ""
+                if (host.isNotEmpty()) {
+                    transport.put("host", host)
+                }
+                val mode = queryParams["mode"] ?: "stream-one"
+                transport.put("mode", mode)
+                
+                val extraStr = queryParams["extra"]
+                if (extraStr != null && extraStr.isNotEmpty()) {
+                    try {
+                        val extraObj = JSONObject(extraStr)
+                        val keys = extraObj.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            transport.put(key, extraObj.get(key))
+                        }
+                    } catch (e: Exception) {
+                        // Ignore
+                    }
+                }
+            }
+            outbound.put("transport", transport)
+        }
+    }
+
+    private fun getProxyServerHosts(config: JSONObject): List<String> {
+        val hosts = mutableListOf<String>()
+        val outbounds = config.optJSONArray("outbounds") ?: return hosts
+        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2")
+        for (i in 0 until outbounds.length()) {
+            val outbound = outbounds.optJSONObject(i) ?: continue
+            val type = outbound.optString("type")
+            if (proxyTypes.contains(type)) {
+                val server = outbound.optString("server")
+                if (server.isNotEmpty()) {
+                    hosts.add(server)
+                }
+            }
+        }
+        return hosts
+    }
+
+    private fun extractHostFromUrl(urlStr: String): String? {
+        return try {
+            val uri = URI(urlStr)
+            uri.host ?: urlStr.substringAfter("://").substringBefore("/")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun isIpAddress(host: String): Boolean {
+        val ipv4Pattern = "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+        val ipv6Pattern = "^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$"
+        return host.matches(ipv4Pattern.toRegex()) || host.matches(ipv6Pattern.toRegex())
+    }
+}

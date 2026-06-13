@@ -9,12 +9,12 @@ configurations.all {
 }
 
 android {
-    namespace = "com.example.expressivebox"
+    namespace = "com.hambalapps.expressivebox"
     compileSdk = 37
     defaultConfig {
-        applicationId = "com.example.expressivebox"
+        applicationId = "com.hambalapps.expressivebox"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 51
         versionName = "1.0.51"
         ndk {
@@ -97,6 +97,14 @@ dependencies {
 
   // DataStore Preferences
   implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+  // CameraX
+  implementation("androidx.camera:camera-camera2:1.3.3")
+  implementation("androidx.camera:camera-lifecycle:1.3.3")
+  implementation("androidx.camera:camera-view:1.3.3")
+
+  // ML Kit Barcode Scanning
+  implementation("com.google.mlkit:barcode-scanning:17.2.0")
 }
 
 tasks.configureEach {
