@@ -64,14 +64,6 @@ class MainActivity : ComponentActivity() {
       }
     }
 
-    // Set default VLESS profile if none is active
-    val settingsManager = SettingsManager(applicationContext)
-    lifecycleScope.launch {
-      if (settingsManager.activeProfile.first().isEmpty()) {
-        settingsManager.setActiveProfile("vless://20e30989-998e-4922-8e6e-30dc64728f1c@panel.hambal.space:443?security=reality&sni=samsung.com&fp=chrome&pbk=ulFOuEZuZpjmNh-AxLLHU1A0_tWpyVqegNDzU0Z7jU0&sid=68&type=xhttp&path=%2Fswdownload&host=www.samsung.com&mode=stream-one#Game-rgaerrgergr")
-      }
-    }
-
     enableEdgeToEdge()
     setContent {
       ExpressiveBoxTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
