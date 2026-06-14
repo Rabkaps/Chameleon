@@ -59,6 +59,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.hambalapps.expressivebox.Config
 
+// Expressive shapes defining Material 3 Expressive aesthetics
+private val ExpressiveCardShape = RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp, topEnd = 8.dp, bottomStart = 8.dp)
+private val ExpressiveButtonShape = RoundedCornerShape(topStart = 16.dp, bottomEnd = 16.dp, topEnd = 4.dp, bottomStart = 4.dp)
+private val ExpressiveChipShape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp, topEnd = 2.dp, bottomStart = 2.dp)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -263,7 +267,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = ExpressiveCardShape,
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
                         ),
@@ -288,7 +292,7 @@ fun MainScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(52.dp)
-                                        .clip(RoundedCornerShape(16.dp))
+                                        .clip(ExpressiveButtonShape)
                                         .background(
                                             Brush.linearGradient(
                                                 listOf(
@@ -329,7 +333,7 @@ fun MainScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .clip(ExpressiveButtonShape)
                                     .background(
                                         when (vpnState) {
                                             "CONNECTED" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
@@ -414,7 +418,7 @@ fun MainScreen(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -480,7 +484,7 @@ fun MainScreen(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -546,7 +550,7 @@ fun MainScreen(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -671,7 +675,7 @@ fun MainScreen(
                                     Text("Cancel")
                                 }
                             },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = ExpressiveCardShape,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                     }
@@ -717,7 +721,7 @@ fun MainScreen(
                                     Text("Later")
                                 }
                             },
-                            shape = RoundedCornerShape(20.dp),
+                            shape = ExpressiveCardShape,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                     }
@@ -732,7 +736,7 @@ fun MainScreen(
                                 onItemClick(SplitTunneling)
                             }
                             .pressScaleEffect(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -789,7 +793,7 @@ fun MainScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(ExpressiveChipShape)
                                         .background(
                                             if (splitTunnelingEnabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                             else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
@@ -818,7 +822,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -889,7 +893,7 @@ fun MainScreen(
                                         onValueChange = { scope.launch { settingsManager.setSecureDns(it) } },
                                         label = { Text("Secure DNS (DoH)") },
                                         modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp)
+                                        shape = ExpressiveButtonShape
                                     )
                                     
                                     Spacer(modifier = Modifier.height(12.dp))
@@ -918,7 +922,7 @@ fun MainScreen(
                                                     }
                                                 },
                                                 label = { Text(stackOption) },
-                                                shape = RoundedCornerShape(12.dp)
+                                                shape = ExpressiveButtonShape
                                             )
                                         }
                                     }
@@ -967,14 +971,14 @@ fun MainScreen(
                                                 onValueChange = { scope.launch { settingsManager.setFragmentLength(it) } },
                                                 label = { Text("Length") },
                                                 modifier = Modifier.weight(1f),
-                                                shape = RoundedCornerShape(12.dp)
+                                                shape = ExpressiveButtonShape
                                             )
                                             OutlinedTextField(
                                                 value = fragmentInterval,
                                                 onValueChange = { scope.launch { settingsManager.setFragmentInterval(it) } },
                                                 label = { Text("Interval") },
                                                 modifier = Modifier.weight(1f),
-                                                shape = RoundedCornerShape(12.dp)
+                                                shape = ExpressiveButtonShape
                                             )
                                         }
                                     }
@@ -1046,7 +1050,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 6.dp),
-                            shape = RoundedCornerShape(20.dp),
+                            shape = ExpressiveButtonShape,
                             colors = CardDefaults.outlinedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                             ),
@@ -1106,7 +1110,7 @@ fun MainScreen(
                                                 }
                                             },
                                             label = { Text(label) },
-                                            shape = RoundedCornerShape(12.dp)
+                                            shape = ExpressiveButtonShape
                                         )
                                     }
                                 }
@@ -1124,7 +1128,7 @@ fun MainScreen(
                                 scope.launch { drawerState.close() }
                             }
                             .pressScaleEffect(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = if (showLogs) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                                              else MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
@@ -1192,7 +1196,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
                         ),
@@ -1271,7 +1275,7 @@ fun MainScreen(
                                                 }
                                             },
                                             label = { Text(label) },
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = ExpressiveChipShape
                                         )
                                     }
                                 }
@@ -1410,7 +1414,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = ExpressiveCardShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surface
                         )
@@ -1428,12 +1432,12 @@ fun MainScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(ExpressiveButtonShape)
                                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                                     .border(
                                         width = 1.dp,
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(16.dp)
+                                        shape = ExpressiveButtonShape
                                     )
                                     .padding(12.dp)
                             ) {
@@ -1483,7 +1487,7 @@ fun MainScreen(
                             FilledTonalButton(
                                 onClick = { showImportDialog = true },
                                 modifier = Modifier.weight(1f).pressScaleEffect(),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = ExpressiveButtonShape
                             ) {
                                 Icon(imageVector = Icons.Default.AddLink, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1503,7 +1507,7 @@ fun MainScreen(
                                     editorMode = "form"
                                 },
                                 modifier = Modifier.weight(1f).pressScaleEffect(),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = ExpressiveButtonShape
                             ) {
                                 Icon(imageVector = Icons.Default.AddCircle, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -1534,7 +1538,7 @@ fun MainScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .animateContentSize(),
-                    shape = RoundedCornerShape(28.dp),
+                    shape = ExpressiveCardShape,
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
@@ -1603,7 +1607,7 @@ fun MainScreen(
                                     onValueChange = { subNameInput = it },
                                     label = { Text("Name (Optional)") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = ExpressiveButtonShape,
                                     singleLine = true,
                                     placeholder = { Text("e.g. My Premium VPN") }
                                 )
@@ -1613,7 +1617,7 @@ fun MainScreen(
                                     onValueChange = { subUrlInput = it },
                                     label = { Text("Subscription Link") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = ExpressiveButtonShape,
                                     singleLine = true,
                                     placeholder = { Text("https://example.com/sub") },
                                     trailingIcon = {
@@ -1683,7 +1687,7 @@ fun MainScreen(
                                             }
                                         },
                                         modifier = Modifier.weight(1.5f).pressScaleEffect(),
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = ExpressiveButtonShape,
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                         enabled = !isFetching && subUrlInput.isNotEmpty()
                                     ) {
@@ -1703,7 +1707,7 @@ fun MainScreen(
                                             fetchError = null
                                         },
                                         modifier = Modifier.weight(1f).pressScaleEffect(),
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = ExpressiveButtonShape,
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                                         enabled = !isFetching
@@ -1750,7 +1754,7 @@ fun MainScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .clip(ExpressiveButtonShape)
                                             .background(
                                                 if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
                                                 else Color.Transparent
@@ -1938,7 +1942,7 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
                                 .animateContentSize(),
-                            shape = RoundedCornerShape(28.dp),
+                            shape = ExpressiveCardShape,
                             colors = CardDefaults.elevatedCardColors(
                                 containerColor = MaterialTheme.colorScheme.surface
                             )
@@ -2022,7 +2026,7 @@ fun MainScreen(
                                         onValueChange = { searchQuery = it },
                                         placeholder = { Text("Filter by location or name...") },
                                         modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = ExpressiveButtonShape,
                                         singleLine = true,
                                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                         trailingIcon = {
@@ -2104,7 +2108,7 @@ fun MainScreen(
                                     colors = CardDefaults.cardColors(
                                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                                     ),
-                                    shape = RoundedCornerShape(20.dp),
+                                    shape = ExpressiveCardShape,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -2155,7 +2159,7 @@ fun MainScreen(
                                                         this.alpha = alpha
                                                         this.translationY = translationY
                                                     }
-                                                    .clip(RoundedCornerShape(14.dp))
+                                                    .clip(ExpressiveButtonShape)
                                                     .background(
                                                         if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                                                         else Color.Transparent
@@ -2163,7 +2167,7 @@ fun MainScreen(
                                                     .border(
                                                         width = 1.dp,
                                                         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
-                                                        shape = RoundedCornerShape(14.dp)
+                                                        shape = ExpressiveButtonShape
                                                     )
                                                     .clickable {
                                                         scope.launch {
@@ -2207,7 +2211,7 @@ fun MainScreen(
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Box(
                                                             modifier = Modifier
-                                                                .clip(RoundedCornerShape(4.dp))
+                                                                .clip(ExpressiveChipShape)
                                                                 .background(tagContainerColor)
                                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                                         ) {
@@ -2368,7 +2372,7 @@ fun MainScreen(
                             showLoveNoteDialog = true
                         }
                         .pressScaleEffect(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = ExpressiveCardShape,
                     colors = CardDefaults.elevatedCardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
                     )
@@ -2438,7 +2442,7 @@ fun MainScreen(
                             Text("Close")
                         }
                     },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = ExpressiveCardShape,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 )
             }
@@ -2477,7 +2481,7 @@ fun MainScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .height(280.dp),
-                        shape = RoundedCornerShape(24.dp),
+                        shape = ExpressiveCardShape,
                         colors = CardDefaults.outlinedCardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                         )
@@ -2587,7 +2591,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(160.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = ExpressiveButtonShape,
                         placeholder = { Text("vless://... or trojan://... or { ... }") }
                     )
                 }
@@ -2612,7 +2616,7 @@ fun MainScreen(
                         }
                     },
                     modifier = Modifier.pressScaleEffect(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = ExpressiveButtonShape
                 ) {
                     Text("Import")
                 }
@@ -2625,7 +2629,7 @@ fun MainScreen(
                     Text("Cancel")
                 }
             },
-            shape = RoundedCornerShape(28.dp)
+            shape = ExpressiveCardShape
         )
     }
 
@@ -2749,7 +2753,7 @@ fun MainScreen(
                                             if (proto == "ss") editTls = false
                                         },
                                         label = { Text(label) },
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = ExpressiveChipShape
                                     )
                                 }
                             }
@@ -2765,7 +2769,7 @@ fun MainScreen(
                                             if (proto == "https") editTls = true
                                         },
                                         label = { Text(proto.uppercase()) },
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = ExpressiveChipShape
                                     )
                                 }
                             }
@@ -2777,7 +2781,7 @@ fun MainScreen(
                             onValueChange = { editRemark = it },
                             label = { Text("Remark / Name") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = ExpressiveButtonShape
                         )
 
                         // Server & Port
@@ -2790,14 +2794,14 @@ fun MainScreen(
                                 onValueChange = { editServer = it },
                                 label = { Text("Server Address") },
                                 modifier = Modifier.weight(2f),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = ExpressiveButtonShape
                             )
                             OutlinedTextField(
                                 value = editPort,
                                 onValueChange = { editPort = it },
                                 label = { Text("Port") },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = ExpressiveButtonShape
                             )
                         }
 
@@ -2807,7 +2811,7 @@ fun MainScreen(
                             onValueChange = { editCreds = it },
                             label = { Text(if (editType == "vless") "UUID" else "Password / Credentials") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = ExpressiveButtonShape
                         )
 
                         // TLS & SNI options
@@ -2832,7 +2836,7 @@ fun MainScreen(
                                     onValueChange = { editSni = it },
                                     label = { Text("SNI (Server Name)") },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = ExpressiveButtonShape
                                 )
                             }
                         }
@@ -2844,7 +2848,7 @@ fun MainScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(160.dp),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = ExpressiveButtonShape,
                             placeholder = { Text("vless://... or trojan://... or { ... }") }
                         )
                     }
@@ -2910,7 +2914,7 @@ fun MainScreen(
                         }
                     },
                     modifier = Modifier.pressScaleEffect(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = ExpressiveButtonShape
                 ) {
                     Text("Save")
                 }
@@ -2923,7 +2927,7 @@ fun MainScreen(
                     Text("Cancel")
                 }
             },
-            shape = RoundedCornerShape(28.dp)
+            shape = ExpressiveCardShape
         )
     }
 
@@ -3074,7 +3078,7 @@ fun ConnectionDashboard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(28.dp),
+        shape = ExpressiveCardShape,
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -3181,7 +3185,7 @@ fun ConnectionDashboard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(ExpressiveButtonShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .padding(vertical = 12.dp, horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
