@@ -16,18 +16,24 @@ data class InjectorSettings(
     val enableFragment: Boolean,
     val fragmentLength: String,
     val fragmentInterval: String,
-    val enableMux: Boolean
+    val enableMux: Boolean,
+    val bypassLan: Boolean
 )
 
 object ConfigInjector {
 
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
         try {
-            val configJson = if (rawProfile.trim().startsWith("{")) {
+            val trimmedProfile = rawProfile.trim()
+            val configJson = if (trimmedProfile.startsWith("{")) {
                 JSONObject(rawProfile)
-            } else if (rawProfile.trim().startsWith("vless://") ||
-                rawProfile.trim().startsWith("trojan://") ||
-                rawProfile.trim().startsWith("ss://")) {
+            } else if (trimmedProfile.startsWith("vless://") ||
+                trimmedProfile.startsWith("trojan://") ||
+                trimmedProfile.startsWith("ss://") ||
+                trimmedProfile.startsWith("socks5://") ||
+                trimmedProfile.startsWith("socks://") ||
+                trimmedProfile.startsWith("http://") ||
+                trimmedProfile.startsWith("https://")) {
                 buildConfigFromUri(rawProfile, settings)
             } else {
                 // Return default empty configuration skeleton
@@ -269,18 +275,23 @@ object ConfigInjector {
         }
         newRules.put(blockDotRule)
 
-        // Route private/local IP networks directly
+        // Route private/local IP networks directly if bypassLan is enabled
+        val localIps = mutableListOf<String>().apply {
+            add("127.0.0.0/8")
+            add("::1/128")
+            if (settings.bypassLan) {
+                addAll(listOf(
+                    "10.0.0.0/8",
+                    "172.16.0.0/12",
+                    "192.168.0.0/16",
+                    "169.254.0.0/16",
+                    "fc00::/7",
+                    "fe80::/10"
+                ))
+            }
+        }
         val privateIpsRule = JSONObject().apply {
-            put("ip_cidr", JSONArray(listOf(
-                "10.0.0.0/8",
-                "172.16.0.0/12",
-                "192.168.0.0/16",
-                "127.0.0.0/8",
-                "169.254.0.0/16",
-                "::1/128",
-                "fc00::/7",
-                "fe80::/10"
-            )))
+            put("ip_cidr", JSONArray(localIps))
             put("outbound", "direct")
         }
         newRules.put(privateIpsRule)
@@ -592,6 +603,35 @@ object ConfigInjector {
                     outbound.put("server", host)
                     outbound.put("server_port", port)
                 }
+            } else if (scheme == "socks" || scheme == "socks5") {
+                outbound.put("type", "socks")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                if (userInfo.isNotEmpty()) {
+                    val creds = userInfo.split(":")
+                    outbound.put("username", creds[0])
+                    if (creds.size > 1) {
+                        outbound.put("password", creds[1])
+                    }
+                }
+            } else if (scheme == "http" || scheme == "https") {
+                outbound.put("type", "http")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                if (userInfo.isNotEmpty()) {
+                    val creds = userInfo.split(":")
+                    outbound.put("username", creds[0])
+                    if (creds.size > 1) {
+                        outbound.put("password", creds[1])
+                    }
+                }
+                if (scheme == "https") {
+                    val tls = JSONObject().apply {
+                        put("enabled", true)
+                        queryParams["sni"]?.let { put("server_name", it) } ?: put("server_name", host)
+                    }
+                    outbound.put("tls", tls)
+                }
             }
 
             // Replace the fallback direct outbound in index 0
@@ -707,7 +747,7 @@ object ConfigInjector {
     private fun getProxyServerHosts(config: JSONObject): List<String> {
         val hosts = mutableListOf<String>()
         val outbounds = config.optJSONArray("outbounds") ?: return hosts
-        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2")
+        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2", "socks", "http")
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val type = outbound.optString("type")

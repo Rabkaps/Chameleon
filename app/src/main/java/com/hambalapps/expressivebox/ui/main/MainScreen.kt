@@ -73,6 +73,7 @@ fun MainScreen(
     // Observe settings from DataStore
     val isAdvancedMode by settingsManager.isAdvancedMode.collectAsStateWithLifecycle(initialValue = false)
     val bypassIran by settingsManager.bypassIran.collectAsStateWithLifecycle(initialValue = true)
+    val bypassLan by settingsManager.bypassLan.collectAsStateWithLifecycle(initialValue = true)
     val secureDns by settingsManager.secureDns.collectAsStateWithLifecycle(initialValue = "https://1.1.1.1/dns-query")
     val tunStack by settingsManager.tunStack.collectAsStateWithLifecycle(initialValue = "mixed")
     val enableFragment by settingsManager.enableFragment.collectAsStateWithLifecycle(initialValue = false)
@@ -149,6 +150,14 @@ fun MainScreen(
     var scanResultCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var editingNodeLink by remember { mutableStateOf<String?>(null) }
     var editLinkInput by remember { mutableStateOf("") }
+    var editorMode by remember { mutableStateOf("form") } // "form" or "link"
+    var editType by remember { mutableStateOf("vless") }
+    var editRemark by remember { mutableStateOf("") }
+    var editServer by remember { mutableStateOf("") }
+    var editPort by remember { mutableStateOf("443") }
+    var editCreds by remember { mutableStateOf("") }
+    var editTls by remember { mutableStateOf(false) }
+    var editSni by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -387,6 +396,72 @@ fun MainScreen(
                                 onCheckedChange = { 
                                     scope.launch { 
                                         settingsManager.setBypassIran(it) 
+                                        if (vpnState == "CONNECTED") {
+                                            startVpnService(context)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // Bypass LAN Connections Card
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .pressScaleEffect(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Router,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Bypass LAN",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Exclude local network traffic",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = bypassLan,
+                                onCheckedChange = { 
+                                    scope.launch { 
+                                        settingsManager.setBypassLan(it) 
                                         if (vpnState == "CONNECTED") {
                                             startVpnService(context)
                                         }
@@ -1240,14 +1315,39 @@ fun MainScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(14.dp))
-                        FilledTonalButton(
-                            onClick = { showImportDialog = true },
-                            modifier = Modifier.fillMaxWidth().pressScaleEffect(),
-                            shape = RoundedCornerShape(12.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.AddLink, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Import Custom Link / Config")
+                            FilledTonalButton(
+                                onClick = { showImportDialog = true },
+                                modifier = Modifier.weight(1f).pressScaleEffect(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.AddLink, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Import Link")
+                            }
+                            Button(
+                                onClick = {
+                                    editingNodeLink = "new_node"
+                                    editType = "vless"
+                                    editRemark = ""
+                                    editServer = ""
+                                    editPort = "443"
+                                    editCreds = ""
+                                    editTls = false
+                                    editSni = ""
+                                    editLinkInput = ""
+                                    editorMode = "form"
+                                },
+                                modifier = Modifier.weight(1f).pressScaleEffect(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.AddCircle, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Create Node")
+                            }
                         }
                     }
                 }
@@ -2309,53 +2409,283 @@ fun MainScreen(
         )
     }
 
-    // Edit Node Dialog
+    // Observe/Parse link when editor opens
+    LaunchedEffect(editingNodeLink) {
+        val link = editingNodeLink
+        if (link != null) {
+            if (link == "new_node") {
+                editType = "vless"
+                editRemark = "New Node"
+                editServer = ""
+                editPort = "443"
+                editCreds = ""
+                editTls = false
+                editSni = ""
+                editLinkInput = ""
+                editorMode = "form"
+            } else if (link.startsWith("{")) {
+                editorMode = "link"
+                editLinkInput = link
+            } else {
+                try {
+                    val trimmed = link.trim()
+                    val fragmentIdx = trimmed.indexOf("#")
+                    editRemark = if (fragmentIdx >= 0) {
+                        try { java.net.URLDecoder.decode(trimmed.substring(fragmentIdx + 1), "UTF-8") } catch(e: Exception) { trimmed.substring(fragmentIdx + 1) }
+                    } else { "" }
+                    
+                    val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
+                    val schemeIdx = rest.indexOf("://")
+                    val scheme = if (schemeIdx >= 0) rest.substring(0, schemeIdx).lowercase() else "vless"
+                    editType = scheme
+                    
+                    val content = if (schemeIdx >= 0) rest.substring(schemeIdx + 3) else rest
+                    val queryIdx = content.indexOf("?")
+                    val mainPart = if (queryIdx >= 0) content.substring(0, queryIdx) else content
+                    val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
+                    
+                    val atIdx = mainPart.indexOf("@")
+                    editCreds = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+                    val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
+                    
+                    val colonIdx = serverPart.lastIndexOf(":")
+                    editServer = if (colonIdx >= 0) serverPart.substring(0, colonIdx) else serverPart
+                    editPort = if (colonIdx >= 0) serverPart.substring(colonIdx + 1) else "443"
+                    
+                    val queryParams = mutableMapOf<String, String>()
+                    if (queryPart.isNotEmpty()) {
+                        val pairs = queryPart.split("&")
+                        for (pair in pairs) {
+                            val idx = pair.indexOf("=")
+                            if (idx > 0) {
+                                val k = java.net.URLDecoder.decode(pair.substring(0, idx), "UTF-8")
+                                val v = java.net.URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+                                queryParams[k] = v
+                            }
+                        }
+                    }
+                    val security = queryParams["security"]?.lowercase()
+                    editTls = security == "tls" || security == "reality" || queryParams["tls"] == "true" || queryParams["tls"] == "1" || scheme == "https"
+                    editSni = queryParams["sni"] ?: ""
+                    
+                    editLinkInput = link
+                    editorMode = "form"
+                } catch(e: Exception) {
+                    editorMode = "link"
+                    editLinkInput = link
+                }
+            }
+        }
+    }
+
+    // Edit/Create Node Dialog
     if (editingNodeLink != null) {
+        val isNewNode = editingNodeLink == "new_node"
         AlertDialog(
             onDismissRequest = { editingNodeLink = null },
             title = {
                 Text(
-                    text = "Edit Config Link",
+                    text = if (isNewNode) "Create Custom Node" else "Edit Node Configuration",
                     fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Column {
-                    Text(
-                        text = "Modify node configuration link:",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = editLinkInput,
-                        onValueChange = { editLinkInput = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        placeholder = { Text("vless://...") }
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TabRow(
+                        selectedTabIndex = if (editorMode == "form") 0 else 1,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Tab(
+                            selected = editorMode == "form",
+                            onClick = { editorMode = "form" },
+                            text = { Text("Form Editor") }
+                        )
+                        Tab(
+                            selected = editorMode == "link",
+                            onClick = { editorMode = "link" },
+                            text = { Text("Raw Config") }
+                        )
+                    }
+
+                    if (editorMode == "form") {
+                        // Protocol selector
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Protocol", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("vless", "trojan", "ss").forEach { proto ->
+                                    val label = if (proto == "ss") "Shadowsocks" else proto.uppercase()
+                                    FilterChip(
+                                        selected = editType == proto,
+                                        onClick = { 
+                                            editType = proto
+                                            if (proto == "ss") editTls = false
+                                        },
+                                        label = { Text(label) },
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("socks5", "http", "https").forEach { proto ->
+                                    FilterChip(
+                                        selected = editType == proto,
+                                        onClick = { 
+                                            editType = proto 
+                                            if (proto == "https") editTls = true
+                                        },
+                                        label = { Text(proto.uppercase()) },
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Remark / Name
+                        OutlinedTextField(
+                            value = editRemark,
+                            onValueChange = { editRemark = it },
+                            label = { Text("Remark / Name") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        // Server & Port
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editServer,
+                                onValueChange = { editServer = it },
+                                label = { Text("Server Address") },
+                                modifier = Modifier.weight(2f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            OutlinedTextField(
+                                value = editPort,
+                                onValueChange = { editPort = it },
+                                label = { Text("Port") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        // Credentials
+                        OutlinedTextField(
+                            value = editCreds,
+                            onValueChange = { editCreds = it },
+                            label = { Text(if (editType == "vless") "UUID" else "Password / Credentials") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        // TLS & SNI options
+                        val showTlsOption = editType == "vless" || editType == "trojan" || editType == "https"
+                        if (showTlsOption) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Enable TLS", fontWeight = FontWeight.Bold)
+                                Switch(
+                                    checked = editTls || editType == "https",
+                                    onCheckedChange = { if (editType != "https") editTls = it },
+                                    enabled = editType != "https"
+                                )
+                            }
+                            
+                            if (editTls || editType == "https") {
+                                OutlinedTextField(
+                                    value = editSni,
+                                    onValueChange = { editSni = it },
+                                    label = { Text("SNI (Server Name)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        // Raw text area
+                        OutlinedTextField(
+                            value = editLinkInput,
+                            onValueChange = { editLinkInput = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            placeholder = { Text("vless://... or trojan://... or { ... }") }
+                        )
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         val originalLink = editingNodeLink
-                        if (originalLink != null && editLinkInput.trim().isNotEmpty()) {
-                            scope.launch {
-                                val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
-                                val updatedManualList = currentManualList.map {
-                                    if (it == originalLink) editLinkInput.trim() else it
+                        if (originalLink != null) {
+                            val finalLink = if (editorMode == "link") {
+                                editLinkInput.trim()
+                            } else {
+                                try {
+                                    val finalUserInfo = editCreds.trim()
+                                    val finalServer = editServer.trim()
+                                    val finalPort = editPort.trim().toIntOrNull() ?: 443
+                                    val finalRemark = editRemark.trim()
+                                    val queryList = mutableListOf<String>()
+                                    if (editType == "vless" || editType == "trojan") {
+                                        if (editTls) {
+                                            queryList.add("security=tls")
+                                            if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                        } else {
+                                            queryList.add("security=none")
+                                        }
+                                    } else if (editType == "https") {
+                                        if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                    }
+                                    val queryStr = if (queryList.isNotEmpty()) "?" + queryList.joinToString("&") else ""
+                                    val remarkStr = if (finalRemark.isNotEmpty()) "#" + java.net.URLEncoder.encode(finalRemark, "UTF-8") else ""
+                                    val protocolScheme = editType
+                                    "$protocolScheme://$finalUserInfo@$finalServer:$finalPort$queryStr$remarkStr"
+                                } catch (e: Exception) {
+                                    ""
                                 }
-                                settingsManager.setManualServers(updatedManualList.joinToString("\n"))
-                                if (activeProfile == originalLink) {
-                                    settingsManager.setActiveProfile(editLinkInput.trim())
+                            }
+
+                            if (finalLink.isNotEmpty()) {
+                                scope.launch {
+                                    if (isNewNode) {
+                                        val currentManual = manualServersStr
+                                        val updatedManual = if (currentManual.isEmpty()) finalLink else "$currentManual\n$finalLink"
+                                        settingsManager.setManualServers(updatedManual)
+                                        settingsManager.setActiveSubId("manual")
+                                        settingsManager.setActiveProfile(finalLink)
+                                    } else {
+                                        val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                        val updatedManualList = currentManualList.map {
+                                            if (it == originalLink) finalLink else it
+                                        }
+                                        settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                        if (activeProfile == originalLink) {
+                                            settingsManager.setActiveProfile(finalLink)
+                                        }
+                                    }
                                     if (vpnState == "CONNECTED") {
                                         startVpnService(context)
                                     }
+                                    editingNodeLink = null
                                 }
-                                editingNodeLink = null
                             }
                         }
                     },
