@@ -3,36 +3,55 @@
 ExpressiveBox is a modern, high-performance VPN client for Android built entirely with **Jetpack Compose** and **Material Design 3**. It offers secure routing, modular connection profiles, and deep integration with the Android system's native VPN frameworks.
 
 > [!NOTE]
-> **Project Status**: ExpressiveBox is currently in its **early testing stages**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, VMess, Trojan, Shadowsocks).
+> **Project Status**: ExpressiveBox is currently in its **active testing stage**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS).
 > 
 > * **Persian (Farsi) language support is coming soon!**
 
+---
+
 ## Key Features
 
-* **VpnService Integration**: Core routing using a high-performance native tunnel engine (`libbox`), exposing robust state monitoring and connection management.
-* **Automated Iran Routing**: Built-in rules for automatic identification of domestic Iranian domains and IP ranges. It automatically routes local Iranian traffic directly (bypassing the VPN) to guarantee optimal speeds and uninterrupted access to domestic banking and government services.
-* **Modern Material 3 UI**: Implements cohesive Material 3 design components, dynamic coloring, linear gradient headers, and card-based settings menus.
-* **Granular Split Tunneling**: Route specific application traffic through the VPN or bypass it completely. Includes an option to toggle visibility of system apps, with a memory-cached icon loading architecture that guarantees smooth, stutter-free scrolling.
-* **QR Code Parsing**: Fast configuration import by scanning QR codes using the device camera (powered by Android CameraX and Google ML Kit Barcode Scanning).
-* **Tactile Interactions**: Custom press-scale effects and physics-based micro-animations that respond naturally to user gestures without swallowing click events.
-* **Persistent Settings**: Multi-field configuration and user preferences persisted safely using Android Jetpack DataStore.
+### 🌟 Material 3 Expressive UI & Aesthetics
+* **Asymmetric Corner Design**: Implements the Material 3 Expressive (MD3E) styling guide using dynamic asymmetric rounded shapes (`ExpressiveCardShape`, `ExpressiveButtonShape`, `ExpressiveChipShape`) for all cards, dialogs, buttons, text fields, and list items.
+* **Animated Wavy Indicators**: Features a custom-rendered `CircularWavyProgressIndicator` that animates smoothly during connection/disconnection states.
+* **Interactive Wave Visualizer**: Includes a real-time `Canvas`-based wave visualizer that flows dynamically when the VPN connection is active.
+* **Tactile Press-Scale Effects**: Custom physics-based scale-press feedback on all interactive components for a premium feel.
 
-## Architecture
+### 🔌 Multi-Protocol & Manual Configuration
+* **Extended Protocol Support**: Full routing capabilities for VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS (with TLS/SNI injection).
+* **Manual Node Creator & Form Editor**: Create nodes from scratch or edit existing ones using a comprehensive form editor (supporting protocol, remark, host, port, credentials/UUID, TLS toggles, and SNI names) or a raw config editor.
+* **QR Code Scanner**: Fast configuration import by scanning QR codes using the device camera (powered by Android CameraX and Google ML Kit).
 
-The project adheres to modern Android development best practices, featuring **Unidirectional Data Flow (UDF)** and a clean package structure:
+### ⚡ Traffic Stats & Routing Options
+* **Real Traffic Speed Monitoring**: Displays live upload and download rates on the dashboard computed every second using system-level `android.net.TrafficStats`.
+* **Automated Iran Routing**: Built-in rules for automatic identification of domestic Iranian domains and IP ranges (`geoip-ir`/`geosite-ir`), routing them directly (bypassing the VPN) to guarantee optimal speeds for domestic banking and services.
+* **Bypass LAN**: Toggle option to bypass local area network traffic (private subnets like `192.168.x.x`, `10.x.x.x`), keeping local printer/router connections direct.
 
-* **`ui/`**: Screen composables and stateless content views partitioned by feature (e.g., `main`, `split`, `qr`). Consumes states via standard state holders and propagates event lambdas up.
-* **`vpn/`**: Deals with Android `VpnService` lifecycle, network configuration injection, status broadcast listeners, and Quick Settings tile integration (`VpnQuickSettingsTileService`).
-* **`data/`**: Configuration parsing, VPN profile management, and DataStore-backed preference stores.
-* **`theme/`**: Color schemes, typography definitions, and shapes adhering to Material Design 3 guidelines.
+### 🔄 Subscriptions & Updates
+* **Scheduled Auto-Updates**: Auto-update subscription lists silently on app startup, daily, or weekly, with manual pull-to-refresh buttons.
+* **Smart Active Profile Selection**: Automatically switches to the first available backup node of a subscription if the current active server is modified or deleted during an update.
+
+---
+
+## Edition Variants
+
+ExpressiveBox supports two build variants:
+
+1.  **Standard Edition**: The clean, minimal, production-ready VPN client.
+2.  **Special Edition**: A personalized, expressive variant featuring:
+    *   **Interactive Peaking Kitty** and **Paw Print** animations.
+    *   **Gumball Love Notes**: A romantic random quote generator modal.
+    *   **Expressive Theme Palette**: Extra styling presets like Cherry Blossom, Lavender Dreams, and Rose Gold.
+
+---
 
 ## Technical Specifications
 
 * **Minimum SDK**: Android 7.0 (API Level 24)
 * **Target SDK**: Android 16 (API Level 36)
 * **Compile SDK**: Android 16 (API Level 37)
-* **Supported ABI / Architecture**: `arm64-v8a` (64-bit ARM devices only for early testing stage; support for additional architectures planned)
-* **UI Toolkit**: Jetpack Compose (Material 3)
+* **Supported ABI / Architecture**: `arm64-v8a` (64-bit ARM devices only for early testing stage)
+* **UI Toolkit**: Jetpack Compose (Material 3 Expressive)
 * **Language Toolchain**: Kotlin 2.x, Java 17
 
 ---
@@ -49,19 +68,26 @@ The project adheres to modern Android development best practices, featuring **Un
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ExpressiveBox.git
+   git clone https://github.com/Rabkaps/ExpressiveBox.git
    cd ExpressiveBox
    ```
 
-2. Sync and build the debug APK:
+2. Build the debug APK for the **Standard** flavor:
    ```bash
-   ./gradlew assembleDebug
+   ./gradlew assembleStandardDebug
    ```
 
-3. Run the application on a connected device:
+3. Build the debug APK for the **Special** flavor:
    ```bash
-   ./gradlew installDebug
+   ./gradlew assembleSpecialDebug
    ```
+
+4. Install the application on a connected device:
+   ```bash
+   ./gradlew installStandardDebug
+   ```
+
+---
 
 ## Development and Contributions
 
