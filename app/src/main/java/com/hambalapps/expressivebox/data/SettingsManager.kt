@@ -29,6 +29,7 @@ class SettingsManager(private val context: Context) {
         val SPLIT_TUNNELING_MODE = stringPreferencesKey("split_tunneling_mode")
         val SPLIT_TUNNELING_APPS = stringSetPreferencesKey("split_tunneling_apps")
         val MANUAL_SERVERS = stringPreferencesKey("manual_servers")
+        val SPECIAL_THEME = stringPreferencesKey("special_theme")
     }
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }
@@ -49,6 +50,7 @@ class SettingsManager(private val context: Context) {
     val splitTunnelingMode: Flow<String> = context.dataStore.data.map { it[SPLIT_TUNNELING_MODE] ?: "bypass" }
     val splitTunnelingApps: Flow<Set<String>> = context.dataStore.data.map { it[SPLIT_TUNNELING_APPS] ?: emptySet() }
     val manualServers: Flow<String> = context.dataStore.data.map { it[MANUAL_SERVERS] ?: "" }
+    val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: "cherry_blossom" }
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
@@ -68,4 +70,5 @@ class SettingsManager(private val context: Context) {
     suspend fun setSplitTunnelingMode(value: String) { context.dataStore.edit { it[SPLIT_TUNNELING_MODE] = value } }
     suspend fun setSplitTunnelingApps(value: Set<String>) { context.dataStore.edit { it[SPLIT_TUNNELING_APPS] = value } }
     suspend fun setManualServers(value: String) { context.dataStore.edit { it[MANUAL_SERVERS] = value } }
+    suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
 }

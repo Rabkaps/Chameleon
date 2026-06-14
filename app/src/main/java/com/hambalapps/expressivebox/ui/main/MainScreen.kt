@@ -4,7 +4,9 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.app.NotificationManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -55,6 +57,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import com.hambalapps.expressivebox.Config
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -88,6 +91,17 @@ fun MainScreen(
 
     val subscriptions = remember(subscriptionListStr, manualServersStr) {
         val list = deserializeSubscriptions(subscriptionListStr).toMutableList()
+        if (Config.IS_SPECIAL && Config.DEFAULT_PROFILE.isNotEmpty()) {
+            list.add(
+                0,
+                Subscription(
+                    id = "special_default",
+                    name = "Dedicated Server ❤️",
+                    url = "local://special_default",
+                    servers = Config.DEFAULT_PROFILE
+                )
+            )
+        }
         if (manualServersStr.isNotEmpty()) {
             list.add(
                 Subscription(
@@ -105,6 +119,25 @@ fun MainScreen(
     }
 
     var showLivePromoGuide by remember { mutableStateOf(false) }
+    var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
+
+    // Check battery optimization exemption on launch
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                showBatteryOptimizationDialog = true
+            }
+        }
+    }
+
+    // Auto-select dedicated server on launch if active profile is empty (Special flavor only)
+    LaunchedEffect(activeProfile) {
+        if (Config.IS_SPECIAL && activeProfile.isEmpty() && Config.DEFAULT_PROFILE.isNotEmpty()) {
+            settingsManager.setActiveProfile(Config.DEFAULT_PROFILE)
+            settingsManager.setActiveSubId("special_default")
+        }
+    }
 
     // Observe VPN state and logs
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
@@ -138,13 +171,14 @@ fun MainScreen(
                 drawerContainerColor = if (isSystemInDarkTheme()) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
                 drawerShape = RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Spacer(modifier = Modifier.height(20.dp))
                     
                     // 1. Beautiful Header Card with Gradient Accent and Active Status Indicator
                     Card(
@@ -197,14 +231,14 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = "ExpressiveBox",
+                                        text = context.getString(com.hambalapps.expressivebox.R.string.app_name),
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         letterSpacing = 0.5.sp
                                     )
                                     Text(
-                                        text = "Secure Network Engine",
+                                        text = if (Config.IS_SPECIAL) "Made with love for Sana ❤️" else "Secure Network Engine",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -230,19 +264,29 @@ fun MainScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // Animated status dot
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                when (vpnState) {
-                                                    "CONNECTED" -> Color(0xFF4CAF50)
-                                                    "CONNECTING" -> Color(0xFFFFC107)
-                                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                                }
-                                            )
-                                    )
+                                    if (Config.IS_SPECIAL) {
+                                        PawPrint(
+                                            modifier = Modifier.size(16.dp),
+                                            color = when (vpnState) {
+                                                "CONNECTED" -> Color(0xFF4CAF50)
+                                                "CONNECTING" -> Color(0xFFFFC107)
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            }
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(
+                                                    when (vpnState) {
+                                                        "CONNECTED" -> Color(0xFF4CAF50)
+                                                        "CONNECTING" -> Color(0xFFFFC107)
+                                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    }
+                                                )
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = when (vpnState) {
@@ -481,6 +525,52 @@ fun MainScreen(
                             dismissButton = {
                                 TextButton(onClick = { showLivePromoGuide = false }) {
                                     Text("Cancel")
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    }
+
+                    if (showBatteryOptimizationDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showBatteryOptimizationDialog = false },
+                            title = {
+                                Text(
+                                    text = "Ignore Battery Optimizations",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            text = {
+                                Text(
+                                    text = "To prevent background disconnection issues (especially on Poco, Xiaomi, and Samsung devices), please allow the app to run without battery saver restrictions.",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showBatteryOptimizationDialog = false
+                                        try {
+                                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            try {
+                                                val intentSettings = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                                context.startActivity(intentSettings)
+                                            } catch (ex: Exception) {}
+                                        }
+                                    }
+                                ) {
+                                    Text("Allow")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showBatteryOptimizationDialog = false }) {
+                                    Text("Later")
                                 }
                             },
                             shape = RoundedCornerShape(20.dp),
@@ -804,6 +894,82 @@ fun MainScreen(
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     
+                    // Theme Switcher Row (Special flavor only)
+                    if (Config.IS_SPECIAL) {
+                        val currentTheme by settingsManager.specialTheme.collectAsStateWithLifecycle(initialValue = "cherry_blossom")
+                        
+                        OutlinedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.outlinedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Palette,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "App Theme",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Select your favorite style",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(12.dp))
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(
+                                        "cherry_blossom" to "Cherry",
+                                        "lavender_dreams" to "Lavender",
+                                        "rose_gold" to "Rose Gold"
+                                    ).forEach { (themeKey, label) ->
+                                        val isSelected = currentTheme == themeKey
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsManager.setSpecialTheme(themeKey)
+                                                }
+                                            },
+                                            label = { Text(label) },
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     // 6. Redesigned Logs Drawer Item (styled beautifully as an OutlinedCard)
                     OutlinedCard(
                         modifier = Modifier
@@ -877,45 +1043,94 @@ fun MainScreen(
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-        }
-    ) {
-        Scaffold(
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            "ExpressiveBox",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.2.sp,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Open Settings Drawer",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    ),
-                    actions = {
-                        IconButton(onClick = { showLogs = !showLogs }) {
-                            Icon(
-                                imageVector = Icons.Default.Terminal,
-                                contentDescription = "Show Logs",
-                                tint = if (showLogs) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    if (Config.IS_SPECIAL) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Made with love by Gumball",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                
+                // Peaking Kitty from behind the settings drawer sheet (sideways)
+                if (Config.IS_SPECIAL) {
+                    PeakingKitty(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 12.dp, y = (-80).dp)
+                            .graphicsLayer {
+                                rotationZ = -90f
+                            }
+                    )
+                }
+            }
+        }
+    }
+) {
+        Scaffold(
+            topBar = {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    context.getString(com.hambalapps.expressivebox.R.string.app_name),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.2.sp,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                if (Config.IS_SPECIAL) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    PawPrint(
+                                        modifier = Modifier.size(16.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Open Settings Drawer",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
+                        ),
+                        actions = {
+                            IconButton(onClick = { showLogs = !showLogs }) {
+                                Icon(
+                                    imageVector = Icons.Default.Terminal,
+                                    contentDescription = "Show Logs",
+                                    tint = if (showLogs) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    )
+                    if (Config.IS_SPECIAL) {
+                        PeakingKitty(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .offset(y = (-18).dp)
+                        )
+                    }
+                }
             }
         ) { innerPadding ->
             Column(
@@ -947,15 +1162,23 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // 2. Profile Selection & Import Section
-                OutlinedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (Config.IS_SPECIAL) {
+                        PeakingKitty(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .offset(x = 28.dp, y = (-22).dp)
+                        )
+                    }
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = "Active Node",
@@ -1028,8 +1251,9 @@ fun MainScreen(
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
                 // 3. Subscription Manager & Servers UI
                 var isFetching by remember { mutableStateOf(false) }
@@ -1381,16 +1605,24 @@ fun MainScreen(
                 if (serverList.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .animateContentSize(),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        if (Config.IS_SPECIAL) {
+                            PeakingKitty(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .offset(x = 28.dp, y = (-22).dp)
+                            )
+                        }
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .animateContentSize(),
+                            shape = RoundedCornerShape(28.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1663,7 +1895,9 @@ fun MainScreen(
                                                                 text = type,
                                                                 style = MaterialTheme.typography.labelSmall,
                                                                 color = tagTextColor,
-                                                                fontWeight = FontWeight.Bold
+                                                                fontWeight = FontWeight.Bold,
+                                                                maxLines = 1,
+                                                                softWrap = false
                                                             )
                                                         }
                                                         
@@ -1687,7 +1921,9 @@ fun MainScreen(
                                                                 text = "${ping} ms",
                                                                 style = MaterialTheme.typography.labelSmall,
                                                                 color = pingColor,
-                                                                fontWeight = FontWeight.Bold
+                                                                fontWeight = FontWeight.Bold,
+                                                                maxLines = 1,
+                                                                softWrap = false
                                                             )
                                                         } else {
                                                             Box(
@@ -1700,7 +1936,9 @@ fun MainScreen(
                                                             Text(
                                                                 text = "Untested",
                                                                 style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                                softWrap = false
                                                             )
                                                         }
                                                     }
@@ -1781,8 +2019,112 @@ fun MainScreen(
                         }
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Love Notes Card (Only for Special flavor)
+        if (Config.IS_SPECIAL) {
+            var showLoveNoteDialog by remember { mutableStateOf(false) }
+            var currentLoveNote by remember { mutableStateOf("") }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            ) {
+                PeakingKitty(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-28).dp, y = (-22).dp)
+                )
+                
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            currentLoveNote = Config.LOVE_QUOTES.random()
+                            showLoveNoteDialog = true
+                        }
+                        .pressScaleEffect(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.3f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Love Notes ❤️",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "Tap to open a note from Gumball",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            if (showLoveNoteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showLoveNoteDialog = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = Color.Red
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Note for Sana", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    text = {
+                        Text(
+                            text = currentLoveNote,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showLoveNoteDialog = false }) {
+                            Text("Close")
+                        }
+                    },
+                    shape = RoundedCornerShape(24.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
                 // 4. Logs Console
                 AnimatedVisibility(
@@ -2057,11 +2399,20 @@ fun ConnectionDashboard(
 ) {
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
 
-    val stateText = when (state) {
-        "CONNECTED" -> "SECURED"
-        "CONNECTING" -> "SHIELD ACTIVE..."
-        "DISCONNECTING" -> "DISCONNECTING..."
-        else -> "UNPROTECTED"
+    val stateText = if (Config.IS_SPECIAL) {
+        when (state) {
+            "CONNECTED" -> "Meow"
+            "CONNECTING" -> "CONNECTING TO YOUR HEART... 💓"
+            "DISCONNECTING" -> "DISCONNECTING... 💔"
+            else -> "OFFLINE, BUT THINKING OF YOU 💔"
+        }
+    } else {
+        when (state) {
+            "CONNECTED" -> "SECURED"
+            "CONNECTING" -> "SHIELD ACTIVE..."
+            "DISCONNECTING" -> "DISCONNECTING..."
+            else -> "UNPROTECTED"
+        }
     }
 
     val containerColor = when (state) {
@@ -2201,16 +2552,25 @@ fun ConnectionDashboard(
                     .padding(horizontal = 20.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (state == "CONNECTED") MaterialTheme.colorScheme.primary 
-                                else if (state == "CONNECTING") MaterialTheme.colorScheme.secondary
-                                else MaterialTheme.colorScheme.outline
-                            )
-                    )
+                    if (Config.IS_SPECIAL) {
+                        PawPrint(
+                            modifier = Modifier.size(16.dp),
+                            color = if (state == "CONNECTED") MaterialTheme.colorScheme.primary 
+                                    else if (state == "CONNECTING") MaterialTheme.colorScheme.secondary
+                                    else MaterialTheme.colorScheme.outline
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (state == "CONNECTED") MaterialTheme.colorScheme.primary 
+                                    else if (state == "CONNECTING") MaterialTheme.colorScheme.secondary
+                                    else MaterialTheme.colorScheme.outline
+                                )
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stateText,
@@ -2594,6 +2954,182 @@ fun WaveVisualizer(
                 style = Stroke(width = stroke3Px)
             )
         }
+    }
+}
+
+@Composable
+fun PeakingKitty(
+    modifier: Modifier = Modifier,
+    catColor: Color = Color(0xFFFFE5B4), // Peach/Cream cat
+    earInnerColor: Color = Color(0xFFFFB7C5) // Pink inner ear
+) {
+    val outlineColor = MaterialTheme.colorScheme.outline
+    Canvas(modifier = modifier.height(36.dp).width(50.dp)) {
+        val width = size.width
+        val height = size.height
+
+        // Draw Cat Head peaking from bottom (y = height)
+        val headRadius = width * 0.4f
+        val headCenterX = width / 2f
+        val headCenterY = height
+
+        // Draw left ear
+        val leftEarPath = Path().apply {
+            moveTo(headCenterX - headRadius * 0.8f, headCenterY - headRadius * 0.5f)
+            lineTo(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 1.3f)
+            lineTo(headCenterX - headRadius * 0.2f, headCenterY - headRadius * 0.9f)
+            close()
+        }
+        drawPath(leftEarPath, catColor)
+        drawPath(leftEarPath, outlineColor, style = Stroke(width = 2.dp.toPx()))
+
+        // Inner left ear
+        val leftEarInnerPath = Path().apply {
+            moveTo(headCenterX - headRadius * 0.75f, headCenterY - headRadius * 0.55f)
+            lineTo(headCenterX - headRadius * 0.95f, headCenterY - headRadius * 1.1f)
+            lineTo(headCenterX - headRadius * 0.35f, headCenterY - headRadius * 0.8f)
+            close()
+        }
+        drawPath(leftEarInnerPath, earInnerColor)
+
+        // Draw right ear
+        val rightEarPath = Path().apply {
+            moveTo(headCenterX + headRadius * 0.8f, headCenterY - headRadius * 0.5f)
+            lineTo(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 1.3f)
+            lineTo(headCenterX + headRadius * 0.2f, headCenterY - headRadius * 0.9f)
+            close()
+        }
+        drawPath(rightEarPath, catColor)
+        drawPath(rightEarPath, outlineColor, style = Stroke(width = 2.dp.toPx()))
+
+        // Inner right ear
+        val rightEarInnerPath = Path().apply {
+            moveTo(headCenterX + headRadius * 0.75f, headCenterY - headRadius * 0.55f)
+            lineTo(headCenterX + headRadius * 0.95f, headCenterY - headRadius * 1.1f)
+            lineTo(headCenterX + headRadius * 0.35f, headCenterY - headRadius * 0.8f)
+            close()
+        }
+        drawPath(rightEarInnerPath, earInnerColor)
+
+        // Draw head circle
+        drawArc(
+            color = catColor,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = true,
+            topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
+            size = androidx.compose.ui.geometry.Size(headRadius * 2, headRadius * 2)
+        )
+        // Head outline (only the top curve)
+        drawArc(
+            color = outlineColor,
+            startAngle = 180f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
+            size = androidx.compose.ui.geometry.Size(headRadius * 2, headRadius * 2),
+            style = Stroke(width = 2.dp.toPx())
+        )
+
+        // Draw Eyes (two little black circles)
+        val eyeRadius = 3.dp.toPx()
+        val leftEyeX = headCenterX - headRadius * 0.35f
+        val rightEyeX = headCenterX + headRadius * 0.35f
+        val eyeY = headCenterY - headRadius * 0.45f
+        drawCircle(color = Color.Black, radius = eyeRadius, center = Offset(leftEyeX, eyeY))
+        drawCircle(color = Color.Black, radius = eyeRadius, center = Offset(rightEyeX, eyeY))
+        // Small eye highlight (white)
+        drawCircle(color = Color.White, radius = eyeRadius * 0.3f, center = Offset(leftEyeX - eyeRadius * 0.3f, eyeY - eyeRadius * 0.3f))
+        drawCircle(color = Color.White, radius = eyeRadius * 0.3f, center = Offset(rightEyeX - eyeRadius * 0.3f, eyeY - eyeRadius * 0.3f))
+
+        // Draw Blush (two pink circles under eyes)
+        drawCircle(color = earInnerColor.copy(alpha = 0.6f), radius = eyeRadius * 1.5f, center = Offset(leftEyeX - 2.dp.toPx(), eyeY + 4.dp.toPx()))
+        drawCircle(color = earInnerColor.copy(alpha = 0.6f), radius = eyeRadius * 1.5f, center = Offset(rightEyeX + 2.dp.toPx(), eyeY + 4.dp.toPx()))
+
+        // Draw Nose (small pink triangle)
+        val nosePath = Path().apply {
+            moveTo(headCenterX - 2.dp.toPx(), headCenterY - headRadius * 0.3f)
+            lineTo(headCenterX + 2.dp.toPx(), headCenterY - headRadius * 0.3f)
+            lineTo(headCenterX, headCenterY - headRadius * 0.23f)
+            close()
+        }
+        drawPath(nosePath, earInnerColor)
+
+        // Draw Mouth (two small curves w)
+        val mouthY = headCenterY - headRadius * 0.2f
+        val mouthPath = Path().apply {
+            moveTo(headCenterX - 4.dp.toPx(), mouthY)
+            quadraticTo(headCenterX - 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX, mouthY)
+            quadraticTo(headCenterX + 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX + 4.dp.toPx(), mouthY)
+        }
+        drawPath(mouthPath, outlineColor, style = Stroke(width = 1.5.dp.toPx()))
+
+        // Draw Whiskers (two lines on each side)
+        drawLine(outlineColor, Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.25f), Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.3f), strokeWidth = 1.5.dp.toPx())
+        drawLine(outlineColor, Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.15f), Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.15f), strokeWidth = 1.5.dp.toPx())
+
+        drawLine(outlineColor, Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.25f), Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.3f), strokeWidth = 1.5.dp.toPx())
+        drawLine(outlineColor, Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.15f), Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.15f), strokeWidth = 1.5.dp.toPx())
+
+        // Draw Paws resting on the line (which is y = height)
+        val pawWidth = 8.dp.toPx()
+        val pawHeight = 6.dp.toPx()
+        // Paw 1: left
+        drawRoundRect(
+            color = catColor,
+            topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
+            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
+        )
+        drawRoundRect(
+            color = outlineColor,
+            topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
+            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
+            style = Stroke(width = 1.5.dp.toPx())
+        )
+        // Paw 2: right
+        drawRoundRect(
+            color = catColor,
+            topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
+            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
+        )
+        drawRoundRect(
+            color = outlineColor,
+            topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
+            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
+            style = Stroke(width = 1.5.dp.toPx())
+        )
+    }
+}
+
+@Composable
+fun PawPrint(
+    modifier: Modifier = Modifier,
+    color: Color
+) {
+    Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+        
+        // Main pad (large oval/circle)
+        val padRadius = width * 0.28f
+        val padCenterX = width / 2f
+        val padCenterY = height * 0.6f
+        drawCircle(color = color, radius = padRadius, center = Offset(padCenterX, padCenterY))
+        
+        // 4 toes
+        val toeRadius = width * 0.12f
+        // Leftmost toe
+        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX - padRadius * 1.2f, padCenterY - padRadius * 0.8f))
+        // Middle left toe
+        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX - padRadius * 0.4f, padCenterY - padRadius * 1.5f))
+        // Middle right toe
+        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX + padRadius * 0.4f, padCenterY - padRadius * 1.5f))
+        // Rightmost toe
+        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX + padRadius * 1.2f, padCenterY - padRadius * 0.8f))
     }
 }
 

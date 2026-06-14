@@ -22,6 +22,18 @@ android {
         }
     }
 
+    flavorDimensions += "edition"
+    productFlavors {
+        create("standard") {
+            dimension = "edition"
+        }
+        create("special") {
+            dimension = "edition"
+            applicationIdSuffix = ".special"
+            versionNameSuffix = "-special"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

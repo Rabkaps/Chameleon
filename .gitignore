@@ -17,3 +17,6 @@ local.properties
 *.log
 /temp_extract/
 
+# Special Flavor - Sana Special local-only sources
+/app/src/special/
+

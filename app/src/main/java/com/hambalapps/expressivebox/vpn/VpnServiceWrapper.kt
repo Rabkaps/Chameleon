@@ -436,58 +436,52 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     private fun reloadVpnEngine() {
-        if (commandServer == null) {
-            _vpnState.value = "CONNECTING"
-            startForegroundServiceNotification()
-            startVpnEngine()
-            return
-        }
         serviceScope.launch {
             try {
-                log("Reloading VPN Engine with new configuration...")
-                val settingsManager = SettingsManager(applicationContext)
+                log("Reconnecting VPN Engine (Teardown & Re-initialize)...")
+                _vpnState.value = "CONNECTING"
                 
-                // Read configurations from Preferences DataStore
-                val rawProfile = settingsManager.activeProfile.first()
-                val bypassIranVal = settingsManager.bypassIran.first()
-                val secureDnsVal = settingsManager.secureDns.first()
-                val tunStackVal = settingsManager.tunStack.first()
-                val enableFragmentVal = settingsManager.enableFragment.first()
-                val fragmentLengthVal = settingsManager.fragmentLength.first()
-                val fragmentIntervalVal = settingsManager.fragmentInterval.first()
-                val enableMuxVal = settingsManager.enableMux.first()
-                splitTunnelingEnabledVal = settingsManager.splitTunnelingEnabled.first()
-                splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
-                splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
-
-                val injectorSettings = InjectorSettings(
-                    bypassIran = bypassIranVal,
-                    secureDns = secureDnsVal,
-                    tunStack = tunStackVal,
-                    enableFragment = enableFragmentVal,
-                    fragmentLength = fragmentLengthVal,
-                    fragmentInterval = fragmentIntervalVal,
-                    enableMux = enableMuxVal
-                )
-
-                // Inject our custom bypass-Iran rules, split DNS, and advanced parameters
-                val configJson = ConfigInjector.injectConfig(
-                    applicationContext,
-                    rawProfile,
-                    injectorSettings
-                )
-
-                log("Generated New Config JSON for reload:\n$configJson")
-                log("Reloading sing-box service...")
-                val overrideOptions = OverrideOptions().apply {
-                    autoRedirect = false
+                // Teardown core service
+                try {
+                    commandServer?.closeService()
+                } catch (e: Exception) {
+                    log("Error closing service during reconnect: ${e.message}")
                 }
-                commandServer?.startOrReloadService(configJson, overrideOptions)
-                log("VPN Engine reloaded successfully.")
-                updateNotification("CONNECTED")
+                
+                try {
+                    commandServer?.close()
+                } catch (e: Exception) {}
+                commandServer = null
+                
+                try {
+                    tunFd?.close()
+                } catch (e: Exception) {}
+                tunFd = null
+
+                if (tunFdInt != -1) {
+                    try {
+                        log("Adopting and closing TUN file descriptor $tunFdInt during reconnect...")
+                        ParcelFileDescriptor.adoptFd(tunFdInt).close()
+                    } catch (e: Exception) {
+                        log("Error closing adopted FD during reconnect: ${e.message}")
+                    }
+                    tunFdInt = -1
+                }
+                
+                stopLogReader()
+                lastSentPhysicalName = null
+                lastSentPhysicalIndex = -1
+                
+                // Wait a moment for interface teardown to stabilize
+                kotlinx.coroutines.delay(500)
+                
+                log("Re-initializing VPN core...")
+                startForegroundServiceNotification()
+                startVpnEngine()
             } catch (e: Throwable) {
-                log("Failed to reload VPN: ${e.message}")
+                log("Failed to reconnect VPN: ${e.message}")
                 e.printStackTrace()
+                stopVpnEngine()
             }
         }
     }
