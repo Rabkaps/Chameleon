@@ -31,6 +31,9 @@ class SettingsManager(private val context: Context) {
         val MANUAL_SERVERS = stringPreferencesKey("manual_servers")
         val SPECIAL_THEME = stringPreferencesKey("special_theme")
         val BYPASS_LAN = booleanPreferencesKey("bypass_lan")
+        val AUTO_UPDATE_SUBS = booleanPreferencesKey("auto_update_subs")
+        val AUTO_UPDATE_INTERVAL = stringPreferencesKey("auto_update_interval")
+        val LAST_SUBS_UPDATE_TIME = longPreferencesKey("last_subs_update_time")
     }
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }
@@ -53,6 +56,9 @@ class SettingsManager(private val context: Context) {
     val manualServers: Flow<String> = context.dataStore.data.map { it[MANUAL_SERVERS] ?: "" }
     val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: "cherry_blossom" }
     val bypassLan: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_LAN] ?: true }
+    val autoUpdateSubs: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_SUBS] ?: true }
+    val autoUpdateInterval: Flow<String> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL] ?: "daily" }
+    val lastSubsUpdateTime: Flow<Long> = context.dataStore.data.map { it[LAST_SUBS_UPDATE_TIME] ?: 0L }
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
@@ -74,4 +80,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setManualServers(value: String) { context.dataStore.edit { it[MANUAL_SERVERS] = value } }
     suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
     suspend fun setBypassLan(value: Boolean) { context.dataStore.edit { it[BYPASS_LAN] = value } }
+    suspend fun setAutoUpdateSubs(value: Boolean) { context.dataStore.edit { it[AUTO_UPDATE_SUBS] = value } }
+    suspend fun setAutoUpdateInterval(value: String) { context.dataStore.edit { it[AUTO_UPDATE_INTERVAL] = value } }
+    suspend fun setLastSubsUpdateTime(value: Long) { context.dataStore.edit { it[LAST_SUBS_UPDATE_TIME] = value } }
 }

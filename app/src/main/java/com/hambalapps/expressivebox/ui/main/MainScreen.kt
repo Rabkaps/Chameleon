@@ -89,6 +89,9 @@ fun MainScreen(
     val splitTunnelingApps by settingsManager.splitTunnelingApps.collectAsStateWithLifecycle(initialValue = emptySet())
     val splitTunnelingMode by settingsManager.splitTunnelingMode.collectAsStateWithLifecycle(initialValue = "bypass")
     val manualServersStr by settingsManager.manualServers.collectAsStateWithLifecycle(initialValue = "")
+    val autoUpdateSubs by settingsManager.autoUpdateSubs.collectAsStateWithLifecycle(initialValue = true)
+    val autoUpdateInterval by settingsManager.autoUpdateInterval.collectAsStateWithLifecycle(initialValue = "daily")
+    val lastSubsUpdateTime by settingsManager.lastSubsUpdateTime.collectAsStateWithLifecycle(initialValue = 0L)
 
     val subscriptions = remember(subscriptionListStr, manualServersStr) {
         val list = deserializeSubscriptions(subscriptionListStr).toMutableList()
@@ -132,6 +135,71 @@ fun MainScreen(
         }
     }
 
+    // Auto subscription update check on launch
+    LaunchedEffect(Unit) {
+        val autoUpdate = settingsManager.autoUpdateSubs.first()
+        if (autoUpdate) {
+            val interval = settingsManager.autoUpdateInterval.first()
+            val lastTime = settingsManager.lastSubsUpdateTime.first()
+            val currentTime = System.currentTimeMillis()
+            
+            val shouldUpdate = when (interval) {
+                "startup" -> true
+                "daily" -> (currentTime - lastTime) >= 24 * 60 * 60 * 1000L
+                "weekly" -> (currentTime - lastTime) >= 7 * 24 * 60 * 60 * 1000L
+                else -> false
+            }
+            
+            if (shouldUpdate) {
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val currentListStr = settingsManager.subscriptionList.first()
+                        val currentSubs = deserializeSubscriptions(currentListStr)
+                        var anyUpdated = false
+                        val updatedSubs = currentSubs.map { sub ->
+                            if (!sub.url.startsWith("local://")) {
+                                try {
+                                    val fetched = fetchSubscription(sub.url)
+                                    if (fetched.isNotEmpty()) {
+                                        anyUpdated = true
+                                        sub.copy(servers = fetched.joinToString("\n"))
+                                    } else {
+                                        sub
+                                    }
+                                } catch (e: Exception) {
+                                    sub
+                                }
+                            } else {
+                                sub
+                            }
+                        }
+                        if (anyUpdated) {
+                            settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
+                            
+                            val activeSubIdVal = settingsManager.activeSubId.first()
+                            val activeProfileVal = settingsManager.activeProfile.first()
+                            val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
+                            if (updatedActiveSub != null) {
+                                val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
+                                if (sList.isNotEmpty() && !sList.contains(activeProfileVal)) {
+                                    settingsManager.setActiveProfile(sList[0])
+                                    if (VpnServiceWrapper.vpnState.value == "CONNECTED") {
+                                        scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                            startVpnService(context)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        settingsManager.setLastSubsUpdateTime(currentTime)
+                    } catch (e: Exception) {
+                        // Silently handle error
+                    }
+                }
+            }
+        }
+    }
+
     // Auto-select dedicated server on launch if active profile is empty (Special flavor only)
     LaunchedEffect(activeProfile) {
         if (Config.IS_SPECIAL && activeProfile.isEmpty() && Config.DEFAULT_PROFILE.isNotEmpty()) {
@@ -160,6 +228,7 @@ fun MainScreen(
     var editSni by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val refreshingSubs = remember { mutableStateMapOf<String, Boolean>() }
 
     // Launcher for VPN system permission dialog
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
@@ -1118,6 +1187,98 @@ fun MainScreen(
                         }
                     }
                     
+                    // Subscription Auto-Update settings card
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Sync,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Auto-update Subscriptions",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Fetch fresh links automatically",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = autoUpdateSubs,
+                                    onCheckedChange = { isChecked ->
+                                        scope.launch {
+                                            settingsManager.setAutoUpdateSubs(isChecked)
+                                        }
+                                    }
+                                )
+                            }
+                            
+                            if (autoUpdateSubs) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Update Interval",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf("startup" to "Startup", "daily" to "Daily", "weekly" to "Weekly").forEach { (intervalKey, label) ->
+                                        FilterChip(
+                                            selected = autoUpdateInterval == intervalKey,
+                                            onClick = {
+                                                scope.launch {
+                                                    settingsManager.setAutoUpdateInterval(intervalKey)
+                                                }
+                                            },
+                                            label = { Text(label) },
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     if (Config.IS_SPECIAL) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Box(
@@ -1658,12 +1819,71 @@ fun MainScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
+
+                                        val isLocalSub = sub.url.startsWith("local://")
+                                        if (!isLocalSub) {
+                                            val isRefreshing = refreshingSubs[sub.id] ?: false
+                                            IconButton(
+                                                onClick = {
+                                                    scope.launch {
+                                                        refreshingSubs[sub.id] = true
+                                                        try {
+                                                            val fetchedServers = fetchSubscription(sub.url)
+                                                            if (fetchedServers.isNotEmpty()) {
+                                                                val updatedList = subscriptions.map {
+                                                                    if (it.id == sub.id) {
+                                                                        it.copy(servers = fetchedServers.joinToString("\n"))
+                                                                    } else {
+                                                                        it
+                                                                    }
+                                                                }
+                                                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
+                                                                if (isActive) {
+                                                                    val currentActive = activeProfile
+                                                                    val sList = fetchedServers.map { it.trim() }.filter { it.isNotEmpty() }
+                                                                    if (sList.isNotEmpty() && !sList.contains(currentActive)) {
+                                                                        settingsManager.setActiveProfile(sList[0])
+                                                                        if (vpnState == "CONNECTED") {
+                                                                            startVpnService(context)
+                                                                        }
+                                                                    }
+                                                                }
+                                                                android.widget.Toast.makeText(context, "${sub.name} updated!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, "No servers found in update", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        } catch(e: Exception) {
+                                                            android.widget.Toast.makeText(context, "Update failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                                        } finally {
+                                                            refreshingSubs[sub.id] = false
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.size(36.dp),
+                                                enabled = !isRefreshing
+                                            ) {
+                                                if (isRefreshing) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(18.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Refresh,
+                                                        contentDescription = "Refresh",
+                                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
                                         
                                         IconButton(
                                             onClick = {
                                                 scope.launch {
                                                     val updatedList = subscriptions.filter { it.id != sub.id }
-                                                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
+                                                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
                                                     if (isActive) {
                                                         val nextActive = updatedList.firstOrNull()
                                                         if (nextActive != null) {
@@ -2727,6 +2947,7 @@ fun ConnectionDashboard(
     state: String,
     onConnectToggle: () -> Unit
 ) {
+    val context = LocalContext.current
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
 
     val stateText = if (Config.IS_SPECIAL) {
@@ -2782,7 +3003,7 @@ fun ConnectionDashboard(
         if (s == "CONNECTED") 1.05f else 1.0f
     }
 
-    // Speed details simulator
+    // Speed details monitoring using Android TrafficStats
     var downloadSpeed by remember { mutableStateOf("0.0 KB/s") }
     var uploadSpeed by remember { mutableStateOf("0.0 KB/s") }
     var pingTime by remember { mutableStateOf("0 ms") }
@@ -2790,12 +3011,54 @@ fun ConnectionDashboard(
     LaunchedEffect(state) {
         if (state == "CONNECTED") {
             pingTime = "${(35..65).random()} ms"
+            
+            // Helper functions to get current traffic stats
+            fun getRxBytes(): Long {
+                val myUid = context.applicationInfo.uid
+                val rx = android.net.TrafficStats.getUidRxBytes(myUid)
+                return if (rx != android.net.TrafficStats.UNSUPPORTED.toLong()) rx else android.net.TrafficStats.getTotalRxBytes()
+            }
+            fun getTxBytes(): Long {
+                val myUid = context.applicationInfo.uid
+                val tx = android.net.TrafficStats.getUidTxBytes(myUid)
+                return if (tx != android.net.TrafficStats.UNSUPPORTED.toLong()) tx else android.net.TrafficStats.getTotalTxBytes()
+            }
+            fun formatSpeed(bytesPerSec: Long): String {
+                val kb = bytesPerSec / 1024.0
+                val mb = kb / 1024.0
+                return when {
+                    mb >= 1.0 -> String.format(java.util.Locale.US, "%.1f MB/s", mb)
+                    kb >= 0.1 -> String.format(java.util.Locale.US, "%.1f KB/s", kb)
+                    else -> "0.0 KB/s"
+                }
+            }
+
+            var lastRx = getRxBytes()
+            var lastTx = getTxBytes()
+            var lastTime = System.currentTimeMillis()
+
             while (true) {
-                kotlinx.coroutines.delay(1800)
-                val dl = (100..2800).random() / 10f
-                downloadSpeed = if (dl > 100) String.format("%.1f MB/s", dl / 10f) else String.format("%.1f KB/s", dl * 10f)
-                val ul = (50..820).random() / 10f
-                uploadSpeed = if (ul > 100) String.format("%.1f MB/s", ul / 10f) else String.format("%.1f KB/s", ul * 10f)
+                kotlinx.coroutines.delay(1000)
+                val currentRx = getRxBytes()
+                val currentTx = getTxBytes()
+                val currentTime = System.currentTimeMillis()
+                
+                val dt = (currentTime - lastTime) / 1000.0
+                if (dt > 0.0) {
+                    val dlBytes = currentRx - lastRx
+                    val ulBytes = currentTx - lastTx
+                    
+                    val dlSpeed = if (dlBytes >= 0) (dlBytes / dt).toLong() else 0L
+                    val ulSpeed = if (ulBytes >= 0) (ulBytes / dt).toLong() else 0L
+                    
+                    downloadSpeed = formatSpeed(dlSpeed)
+                    uploadSpeed = formatSpeed(ulSpeed)
+                }
+                
+                lastRx = currentRx
+                lastTx = currentTx
+                lastTime = currentTime
+                
                 if ((1..10).random() > 8) {
                     pingTime = "${(35..75).random()} ms"
                 }
