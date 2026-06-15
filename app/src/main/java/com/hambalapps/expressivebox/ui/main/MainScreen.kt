@@ -262,6 +262,7 @@ fun MainScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 8.dp),
                         shape = ExpressiveCardShape,
                         colors = CardDefaults.cardColors(
@@ -280,6 +281,7 @@ fun MainScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(16.dp)
                         ) {
                             Row(
@@ -329,6 +331,7 @@ fun MainScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .clip(ExpressiveButtonShape)
                                     .background(
                                         when (vpnState) {
@@ -390,7 +393,8 @@ fun MainScreen(
                     
                     // Elegant divider with text
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                                                    .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -412,6 +416,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
                         shape = ExpressiveButtonShape,
@@ -423,6 +428,7 @@ fun MainScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -478,6 +484,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
                         shape = ExpressiveButtonShape,
@@ -489,6 +496,7 @@ fun MainScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -544,6 +552,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp)
                             .pressScaleEffect(),
                         shape = ExpressiveButtonShape,
@@ -552,10 +561,12 @@ fun MainScreen(
                         ),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.fillMaxWidth()
+                                                    ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -726,6 +737,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp)
                             .clickable {
                                 scope.launch { drawerState.close() }
@@ -741,6 +753,7 @@ fun MainScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -817,6 +830,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp),
                         shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
@@ -835,6 +849,7 @@ fun MainScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -888,7 +903,8 @@ fun MainScreen(
                                         value = secureDns,
                                         onValueChange = { scope.launch { settingsManager.setSecureDns(it) } },
                                         label = { Text("Secure DNS (DoH)") },
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth()
+                                                    ,
                                         shape = ExpressiveButtonShape
                                     )
                                     
@@ -902,7 +918,8 @@ fun MainScreen(
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth()
+                                                    ,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf("mixed", "gvisor", "system").forEach { stackOption ->
@@ -926,7 +943,8 @@ fun MainScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth()
+                                                    ,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -959,7 +977,8 @@ fun MainScreen(
                                     if (enableFragment) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             OutlinedTextField(
@@ -982,7 +1001,8 @@ fun MainScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth()
+                                                    ,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1020,7 +1040,8 @@ fun MainScreen(
                     
                     // Elegant Tools section header
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                                                    .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -1045,6 +1066,7 @@ fun MainScreen(
                         OutlinedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(vertical = 6.dp),
                             shape = ExpressiveButtonShape,
                             colors = CardDefaults.outlinedCardColors(
@@ -1089,7 +1111,8 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     listOf(
@@ -1118,6 +1141,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp)
                             .clickable {
                                 showLogs = !showLogs
@@ -1138,6 +1162,7 @@ fun MainScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1191,6 +1216,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(vertical = 6.dp),
                         shape = ExpressiveButtonShape,
                         colors = CardDefaults.outlinedCardColors(
@@ -1198,9 +1224,11 @@ fun MainScreen(
                         ),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth()
+                                                    .padding(16.dp)) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth()
+                                                    ,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -1259,7 +1287,8 @@ fun MainScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     listOf("startup" to "Startup", "daily" to "Daily", "weekly" to "Weekly").forEach { (intervalKey, label) ->
@@ -1282,7 +1311,8 @@ fun MainScreen(
                     if (Config.IS_SPECIAL) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Box(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -1314,7 +1344,8 @@ fun MainScreen(
 ) {
         Scaffold(
             topBar = {
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth()
+                                                    ) {
                     CenterAlignedTopAppBar(
                         title = {
                             Row(
@@ -1398,7 +1429,8 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // 2. Profile Selection & Import Section
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth()
+                                                    ) {
                     if (Config.IS_SPECIAL) {
                         PeakingKitty(
                             modifier = Modifier
@@ -1409,6 +1441,7 @@ fun MainScreen(
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(horizontal = 16.dp),
                         shape = ExpressiveCardShape,
                         colors = CardDefaults.outlinedCardColors(
@@ -1428,6 +1461,7 @@ fun MainScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .clip(ExpressiveButtonShape)
                                     .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
                                     .border(
@@ -1477,7 +1511,8 @@ fun MainScreen(
                         }
                         Spacer(modifier = Modifier.height(14.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilledTonalButton(
@@ -1532,6 +1567,7 @@ fun MainScreen(
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
+
                         .padding(horizontal = 16.dp)
                         .animateContentSize(),
                     shape = ExpressiveCardShape,
@@ -1541,7 +1577,8 @@ fun MainScreen(
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1602,7 +1639,8 @@ fun MainScreen(
                                     value = subNameInput,
                                     onValueChange = { subNameInput = it },
                                     label = { Text("Name (Optional)") },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     shape = ExpressiveButtonShape,
                                     singleLine = true,
                                     placeholder = { Text("e.g. My Premium VPN") }
@@ -1612,7 +1650,8 @@ fun MainScreen(
                                     value = subUrlInput,
                                     onValueChange = { subUrlInput = it },
                                     label = { Text("Subscription Link") },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     shape = ExpressiveButtonShape,
                                     singleLine = true,
                                     placeholder = { Text("https://example.com/sub") },
@@ -1635,7 +1674,8 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Button(
@@ -1728,6 +1768,7 @@ fun MainScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .padding(vertical = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -1742,6 +1783,7 @@ fun MainScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
+
                                     .heightIn(max = 200.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
@@ -1750,6 +1792,7 @@ fun MainScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
+
                                             .clip(ExpressiveButtonShape)
                                             .background(
                                                 if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
@@ -1924,7 +1967,8 @@ fun MainScreen(
                 if (serverList.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.fillMaxWidth()
+                                                    ) {
                         if (Config.IS_SPECIAL) {
                             PeakingKitty(
                                 modifier = Modifier
@@ -1935,6 +1979,7 @@ fun MainScreen(
                         ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .padding(horizontal = 16.dp)
                                 .animateContentSize(),
                             shape = ExpressiveCardShape,
@@ -1944,7 +1989,8 @@ fun MainScreen(
                         ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth()
+                                                    ,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -2024,7 +2070,8 @@ fun MainScreen(
                                         value = searchQuery,
                                         onValueChange = { searchQuery = it },
                                         placeholder = { Text("Filter by location or name...") },
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth()
+                                                    ,
                                         shape = ExpressiveButtonShape,
                                         singleLine = true,
                                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
@@ -2103,6 +2150,7 @@ fun MainScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
+
                                         .padding(vertical = 32.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -2121,11 +2169,13 @@ fun MainScreen(
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier
                                         .fillMaxWidth()
+
                                         .heightIn(max = 280.dp)
                                 ) {
                                     LazyColumn(
                                         modifier = Modifier
                                             .fillMaxWidth()
+
                                             .padding(6.dp),
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
@@ -2167,6 +2217,7 @@ fun MainScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
+
                                                     .graphicsLayer {
                                                         this.alpha = alpha
                                                         this.translationY = translationY
@@ -2368,6 +2419,7 @@ fun MainScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+
                     .padding(horizontal = 16.dp)
             ) {
                 PeakingKitty(
@@ -2379,6 +2431,7 @@ fun MainScreen(
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
+
                         .clickable {
                             currentLoveNote = Config.LOVE_QUOTES.random()
                             showLoveNoteDialog = true
@@ -2392,6 +2445,7 @@ fun MainScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2509,7 +2563,8 @@ fun MainScreen(
             text = {
                 Column {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                                                    .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2538,6 +2593,7 @@ fun MainScreen(
                         onValueChange = { importText = it },
                         modifier = Modifier
                             .fillMaxWidth()
+
                             .height(160.dp),
                         shape = ExpressiveButtonShape,
                         placeholder = { Text("vless://... or trojan://... or { ... }") }
@@ -2665,12 +2721,14 @@ fun MainScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TabRow(
                         selectedTabIndex = if (editorMode == "form") 0 else 1,
                         modifier = Modifier.fillMaxWidth()
+
                     ) {
                         Tab(
                             selected = editorMode == "form",
@@ -2689,7 +2747,8 @@ fun MainScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Protocol", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth()
+                                                    ,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 listOf("vless", "trojan", "ss").forEach { proto ->
@@ -2706,7 +2765,8 @@ fun MainScreen(
                                 }
                             }
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth()
+                                                    ,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 listOf("socks5", "http", "https").forEach { proto ->
@@ -2728,13 +2788,15 @@ fun MainScreen(
                             value = editRemark,
                             onValueChange = { editRemark = it },
                             label = { Text("Remark / Name") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             shape = ExpressiveButtonShape
                         )
 
                         // Server & Port
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
@@ -2758,7 +2820,8 @@ fun MainScreen(
                             value = editCreds,
                             onValueChange = { editCreds = it },
                             label = { Text(if (editType == "vless") "UUID" else "Password / Credentials") },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth()
+                                                    ,
                             shape = ExpressiveButtonShape
                         )
 
@@ -2766,7 +2829,8 @@ fun MainScreen(
                         val showTlsOption = editType == "vless" || editType == "trojan" || editType == "https"
                         if (showTlsOption) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth()
+                                                    ,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -2783,7 +2847,8 @@ fun MainScreen(
                                     value = editSni,
                                     onValueChange = { editSni = it },
                                     label = { Text("SNI (Server Name)") },
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth()
+                                                    ,
                                     shape = ExpressiveButtonShape
                                 )
                             }
@@ -2795,6 +2860,7 @@ fun MainScreen(
                             onValueChange = { editLinkInput = it },
                             modifier = Modifier
                                 .fillMaxWidth()
+
                                 .height(160.dp),
                             shape = ExpressiveButtonShape,
                             placeholder = { Text("vless://... or trojan://... or { ... }") }
@@ -3025,6 +3091,7 @@ fun ConnectionDashboard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
+
             .padding(horizontal = 16.dp),
         shape = ExpressiveCardShape,
         colors = CardDefaults.elevatedCardColors(
@@ -3035,6 +3102,7 @@ fun ConnectionDashboard(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
+
                 .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
             // Main Button Section
@@ -3137,6 +3205,7 @@ fun ConnectionDashboard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+
                     .clip(ExpressiveButtonShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .padding(vertical = 12.dp, horizontal = 16.dp),
@@ -3739,6 +3808,7 @@ private fun LogsConsole(
     OutlinedCard(
         modifier = modifier
             .fillMaxWidth()
+
             .padding(horizontal = 16.dp)
             .height(280.dp),
         shape = RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp, topEnd = 8.dp, bottomStart = 8.dp), // ExpressiveCardShape
@@ -3748,7 +3818,8 @@ private fun LogsConsole(
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth()
+                                                    ,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
