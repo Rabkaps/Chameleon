@@ -15,8 +15,8 @@ android {
         applicationId = "com.hambalapps.expressivebox"
         minSdk = 24
         targetSdk = 36
-        versionCode = 62
-        versionName = "1.0.62"
+        versionCode = 63
+        versionName = "1.0.63"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -48,7 +48,8 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

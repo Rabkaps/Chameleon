@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "android-jetpack-compose-expert": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/android-jetpack-compose-expert/SKILL.md",
+      "computedHash": "301f33fdf8119b7ad8c0a5bcda9a57f55f0a5cfee32e0aefe372ca3075449fa0"
+    },
+    "material-3-expressive": {
+      "source": "albermonte/android-skills",
+      "sourceType": "github",
+      "skillPath": "skills/material-3-expressive/SKILL.md",
+      "computedHash": "2d9fe84f90c31f2b7c1f86663b51164e77a1b4fa2dc9f8767a2007dd49fc2849"
+    }
+  }
+}

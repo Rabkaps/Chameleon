@@ -20,3 +20,6 @@ local.properties
 # Special Flavor - Sana Special local-only sources
 /app/src/special/
 
+# Local scratch files and IDE agents config
+/scratch/
+/.claude/

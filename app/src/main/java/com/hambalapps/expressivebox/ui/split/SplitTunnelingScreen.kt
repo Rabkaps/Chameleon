@@ -41,7 +41,8 @@ data class AppItem(
     val name: String,
     val packageName: String,
     val appInfo: ApplicationInfo,
-    val isSystem: Boolean
+    val isSystem: Boolean,
+    val icon: Drawable?
 )
 
 @Composable
@@ -73,7 +74,6 @@ fun SplitTunnelingScreen(
     var showSystemApps by remember { mutableStateOf(false) }
     var appsList by remember { mutableStateOf<List<AppItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    val iconCache = remember { mutableStateMapOf<String, Drawable>() }
 
     // Load apps asynchronously
     LaunchedEffect(Unit) {
@@ -86,11 +86,17 @@ fun SplitTunnelingScreen(
             }.map { app ->
                 val isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0 || 
                                (app.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                val icon = try {
+                    app.loadIcon(pm)
+                } catch (e: Exception) {
+                    null
+                }
                 AppItem(
                     name = app.loadLabel(pm).toString(),
                     packageName = app.packageName,
                     appInfo = app,
-                    isSystem = isSystem
+                    isSystem = isSystem,
+                    icon = icon
                 )
             }.sortedBy { it.name.lowercase() }
             
@@ -296,18 +302,6 @@ fun SplitTunnelingScreen(
                     items(filteredApps, key = { it.packageName }) { app ->
                         val isChecked = selectedApps.contains(app.packageName)
                         val pm = context.packageManager
-                        val cachedIcon = iconCache[app.packageName]
-                        
-                        if (cachedIcon == null) {
-                            LaunchedEffect(app.packageName) {
-                                withContext(Dispatchers.IO) {
-                                    val loadedIcon = app.appInfo.loadIcon(pm)
-                                    withContext(Dispatchers.Main) {
-                                        iconCache[app.packageName] = loadedIcon
-                                    }
-                                }
-                            }
-                        }
 
                         Row(
                             modifier = Modifier
@@ -331,9 +325,9 @@ fun SplitTunnelingScreen(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (cachedIcon != null) {
+                            if (app.icon != null) {
                                 DrawableImage(
-                                    drawable = cachedIcon,
+                                    drawable = app.icon,
                                     modifier = Modifier
                                         .size(40.dp)
                                         .clip(RoundedCornerShape(8.dp))

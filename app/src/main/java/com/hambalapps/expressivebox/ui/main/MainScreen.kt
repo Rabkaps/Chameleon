@@ -61,6 +61,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.hambalapps.expressivebox.Config
 
 // Expressive shapes defining Material 3 Expressive aesthetics
@@ -206,7 +207,7 @@ fun MainScreen(
             }
             "v${pInfo.versionName}"
         } catch (e: Exception) {
-            "v1.0.62"
+            "v1.0.63"
         }
     }
 
@@ -2140,18 +2141,18 @@ fun MainScreen(
                                             }
                                             
                                             val itemVisible = remember(serverLink) { mutableStateOf(listEntranceFinished.value) }
-                                            LaunchedEffect(serverLink) {
-                                                if (!listEntranceFinished.value) {
+                                            if (!listEntranceFinished.value) {
+                                                LaunchedEffect(serverLink) {
                                                     kotlinx.coroutines.delay(index.coerceAtMost(8) * 15L)
+                                                    itemVisible.value = true
                                                 }
-                                                itemVisible.value = true
                                             }
-                                            val alpha by animateFloatAsState(
+                                            val alphaState = animateFloatAsState(
                                                 targetValue = if (itemVisible.value) 1f else 0f,
                                                 animationSpec = tween(durationMillis = 200),
                                                 label = "alpha"
                                             )
-                                            val translationY by animateFloatAsState(
+                                            val translationYState = animateFloatAsState(
                                                 targetValue = if (itemVisible.value) 0f else 15f,
                                                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
                                                 label = "translationY"
@@ -2161,8 +2162,8 @@ fun MainScreen(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .graphicsLayer {
-                                                        this.alpha = alpha
-                                                        this.translationY = translationY
+                                                        this.alpha = if (listEntranceFinished.value) 1f else alphaState.value
+                                                        this.translationY = if (listEntranceFinished.value) 0f else translationYState.value
                                                     }
                                                     .clip(ExpressiveButtonShape)
                                                     .background(
@@ -3378,24 +3379,27 @@ fun WaveVisualizer(
     secondaryColor: Color,
     modifier: Modifier = Modifier
 ) {
-    var phase1 by remember { mutableStateOf(0f) }
-    var phase2 by remember { mutableStateOf(0f) }
+    val infiniteTransition = rememberInfiniteTransition(label = "WaveVisualizerTransition")
     
-    LaunchedEffect(state) {
-        if (state == "CONNECTED" || state == "CONNECTING") {
-            val speed1 = (2f * Math.PI.toFloat()) / 4500f // rad/ms
-            val speed2 = (-2f * Math.PI.toFloat()) / 6500f // rad/ms
-            var lastTime = withFrameMillis { it }
-            while (true) {
-                withFrameMillis { time ->
-                    val delta = time - lastTime
-                    lastTime = time
-                    phase1 = (phase1 + speed1 * delta) % (2f * Math.PI.toFloat())
-                    phase2 = (phase2 + speed2 * delta) % (2f * Math.PI.toFloat())
-                }
-            }
-        }
-    }
+    val phase1 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f * Math.PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(4500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase1"
+    )
+
+    val phase2 by infiniteTransition.animateFloat(
+        initialValue = 2f * Math.PI.toFloat(),
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(6500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase2"
+    )
     
     val amplitudeMultiplier by animateFloatAsState(
         targetValue = if (state == "CONNECTED" || state == "CONNECTING") 1f else 0f,
@@ -3713,6 +3717,14 @@ private fun LogsConsole(
     modifier: Modifier = Modifier
 ) {
     val vpnLogs by VpnServiceWrapper.vpnLogs.collectAsStateWithLifecycle()
+    val logLines = remember(vpnLogs) {
+        if (vpnLogs.isEmpty()) {
+            emptyList()
+        } else {
+            vpnLogs.split("\n")
+        }
+    }
+    
     OutlinedCard(
         modifier = modifier
             .fillMaxWidth()
@@ -3767,14 +3779,40 @@ private fun LogsConsole(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(10.dp))
-            Box(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                Text(
-                    text = if (vpnLogs.isEmpty()) "Logs will output here..." else vpnLogs,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
-                )
+            
+            val listState = rememberLazyListState()
+            LaunchedEffect(logLines.size) {
+                if (logLines.isNotEmpty()) {
+                    listState.scrollToItem(logLines.size - 1)
+                }
+            }
+            
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                if (logLines.isEmpty()) {
+                    item {
+                        Text(
+                            text = "Logs will output here...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 16.sp
+                        )
+                    }
+                } else {
+                    itemsIndexed(logLines) { index, line ->
+                        Text(
+                            text = line,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
             }
         }
     }
