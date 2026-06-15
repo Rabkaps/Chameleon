@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.hambalapps.expressivebox.Config
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -58,11 +59,34 @@ class SettingsManager(private val context: Context) {
             bypassLan = true,
             autoUpdateSubs = true,
             autoUpdateInterval = "daily",
-            lastSubsUpdateTime = 0L
+            lastSubsUpdateTime = 0L,
+            deserializedSubscriptions = emptyList()
         )
     }
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { prefs ->
+        val listStr = prefs[SUBSCRIPTION_LIST] ?: ""
+        val manualStr = prefs[MANUAL_SERVERS] ?: ""
+        
+        // Parse subscriptions in the background thread (flow mapping runs on the DataStore IO dispatcher)
+        val deserialized = deserializeSubscriptions(listStr).toMutableList()
+        if (Config.IS_SPECIAL && Config.DEFAULT_PROFILE.isNotEmpty()) {
+            deserialized.add(0, Subscription(
+                id = "special_default",
+                name = "Dedicated Server ❤️",
+                url = "local://special_default",
+                servers = Config.DEFAULT_PROFILE
+            ))
+        }
+        if (manualStr.isNotEmpty()) {
+            deserialized.add(Subscription(
+                id = "manual",
+                name = "Manual / Custom Configs",
+                url = "local://manual",
+                servers = manualStr
+            ))
+        }
+
         UserSettings(
             isAdvancedMode = prefs[IS_ADVANCED_MODE] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
@@ -75,18 +99,19 @@ class SettingsManager(private val context: Context) {
             activeProfile = prefs[ACTIVE_PROFILE] ?: "",
             subscriptionUrl = prefs[SUBSCRIPTION_URL] ?: "",
             subscriptionServers = prefs[SUBSCRIPTION_SERVERS] ?: "",
-            subscriptionList = prefs[SUBSCRIPTION_LIST] ?: "",
+            subscriptionList = listStr,
             activeSubId = prefs[ACTIVE_SUB_ID] ?: "",
             showLiveNotification = prefs[SHOW_LIVE_NOTIFICATION] ?: true,
             splitTunnelingEnabled = prefs[SPLIT_TUNNELING_ENABLED] ?: false,
             splitTunnelingMode = prefs[SPLIT_TUNNELING_MODE] ?: "bypass",
             splitTunnelingApps = prefs[SPLIT_TUNNELING_APPS] ?: emptySet(),
-            manualServers = prefs[MANUAL_SERVERS] ?: "",
+            manualServers = manualStr,
             specialTheme = prefs[SPECIAL_THEME] ?: "cherry_blossom",
             bypassLan = prefs[BYPASS_LAN] ?: true,
             autoUpdateSubs = prefs[AUTO_UPDATE_SUBS] ?: true,
             autoUpdateInterval = prefs[AUTO_UPDATE_INTERVAL] ?: "daily",
-            lastSubsUpdateTime = prefs[LAST_SUBS_UPDATE_TIME] ?: 0L
+            lastSubsUpdateTime = prefs[LAST_SUBS_UPDATE_TIME] ?: 0L,
+            deserializedSubscriptions = deserialized
         )
     }
 
@@ -162,5 +187,37 @@ data class UserSettings(
     val bypassLan: Boolean,
     val autoUpdateSubs: Boolean,
     val autoUpdateInterval: String,
-    val lastSubsUpdateTime: Long
+    val lastSubsUpdateTime: Long,
+    val deserializedSubscriptions: List<Subscription>
 )
+
+data class Subscription(
+    val id: String,
+    val name: String,
+    val url: String,
+    val servers: String
+)
+
+fun deserializeSubscriptions(data: String): List<Subscription> {
+    if (data.isEmpty()) return emptyList()
+    return data.split("\u001e").mapNotNull { record ->
+        val fields = record.split("\u001f")
+        if (fields.size >= 4) {
+            Subscription(
+                id = fields[0],
+                name = fields[1],
+                url = fields[2],
+                servers = fields[3]
+            )
+        } else null
+    }
+}
+
+fun serializeSubscriptions(subs: List<Subscription>): String {
+    return subs.joinToString("\u001e") { sub ->
+        val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
+        val safeUrl = sub.url.replace("\u001e", "").replace("\u001f", "")
+        val safeServers = sub.servers.replace("\u001e", "").replace("\u001f", "")
+        "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers"
+    }
+}

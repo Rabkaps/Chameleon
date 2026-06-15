@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.hambalapps.expressivebox.data.SettingsManager
-import com.hambalapps.expressivebox.ui.main.deserializeSubscriptions
+import com.hambalapps.expressivebox.data.deserializeSubscriptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

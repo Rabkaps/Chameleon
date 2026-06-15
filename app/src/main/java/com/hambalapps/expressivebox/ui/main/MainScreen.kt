@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hambalapps.expressivebox.data.SettingsManager
 import com.hambalapps.expressivebox.data.UserSettings
+import com.hambalapps.expressivebox.data.Subscription
+import com.hambalapps.expressivebox.data.serializeSubscriptions
+import com.hambalapps.expressivebox.data.deserializeSubscriptions
 import com.hambalapps.expressivebox.vpn.VpnServiceWrapper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -99,31 +102,7 @@ fun MainScreen(
     val autoUpdateInterval = settings.autoUpdateInterval
     val lastSubsUpdateTime = settings.lastSubsUpdateTime
 
-    val subscriptions = remember(subscriptionListStr, manualServersStr) {
-        val list = deserializeSubscriptions(subscriptionListStr).toMutableList()
-        if (Config.IS_SPECIAL && Config.DEFAULT_PROFILE.isNotEmpty()) {
-            list.add(
-                0,
-                Subscription(
-                    id = "special_default",
-                    name = "Dedicated Server ❤️",
-                    url = "local://special_default",
-                    servers = Config.DEFAULT_PROFILE
-                )
-            )
-        }
-        if (manualServersStr.isNotEmpty()) {
-            list.add(
-                Subscription(
-                    id = "manual",
-                    name = "Manual / Custom Configs",
-                    url = "local://manual",
-                    servers = manualServersStr
-                )
-            )
-        }
-        list
-    }
+    val subscriptions = settings.deserializedSubscriptions
     val activeSubscription = remember(subscriptions, activeSubId) {
         subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
     }
@@ -143,10 +122,11 @@ fun MainScreen(
 
     // Auto subscription update check on launch
     LaunchedEffect(Unit) {
-        val autoUpdate = settingsManager.autoUpdateSubs.first()
+        val currentSettings = settingsManager.settings.first()
+        val autoUpdate = currentSettings.autoUpdateSubs
         if (autoUpdate) {
-            val interval = settingsManager.autoUpdateInterval.first()
-            val lastTime = settingsManager.lastSubsUpdateTime.first()
+            val interval = currentSettings.autoUpdateInterval
+            val lastTime = currentSettings.lastSubsUpdateTime
             val currentTime = System.currentTimeMillis()
             
             val shouldUpdate = when (interval) {
@@ -159,7 +139,7 @@ fun MainScreen(
             if (shouldUpdate) {
                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     try {
-                        val currentListStr = settingsManager.subscriptionList.first()
+                        val currentListStr = currentSettings.subscriptionList
                         val currentSubs = deserializeSubscriptions(currentListStr)
                         var anyUpdated = false
                         val updatedSubs = currentSubs.map { sub ->
@@ -182,8 +162,8 @@ fun MainScreen(
                         if (anyUpdated) {
                             settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
                             
-                            val activeSubIdVal = settingsManager.activeSubId.first()
-                            val activeProfileVal = settingsManager.activeProfile.first()
+                            val activeSubIdVal = currentSettings.activeSubId
+                            val activeProfileVal = currentSettings.activeProfile
                             val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
                             if (updatedActiveSub != null) {
                                 val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
@@ -226,7 +206,7 @@ fun MainScreen(
             }
             "v${pInfo.versionName}"
         } catch (e: Exception) {
-            "v1.0.60"
+            "v1.0.62"
         }
     }
 
@@ -2088,7 +2068,7 @@ fun MainScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             val filteredServerList = remember(serverList, searchQuery, selectedTab) {
-                                serverList.filter { serverLink ->
+                                serverList.mapNotNull { serverLink ->
                                     val type = serverLink.substringBefore("://").uppercase()
                                     val matchesTab = when (selectedTab) {
                                         0 -> true
@@ -2097,9 +2077,12 @@ fun MainScreen(
                                         3 -> type == "SS" || type == "SHADOWSOCKS"
                                         else -> true
                                     }
-                                    val name = getProxyName(serverLink)
-                                    val matchesSearch = name.contains(searchQuery, ignoreCase = true)
-                                    matchesTab && matchesSearch
+                                    if (matchesTab) {
+                                        val name = getProxyName(serverLink)
+                                        if (name.contains(searchQuery, ignoreCase = true)) {
+                                            ServerItem(link = serverLink, name = name, type = type)
+                                        } else null
+                                    } else null
                                 }
                             }
 
@@ -2139,10 +2122,11 @@ fun MainScreen(
                                             .padding(6.dp),
                                         verticalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        itemsIndexed(filteredServerList, key = { _, link -> link }) { index, serverLink ->
+                                        itemsIndexed(filteredServerList, key = { _, item -> item.link }) { index, serverItem ->
+                                            val serverLink = serverItem.link
                                             val isSelected = activeProfile == serverLink
-                                            val name = getProxyName(serverLink)
-                                            val type = serverLink.substringBefore("://").uppercase()
+                                            val name = serverItem.name
+                                            val type = serverItem.type
                                             
                                             val tagContainerColor = when (type) {
                                                 "VLESS" -> MaterialTheme.colorScheme.primaryContainer
@@ -3324,38 +3308,12 @@ fun Modifier.pressScaleEffect(): Modifier {
         }
 }
 
-data class Subscription(
-    val id: String,
+// ServerItem helper class for precomputed server properties to optimize scroll performance
+data class ServerItem(
+    val link: String,
     val name: String,
-    val url: String,
-    val servers: String
+    val type: String
 )
-
-fun serializeSubscriptions(subs: List<Subscription>): String {
-    return subs.joinToString("\u001e") { sub ->
-        val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
-        val safeUrl = sub.url.replace("\u001e", "").replace("\u001f", "")
-        val safeServers = sub.servers.replace("\u001e", "").replace("\u001f", "")
-        "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers"
-    }
-}
-
-fun deserializeSubscriptions(data: String): List<Subscription> {
-    if (data.isEmpty()) return emptyList()
-    return data.split("\u001e").mapNotNull { record ->
-        val fields = record.split("\u001f")
-        if (fields.size >= 4) {
-            Subscription(
-                id = fields[0],
-                name = fields[1],
-                url = fields[2],
-                servers = fields[3]
-            )
-        } else {
-            null
-        }
-    }
-}
 
 private class WaveCache(points: Int) {
     val cosAngle = FloatArray(points + 1)
