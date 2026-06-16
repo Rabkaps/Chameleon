@@ -15,8 +15,8 @@ android {
         applicationId = "com.hambalapps.expressivebox"
         minSdk = 24
         targetSdk = 36
-        versionCode = 65
-        versionName = "1.0.65"
+        versionCode = 66
+        versionName = "1.0.66"
         ndk {
             abiFilters += "arm64-v8a"
         }

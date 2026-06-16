@@ -207,7 +207,7 @@ fun MainScreen(
             }
             "v${pInfo.versionName}"
         } catch (e: Exception) {
-            "v1.0.65"
+            "v1.0.66"
         }
     }
 

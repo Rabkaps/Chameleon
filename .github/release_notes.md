@@ -1,10 +1,10 @@
-### What's New in v1.0.65
+### What's New in v1.0.66
 
-This release fixes performance stutter/lags and reverts the visual redesign to restore snappy performance and clean interface.
+This release resolves the cold startup stutter/lag issues on variable refresh rate (VRR) screens and optimizes node list rendering.
 
 #### Performance Improvements
-- **Startup Lag Fixes**: Optimized DataStore flow collection, cached dynamic system color lookups (avoiding expensive reflection), and offloaded crash log file operations to background thread.
-- **Visual Revert**: Reverted custom animated background canvas, morphing connect button, rolling telemetry graph, and glassmorphic cards back to standard, high-performance Material 3 dashboard layout.
+- **120Hz Refresh Rate (Startup Stutter Fix)**: Programmatically requests high refresh rate (120Hz) on launch in `MainActivity` to prevent the system display compositor from locking the window to a low refresh rate (30Hz/60Hz) on cold launch.
+- **Snappy Node List Rendering**: Excluded heavy animations, LaunchedEffects, and float animations from `LazyColumn` items to prevent lag on launch/search/tab navigation regardless of the user's node count.
 
 ---
 

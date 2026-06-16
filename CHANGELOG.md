@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.66] - 2026-06-16
+
+### Fixed
+- **VRR Refresh Rate Lock (Cold Launch Stutter)**: Programmatically requested high refresh rate (120Hz) on application launch inside `MainActivity`. This bypasses variable refresh rate (VRR) display bugs on Samsung/OnePlus/Xiaomi/Pixel devices that lock the window to a low refresh rate (30Hz/60Hz) on cold startup.
+- **Node List Transition Lag**: Removed expensive per-item coroutines and float animations inside the available nodes list `LazyColumn` to eliminate lag/stutter when drawing the list, regardless of the user's node count.
+- **Drawer Version**: Displays version `v1.0.66`.
+
 ## [1.0.65] - 2026-06-16
 
 ### Fixed
