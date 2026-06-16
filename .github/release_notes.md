@@ -1,13 +1,10 @@
-### What's New in v1.0.64
+### What's New in v1.0.65
 
-This release includes the highly-anticipated premium visual redesign, transforming the dashboard layout with high-end Material 3 Expressive (MD3E) aesthetics.
+This release fixes performance stutter/lags and reverts the visual redesign to restore snappy performance and clean interface.
 
-#### Redesign Highlights
-- **Dynamic Background Mesh**: Integrated a custom, slow-animated Canvas mesh background reflecting dynamic system Monet colors that transitions to a breathing central aura during active VPN connections.
-- **Corner-Morphing Connect Control**: Connect button morphs shapes fluidly between a circle and a squircle depending on connection state, featuring a neon breathing glow expansion behind it when connected.
-- **Real-Time Rolling Speed Graph**: Embedded a real-time cubic-bezier rolling graph displaying network speed trends (download and upload) over the last 20 seconds using Canvas.
-- **Glassmorphic Cards & Gradient Borders**: Standardized all cards on a semi-transparent surface style with thin `1.dp` linear gradient outlines that trace the containers with high-density visual depth.
-- **Dual-Flavored Release Pipeline**: Updated GitHub CI workflow to build, package, and release both the standard edition (`ExpressiveBox-standard.apk`) and the special edition (`ExpressiveBox-special.apk`) simultaneously.
+#### Performance Improvements
+- **Startup Lag Fixes**: Optimized DataStore flow collection, cached dynamic system color lookups (avoiding expensive reflection), and offloaded crash log file operations to background thread.
+- **Visual Revert**: Reverted custom animated background canvas, morphing connect button, rolling telemetry graph, and glassmorphic cards back to standard, high-performance Material 3 dashboard layout.
 
 ---
 

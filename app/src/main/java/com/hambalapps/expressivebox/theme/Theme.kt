@@ -16,12 +16,18 @@ import android.content.Context
 import com.hambalapps.expressivebox.Config
 import com.hambalapps.expressivebox.data.SettingsManager
 
+private val colorCache = java.util.concurrent.ConcurrentHashMap<String, Color>()
+
 private fun getSystemColor(context: Context, name: String, fallback: Color): Color {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val cached = colorCache[name]
+        if (cached != null) return cached
         val resId = context.resources.getIdentifier(name, "color", "android")
         if (resId != 0) {
             try {
-                return Color(context.getColor(resId))
+                val color = Color(context.getColor(resId))
+                colorCache[name] = color
+                return color
             } catch (e: Exception) {
                 // Ignore
             }

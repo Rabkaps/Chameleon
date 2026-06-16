@@ -207,7 +207,7 @@ fun MainScreen(
             }
             "v${pInfo.versionName}"
         } catch (e: Exception) {
-            "v1.0.64"
+            "v1.0.65"
         }
     }
 
@@ -1311,13 +1311,7 @@ fun MainScreen(
         }
     }
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        DynamicMeshBackground(
-            vpnState = vpnState,
-            modifier = Modifier.fillMaxSize()
-        )
         Scaffold(
-            containerColor = Color.Transparent,
             topBar = {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     CenterAlignedTopAppBar(
@@ -1381,17 +1375,6 @@ fun MainScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val primaryColor = MaterialTheme.colorScheme.primary
-                val tertiaryColor = MaterialTheme.colorScheme.tertiary
-                val isDark = isSystemInDarkTheme()
-                val cardBorderBrush = remember(isDark, primaryColor, tertiaryColor) {
-                    Brush.linearGradient(
-                        colors = listOf(
-                            primaryColor.copy(alpha = if (isDark) 0.35f else 0.25f),
-                            tertiaryColor.copy(alpha = if (isDark) 0.15f else 0.10f)
-                        )
-                    )
-                }
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // 1. Connection Dashboard Card
@@ -1422,18 +1405,13 @@ fun MainScreen(
                                 .offset(x = 28.dp, y = (-22).dp)
                         )
                     }
-                    Card(
+                    OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .border(
-                                width = 1.dp,
-                                brush = cardBorderBrush,
-                                shape = ExpressiveCardShape
-                            ),
+                            .padding(horizontal = 16.dp),
                         shape = ExpressiveCardShape,
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f)
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -1550,19 +1528,14 @@ fun MainScreen(
                 var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
                 var isTestingPings by remember { mutableStateOf(false) }
 
-                Card(
+                ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .animateContentSize()
-                        .border(
-                            width = 1.dp,
-                            brush = cardBorderBrush,
-                            shape = ExpressiveCardShape
-                        ),
+                        .animateContentSize(),
                     shape = ExpressiveCardShape,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f)
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -2114,12 +2087,6 @@ fun MainScreen(
                                 }
                             }
 
-                            val listEntranceFinished = remember(filteredServerList) { mutableStateOf(false) }
-                            LaunchedEffect(filteredServerList) {
-                                kotlinx.coroutines.delay(300)
-                                listEntranceFinished.value = true
-                            }
-
                             if (filteredServerList.isEmpty()) {
                                 Box(
                                     modifier = Modifier
@@ -2135,18 +2102,14 @@ fun MainScreen(
                                 }
                             } else {
                                 Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                    ),
+                                    shape = ExpressiveCardShape,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 280.dp)
-                                        .border(
-                                            width = 1.dp,
-                                            brush = cardBorderBrush,
-                                            shape = ExpressiveCardShape
-                                        ),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isDark) 0.2f else 0.15f)
-                                    ),
-                                    shape = ExpressiveCardShape
                                 ) {
                                     LazyColumn(
                                         modifier = Modifier
@@ -2171,31 +2134,9 @@ fun MainScreen(
                                                 else -> MaterialTheme.colorScheme.onTertiaryContainer
                                             }
                                             
-                                            val itemVisible = remember(serverLink) { mutableStateOf(listEntranceFinished.value) }
-                                            if (!listEntranceFinished.value) {
-                                                LaunchedEffect(serverLink) {
-                                                    kotlinx.coroutines.delay(index.coerceAtMost(8) * 15L)
-                                                    itemVisible.value = true
-                                                }
-                                            }
-                                            val alphaState = animateFloatAsState(
-                                                targetValue = if (itemVisible.value) 1f else 0f,
-                                                animationSpec = tween(durationMillis = 200),
-                                                label = "alpha"
-                                            )
-                                            val translationYState = animateFloatAsState(
-                                                targetValue = if (itemVisible.value) 0f else 15f,
-                                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-                                                label = "translationY"
-                                            )
-
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .graphicsLayer {
-                                                        this.alpha = if (listEntranceFinished.value) 1f else alphaState.value
-                                                        this.translationY = if (listEntranceFinished.value) 0f else translationYState.value
-                                                    }
                                                     .clip(ExpressiveButtonShape)
                                                     .background(
                                                         if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -2519,7 +2460,6 @@ fun MainScreen(
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
-    }
     }
 
     // Import Profile Dialog
@@ -2986,9 +2926,6 @@ fun ConnectionDashboard(
     var uploadSpeed by remember { mutableStateOf("0.0 KB/s") }
     var pingTime by remember { mutableStateOf("0 ms") }
     
-    val downloadHistory = remember { mutableStateListOf<Float>() }
-    val uploadHistory = remember { mutableStateListOf<Float>() }
-    
     LaunchedEffect(state) {
         if (state == "CONNECTED") {
             pingTime = "${(35..65).random()} ms"
@@ -3034,11 +2971,6 @@ fun ConnectionDashboard(
                     
                     downloadSpeed = formatSpeed(dlSpeed)
                     uploadSpeed = formatSpeed(ulSpeed)
-                    
-                    downloadHistory.add(dlSpeed.toFloat())
-                    uploadHistory.add(ulSpeed.toFloat())
-                    if (downloadHistory.size > 20) downloadHistory.removeAt(0)
-                    if (uploadHistory.size > 20) uploadHistory.removeAt(0)
                 }
                 
                 lastRx = currentRx
@@ -3053,31 +2985,16 @@ fun ConnectionDashboard(
             downloadSpeed = "0.0 KB/s"
             uploadSpeed = "0.0 KB/s"
             pingTime = "--"
-            downloadHistory.clear()
-            uploadHistory.clear()
         }
     }
 
-    val isDark = isSystemInDarkTheme()
-    val cardBorderBrush = Brush.linearGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.35f else 0.25f),
-            MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.15f else 0.10f)
-        )
-    )
-
-    Card(
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .border(
-                width = 1.dp,
-                brush = cardBorderBrush,
-                shape = ExpressiveCardShape
-            ),
+            .padding(horizontal = 16.dp),
         shape = ExpressiveCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f)
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
@@ -3101,49 +3018,6 @@ fun ConnectionDashboard(
                     )
                 }
 
-                // Breathing glow ring when connected
-                if (state == "CONNECTED") {
-                    val infiniteTransition = rememberInfiniteTransition(label = "ButtonGlowTransition")
-                    val breathingGlowScale by infiniteTransition.animateFloat(
-                        initialValue = 1.0f,
-                        targetValue = 1.25f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(2500, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "GlowRingScale"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(116.dp)
-                            .graphicsLayer {
-                                scaleX = breathingGlowScale
-                                scaleY = breathingGlowScale
-                                alpha = (1.25f - breathingGlowScale) * 3f
-                            }
-                            .border(
-                                width = 2.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
-                            )
-                    )
-                }
-
-                val targetCornerRadius = when (state) {
-                    "CONNECTING" -> 28.dp
-                    "DISCONNECTING" -> 28.dp
-                    else -> 100.dp
-                }
-                val cornerRadius by animateDpAsState(
-                    targetValue = targetCornerRadius,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    ),
-                    label = "ButtonCornerMorph"
-                )
-                val buttonShape = RoundedCornerShape(cornerRadius)
-
                 // Main connect button
                 Box(
                     contentAlignment = Alignment.Center,
@@ -3154,13 +3028,13 @@ fun ConnectionDashboard(
                             scaleY = scaleFactor
                         }
                         .pressScaleEffect()
-                        .clip(buttonShape)
+                        .clip(CircleShape)
                         .background(buttonColor)
                         .clickable { onConnectToggle() }
                         .border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = buttonShape
+                            shape = CircleShape
                         )
                 ) {
                     if (state == "CONNECTING") {
@@ -3220,19 +3094,6 @@ fun ConnectionDashboard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-
-            // Rolling Speed Graph
-            if (state == "CONNECTED" && downloadHistory.isNotEmpty()) {
-                SpeedRollingGraph(
-                    downloadHistory = downloadHistory,
-                    uploadHistory = uploadHistory,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .padding(horizontal = 8.dp)
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
             // Live Network Stats Box
             Row(
@@ -3836,26 +3697,14 @@ private fun LogsConsole(
         }
     }
     
-    val isDark = isSystemInDarkTheme()
-    val cardBorderBrush = Brush.linearGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.35f else 0.25f),
-            MaterialTheme.colorScheme.tertiary.copy(alpha = if (isDark) 0.15f else 0.10f)
-        )
-    )
-    Card(
+    OutlinedCard(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .height(280.dp)
-            .border(
-                width = 1.dp,
-                brush = cardBorderBrush,
-                shape = ExpressiveCardShape
-            ),
-        shape = ExpressiveCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.75f else 0.85f)
+            .height(280.dp),
+        shape = RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp, topEnd = 8.dp, bottomStart = 8.dp), // ExpressiveCardShape
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -3940,185 +3789,3 @@ private fun LogsConsole(
         }
     }
 }
-
-@Composable
-fun DynamicMeshBackground(
-    vpnState: String,
-    modifier: Modifier = Modifier
-) {
-    val isDark = isSystemInDarkTheme()
-    val baseColor = MaterialTheme.colorScheme.background
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-    val tertiaryColor = MaterialTheme.colorScheme.tertiary
-    
-    val infiniteTransition = rememberInfiniteTransition(label = "MeshTransition")
-    
-    val blob1X by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(12000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob1X"
-    )
-    val blob1Y by infiniteTransition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob1Y"
-    )
-    val blob2X by infiniteTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 0.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(18000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob2X"
-    )
-    val blob2Y by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(14000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "blob2Y"
-    )
-
-    val breathingScale by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "breathingScale"
-    )
-
-    val color1 = remember(isDark, primaryColor) {
-        if (isDark) primaryColor.copy(alpha = 0.12f) else primaryColor.copy(alpha = 0.08f)
-    }
-    val color2 = remember(isDark, tertiaryColor) {
-        if (isDark) tertiaryColor.copy(alpha = 0.10f) else tertiaryColor.copy(alpha = 0.06f)
-    }
-
-    val stateGlowAlpha by animateFloatAsState(
-        targetValue = if (vpnState == "CONNECTED" || vpnState == "CONNECTING") 1f else 0f,
-        animationSpec = tween(1000),
-        label = "stateGlowAlpha"
-    )
-
-    Canvas(modifier = modifier.background(baseColor)) {
-        val width = size.width
-        val height = size.height
-        
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color1, Color.Transparent),
-                center = Offset(width * blob1X, height * blob1Y),
-                radius = width * 0.7f
-            )
-        )
-        
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(color2, Color.Transparent),
-                center = Offset(width * blob2X, height * blob2Y),
-                radius = width * 0.6f
-            )
-        )
-
-        if (stateGlowAlpha > 0.01f) {
-            val centerColor = if (vpnState == "CONNECTED") primaryColor else secondaryColor
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        centerColor.copy(alpha = 0.18f * stateGlowAlpha),
-                        Color.Transparent
-                    ),
-                    center = Offset(width / 2f, height * 0.35f),
-                    radius = width * 0.45f * breathingScale
-                )
-            )
-        }
-    }
-}
-
-@Composable
-fun SpeedRollingGraph(
-    downloadHistory: List<Float>,
-    uploadHistory: List<Float>,
-    modifier: Modifier = Modifier
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-    
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        if (downloadHistory.size < 2) return@Canvas
-        
-        val maxVal = (downloadHistory.maxOrNull() ?: 1f).coerceAtLeast(uploadHistory.maxOrNull() ?: 1f).coerceAtLeast(1024f)
-        
-        fun drawSpeedPath(history: List<Float>, strokeColor: Color, fillColor: Color) {
-            val path = Path()
-            val stepX = width / (history.size - 1)
-            
-            val firstY = height - (history[0] / maxVal) * (height * 0.8f)
-            path.moveTo(0f, firstY)
-            
-            for (i in 1 until history.size) {
-                val x = i * stepX
-                val y = height - (history[i] / maxVal) * (height * 0.8f)
-                
-                val prevX = (i - 1) * stepX
-                val prevY = height - (history[i - 1] / maxVal) * (height * 0.8f)
-                val controlX1 = prevX + stepX / 2f
-                val controlY1 = prevY
-                val controlX2 = prevX + stepX / 2f
-                val controlY2 = y
-                path.cubicTo(controlX1, controlY1, controlX2, controlY2, x, y)
-            }
-            
-            drawPath(
-                path = path,
-                color = strokeColor,
-                style = Stroke(width = 2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            )
-            
-            val fillPath = Path().apply {
-                addPath(path)
-                lineTo(width, height)
-                lineTo(0f, height)
-                close()
-            }
-            drawPath(
-                path = fillPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(fillColor, Color.Transparent),
-                    startY = 0f,
-                    endY = height
-                )
-            )
-        }
-        
-        drawSpeedPath(
-            history = downloadHistory,
-            strokeColor = primaryColor,
-            fillColor = primaryColor.copy(alpha = 0.15f)
-        )
-        
-        drawSpeedPath(
-            history = uploadHistory,
-            strokeColor = secondaryColor,
-            fillColor = secondaryColor.copy(alpha = 0.08f)
-        )
-    }
-}
-

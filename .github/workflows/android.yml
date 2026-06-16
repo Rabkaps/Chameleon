@@ -30,10 +30,10 @@ jobs:
     - name: Grant Execute Permission to Gradlew
       run: chmod +x gradlew
 
-    - name: Build APKs (Standard)
-      run: ./gradlew assembleStandardDebug 
+    - name: Build APK (Standard Only)
+      run: ./gradlew assembleStandardDebug
 
-    - name: Rename APKs for Release
+    - name: Rename APK for Release
       run: |
         cp app/build/outputs/apk/standard/debug/app-standard-debug.apk ExpressiveBox-standard.apk
 

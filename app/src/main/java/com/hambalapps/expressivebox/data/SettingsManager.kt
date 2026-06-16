@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.hambalapps.expressivebox.Config
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -113,31 +114,31 @@ class SettingsManager(private val context: Context) {
             lastSubsUpdateTime = prefs[LAST_SUBS_UPDATE_TIME] ?: 0L,
             deserializedSubscriptions = deserialized
         )
-    }
+    }.distinctUntilChanged()
 
-    val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }
-    val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }
-    val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://1.1.1.1/dns-query" }
-    val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }
-    val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: false }
-    val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }
-    val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }
-    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }
-    val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }
-    val subscriptionUrl: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_URL] ?: "" }
-    val subscriptionServers: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_SERVERS] ?: "" }
-    val subscriptionList: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_LIST] ?: "" }
-    val activeSubId: Flow<String> = context.dataStore.data.map { it[ACTIVE_SUB_ID] ?: "" }
-    val showLiveNotification: Flow<Boolean> = context.dataStore.data.map { it[SHOW_LIVE_NOTIFICATION] ?: true }
-    val splitTunnelingEnabled: Flow<Boolean> = context.dataStore.data.map { it[SPLIT_TUNNELING_ENABLED] ?: false }
-    val splitTunnelingMode: Flow<String> = context.dataStore.data.map { it[SPLIT_TUNNELING_MODE] ?: "bypass" }
-    val splitTunnelingApps: Flow<Set<String>> = context.dataStore.data.map { it[SPLIT_TUNNELING_APPS] ?: emptySet() }
-    val manualServers: Flow<String> = context.dataStore.data.map { it[MANUAL_SERVERS] ?: "" }
-    val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: "cherry_blossom" }
-    val bypassLan: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_LAN] ?: true }
-    val autoUpdateSubs: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_SUBS] ?: true }
-    val autoUpdateInterval: Flow<String> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL] ?: "daily" }
-    val lastSubsUpdateTime: Flow<Long> = context.dataStore.data.map { it[LAST_SUBS_UPDATE_TIME] ?: 0L }
+    val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }.distinctUntilChanged()
+    val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
+    val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://1.1.1.1/dns-query" }.distinctUntilChanged()
+    val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
+    val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: false }.distinctUntilChanged()
+    val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
+    val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
+    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
+    val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }.distinctUntilChanged()
+    val subscriptionUrl: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_URL] ?: "" }.distinctUntilChanged()
+    val subscriptionServers: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_SERVERS] ?: "" }.distinctUntilChanged()
+    val subscriptionList: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_LIST] ?: "" }.distinctUntilChanged()
+    val activeSubId: Flow<String> = context.dataStore.data.map { it[ACTIVE_SUB_ID] ?: "" }.distinctUntilChanged()
+    val showLiveNotification: Flow<Boolean> = context.dataStore.data.map { it[SHOW_LIVE_NOTIFICATION] ?: true }.distinctUntilChanged()
+    val splitTunnelingEnabled: Flow<Boolean> = context.dataStore.data.map { it[SPLIT_TUNNELING_ENABLED] ?: false }.distinctUntilChanged()
+    val splitTunnelingMode: Flow<String> = context.dataStore.data.map { it[SPLIT_TUNNELING_MODE] ?: "bypass" }.distinctUntilChanged()
+    val splitTunnelingApps: Flow<Set<String>> = context.dataStore.data.map { it[SPLIT_TUNNELING_APPS] ?: emptySet() }.distinctUntilChanged()
+    val manualServers: Flow<String> = context.dataStore.data.map { it[MANUAL_SERVERS] ?: "" }.distinctUntilChanged()
+    val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: "cherry_blossom" }.distinctUntilChanged()
+    val bypassLan: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_LAN] ?: true }.distinctUntilChanged()
+    val autoUpdateSubs: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_SUBS] ?: true }.distinctUntilChanged()
+    val autoUpdateInterval: Flow<String> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL] ?: "daily" }.distinctUntilChanged()
+    val lastSubsUpdateTime: Flow<Long> = context.dataStore.data.map { it[LAST_SUBS_UPDATE_TIME] ?: 0L }.distinctUntilChanged()
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }

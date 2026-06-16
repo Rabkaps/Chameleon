@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.65] - 2026-06-16
+
+### Fixed
+- **Performance / Lag**: Resolved startup stutter and lags by optimizing DataStore flows in `SettingsManager` to ignore redundant duplicate emissions, caching system accent color lookups in `Theme` (bypassing expensive reflection), and moving crash log reading off the main thread to a background coroutine.
+- **Design Revert**: Reverted the mesh background, corner-morphing button, rolling speed graph, and glassmorphic cards back to standard lightweight Material 3 style to restore snappy performance and clean interface.
+- **Drawer Version**: Correctly displays version `v1.0.65`.
+
 ## [1.0.64] - 2026-06-16
 
 ### Added

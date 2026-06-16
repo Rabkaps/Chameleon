@@ -20,6 +20,7 @@ import com.hambalapps.expressivebox.data.SettingsManager
 import com.google.android.material.color.DynamicColors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -50,11 +51,13 @@ class MainActivity : ComponentActivity() {
       originalHandler?.uncaughtException(thread, throwable)
     }
 
-    // Check for previous crash log and load it
-    try {
-      VpnServiceWrapper.checkAndLoadCrashLog(applicationContext)
-    } catch (e: Exception) {
-      // Ignore
+    // Check for previous crash log and load it on background thread
+    lifecycleScope.launch(Dispatchers.IO) {
+      try {
+        VpnServiceWrapper.checkAndLoadCrashLog(applicationContext)
+      } catch (e: Exception) {
+        // Ignore
+      }
     }
 
     // Request notification permission on Android 13+ (API 33+)
