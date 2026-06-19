@@ -17,8 +17,14 @@ android {
         targetSdk = 36
         versionCode = 150
         versionName = "1.5.0"
-        ndk {
-            abiFilters += "arm64-v8a"
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 
