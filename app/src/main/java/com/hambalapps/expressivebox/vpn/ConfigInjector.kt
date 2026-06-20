@@ -212,19 +212,11 @@ object ConfigInjector {
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
         servers.put(bootstrapServer)
 
-        if (settings.vpnMode == "gaming") {
-            val radarServer = if (settings.vpnModeTunnelGames) {
-                createDnsServer("dns-radar", "185.51.200.2", "proxy")
-            } else {
-                createDnsServer("dns-radar", "tcp://185.51.200.2", null)
-            }
-            val electroServer = if (settings.vpnModeTunnelGames) {
-                createDnsServer("dns-electro", "78.157.42.100", "proxy")
-            } else {
-                createDnsServer("dns-electro", "tcp://78.157.42.100", null)
-            }
+        if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
+            val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
+            val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
             servers.put(radarServer)
-            servers.put(electroServer)
+            servers.put(shecanServer)
         }
 
         dns.put("servers", servers)
@@ -275,7 +267,7 @@ object ConfigInjector {
         if (settings.vpnMode == "gaming") {
             val gameDnsRule = JSONObject().apply {
                 put("domain", JSONArray(gamingDomains))
-                put("server", "dns-radar")
+                put("server", if (settings.vpnModeTunnelGames) "dns-secure" else "dns-radar")
             }
             rules.put(gameDnsRule)
         }
@@ -454,6 +446,14 @@ object ConfigInjector {
                 put("outbound", if (settings.vpnModeTunnelGames) "proxy" else "direct")
             }
             newRules.put(gameRouteRule)
+
+            if (!settings.vpnModeTunnelGames) {
+                val udpDirectRule = JSONObject().apply {
+                    put("network", JSONArray(listOf("udp")))
+                    put("outbound", "direct")
+                }
+                newRules.put(udpDirectRule)
+            }
         } else if (settings.vpnMode == "ai_bypass") {
             val aiRouteRule = JSONObject().apply {
                 put("domain", JSONArray(aiBypassDomains))
