@@ -9,9 +9,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import com.hambalapps.expressivebox.desktop.data.SettingsManager
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialExpressiveTheme
-import androidx.compose.material3.MotionScheme
 import androidx.compose.ui.graphics.toArgb
 
 private val DarkColorScheme = darkColorScheme(
@@ -506,7 +503,6 @@ private fun generateColorSchemeFromSeed(seed: Color, isDark: Boolean): androidx.
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ExpressiveBoxTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -573,10 +569,9 @@ fun ExpressiveBoxTheme(
         }
     }
 
-    MaterialExpressiveTheme(
+    MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        motionScheme = remember { MotionScheme.expressive() },
         content = content
     )
 }

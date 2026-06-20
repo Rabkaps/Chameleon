@@ -85,6 +85,8 @@ fun serializeSubscriptions(subs: List<Subscription>): String {
 }
 
 class SettingsManager {
+    val settings: StateFlow<UserSettings> get() = Companion.settings
+
     companion object {
         private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
         private val settingsFile = File(System.getProperty("user.home"), ".expressivebox_settings.json")
