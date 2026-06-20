@@ -226,8 +226,8 @@ object ConfigInjector {
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
-            val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
-            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", "direct")
+            val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
+            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", null)
             servers.put(radarServer)
             servers.put(shecanServer)
             servers.put(secureServer)
@@ -240,7 +240,6 @@ object ConfigInjector {
         }
 
         dns.put("servers", servers)
-        dns.put("reverse_mapping", true)
 
         val rules = JSONArray()
 
@@ -322,6 +321,18 @@ object ConfigInjector {
                 newRules.put(r)
             }
         }
+
+        // Add sniffing rule at the beginning
+        val sniffRule = JSONObject().apply {
+            put("action", "sniff")
+            if (settings.vpnMode == "gaming") {
+                put("sniffer", JSONArray(listOf("http", "tls")))
+                put("network", "tcp")
+            } else {
+                put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
+            }
+        }
+        newRules.put(sniffRule)
 
         // Add standard DNS routing rule (required for internal DNS hijacking)
         val dnsRule = JSONObject().apply {
@@ -484,18 +495,6 @@ object ConfigInjector {
             }
             newRules.put(aiRouteRule)
         }
-
-        // Add sniffing rule at the end to avoid latency/spikes on direct/game traffic
-        val sniffRule = JSONObject().apply {
-            put("action", "sniff")
-            if (settings.vpnMode == "gaming") {
-                put("sniffer", JSONArray(listOf("http", "tls")))
-                put("network", "tcp")
-            } else {
-                put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
-            }
-        }
-        newRules.put(sniffRule)
 
         route.put("rules", newRules)
         route.put("auto_detect_interface", true)
