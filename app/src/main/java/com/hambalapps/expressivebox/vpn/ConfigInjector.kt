@@ -226,8 +226,8 @@ object ConfigInjector {
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
-            val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
-            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", null)
+            val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
+            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", "direct")
             servers.put(radarServer)
             servers.put(shecanServer)
             servers.put(secureServer)
@@ -240,6 +240,12 @@ object ConfigInjector {
         }
 
         dns.put("servers", servers)
+
+        val cacheOptions = JSONObject().apply {
+            put("enabled", true)
+            put("max_ttl", 86400)
+        }
+        dns.put("cache_options", cacheOptions)
 
         val rules = JSONArray()
 
@@ -321,13 +327,6 @@ object ConfigInjector {
                 newRules.put(r)
             }
         }
-
-        // Add sniffing rule at the beginning
-        val sniffRule = JSONObject().apply {
-            put("action", "sniff")
-            put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
-        }
-        newRules.put(sniffRule)
 
         // Add standard DNS routing rule (required for internal DNS hijacking)
         val dnsRule = JSONObject().apply {
@@ -474,6 +473,15 @@ object ConfigInjector {
                 put("outbound", if (settings.vpnModeTunnelGames) "proxy" else "direct")
             }
             newRules.put(gameRouteRule)
+
+            // If direct gaming mode (tunneling switched off), route all UDP traffic directly
+            if (!settings.vpnModeTunnelGames) {
+                val directUdpRule = JSONObject().apply {
+                    put("network", "udp")
+                    put("outbound", "direct")
+                }
+                newRules.put(directUdpRule)
+            }
         } else if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val aiRouteRule = JSONObject().apply {
                 put("domain", JSONArray(aiBypassDomains))
@@ -481,6 +489,22 @@ object ConfigInjector {
             }
             newRules.put(aiRouteRule)
         }
+
+        // Add sniffing rule at the end to avoid latency/spikes on direct/game traffic
+        val sniffRule = JSONObject().apply {
+            put("action", "sniff")
+            if (settings.vpnMode == "gaming") {
+                put("sniffer", JSONArray(listOf("http", "tls")))
+                put("network", "tcp")
+                put("timeout", "100ms")
+                put("route_only", true)
+            } else {
+                put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
+                put("timeout", "300ms")
+                put("route_only", true)
+            }
+        }
+        newRules.put(sniffRule)
 
         route.put("rules", newRules)
         route.put("auto_detect_interface", true)
