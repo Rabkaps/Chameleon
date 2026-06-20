@@ -213,8 +213,8 @@ object ConfigInjector {
         servers.put(bootstrapServer)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
-            val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
-            val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
+            val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
+            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", null)
             servers.put(radarServer)
             servers.put(shecanServer)
         }
@@ -446,14 +446,6 @@ object ConfigInjector {
                 put("outbound", if (settings.vpnModeTunnelGames) "proxy" else "direct")
             }
             newRules.put(gameRouteRule)
-
-            if (!settings.vpnModeTunnelGames) {
-                val udpDirectRule = JSONObject().apply {
-                    put("network", JSONArray(listOf("udp")))
-                    put("outbound", "direct")
-                }
-                newRules.put(udpDirectRule)
-            }
         } else if (settings.vpnMode == "ai_bypass") {
             val aiRouteRule = JSONObject().apply {
                 put("domain", JSONArray(aiBypassDomains))
