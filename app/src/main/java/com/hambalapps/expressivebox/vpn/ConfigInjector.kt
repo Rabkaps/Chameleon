@@ -166,6 +166,21 @@ object ConfigInjector {
             if (path.length > 1) {
                 serverObj.put("path", path)
             }
+            if (hostPart == "10.202.10.10") {
+                val tls = JSONObject().apply {
+                    put("enabled", true)
+                    put("server_name", "radar.game")
+                    put("insecure", true)
+                }
+                serverObj.put("tls", tls)
+            } else if (hostPart == "185.51.200.2" || hostPart == "178.22.122.100") {
+                val tls = JSONObject().apply {
+                    put("enabled", true)
+                    put("server_name", "shecan.ir")
+                    put("insecure", true)
+                }
+                serverObj.put("tls", tls)
+            }
         } else if (trimmed.startsWith("tls://")) {
             serverObj.put("type", "tls")
             serverObj.put("server", trimmed.substringAfter("tls://"))
@@ -213,8 +228,8 @@ object ConfigInjector {
         servers.put(bootstrapServer)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
-            val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
-            val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", null)
+            val radarServer = createDnsServer("dns-radar", "https://10.202.10.10/dns-query", null)
+            val shecanServer = createDnsServer("dns-shecan", "https://185.51.200.2/dns-query", null)
             servers.put(radarServer)
             servers.put(shecanServer)
         }
@@ -454,15 +469,6 @@ object ConfigInjector {
                 put("outbound", if (settings.vpnModeTunnelGames) "proxy" else "direct")
             }
             newRules.put(gameRouteRule)
-
-            if (!settings.vpnModeTunnelGames) {
-                // In Direct Mode (not tunneling games), route all UDP traffic directly to bypass the proxy and lower ping
-                val udpDirectRule = JSONObject().apply {
-                    put("network", "udp")
-                    put("outbound", "direct")
-                }
-                newRules.put(udpDirectRule)
-            }
         } else if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val aiRouteRule = JSONObject().apply {
                 put("domain", JSONArray(aiBypassDomains))
