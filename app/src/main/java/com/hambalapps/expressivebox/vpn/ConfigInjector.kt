@@ -240,12 +240,7 @@ object ConfigInjector {
         }
 
         dns.put("servers", servers)
-
-        val cacheOptions = JSONObject().apply {
-            put("enabled", true)
-            put("max_ttl", 86400)
-        }
-        dns.put("cache_options", cacheOptions)
+        dns.put("reverse_mapping", true)
 
         val rules = JSONArray()
 
@@ -496,12 +491,8 @@ object ConfigInjector {
             if (settings.vpnMode == "gaming") {
                 put("sniffer", JSONArray(listOf("http", "tls")))
                 put("network", "tcp")
-                put("timeout", "100ms")
-                put("route_only", true)
             } else {
                 put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
-                put("timeout", "300ms")
-                put("route_only", true)
             }
         }
         newRules.put(sniffRule)
