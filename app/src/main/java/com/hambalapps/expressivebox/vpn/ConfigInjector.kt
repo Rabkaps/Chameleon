@@ -644,7 +644,7 @@ object ConfigInjector {
 
                 // Flow control (only allowed for standard TCP transport in sing-box)
                 val type = queryParams["type"]
-                if (type != "ws" && type != "grpc" && type != "kcp" && type != "mkcp" && type != "httpupgrade") {
+                if (type == null || type.equals("tcp", ignoreCase = true)) {
                     queryParams["flow"]?.let { outbound.put("flow", it) }
                 }
 
