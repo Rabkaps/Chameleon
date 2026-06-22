@@ -644,7 +644,9 @@ object ConfigInjector {
 
                 // Flow control (only allowed for standard TCP transport in sing-box)
                 val type = queryParams["type"]
-                if (type == null || type.equals("tcp", ignoreCase = true)) {
+                val headerType = queryParams["headerType"] ?: queryParams["header_type"]
+                val isStandardTcp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType != "http"
+                if (isStandardTcp) {
                     queryParams["flow"]?.let { outbound.put("flow", it) }
                 }
 
@@ -832,7 +834,13 @@ object ConfigInjector {
                         } else if (net == "httpupgrade" || net == "http" || net == "h2") {
                             transport.put("path", if (path.startsWith("/")) path else "/$path")
                             if (fallbackHost.isNotEmpty()) {
-                                transport.put("host", fallbackHost)
+                                if (net == "http" || net == "h2") {
+                                    val hostArray = JSONArray()
+                                    hostArray.put(fallbackHost)
+                                    transport.put("host", hostArray)
+                                } else {
+                                    transport.put("host", fallbackHost)
+                                }
                                 val headers = JSONObject()
                                 headers.put("Host", fallbackHost)
                                 transport.put("headers", headers)
@@ -1039,8 +1047,19 @@ object ConfigInjector {
     }
 
     private fun injectTransport(outbound: JSONObject, queryParams: Map<String, String>, defaultHost: String) {
-        val type = queryParams["type"] ?: return
-        if (type == "ws" || type == "grpc" || type == "httpupgrade" || type == "xhttp" || type == "kcp" || type == "mkcp") {
+        var type = queryParams["type"]
+        val headerType = queryParams["headerType"] ?: queryParams["header_type"]
+        
+        // Map type=tcp & headerType=http to http transport, and type=h2 to http transport
+        if ((type == null || type == "tcp") && headerType == "http") {
+            type = "http"
+        } else if (type == "h2") {
+            type = "http"
+        }
+        
+        if (type == null) return
+        
+        if (type == "ws" || type == "grpc" || type == "httpupgrade" || type == "xhttp" || type == "kcp" || type == "mkcp" || type == "http") {
             val transport = JSONObject()
             if (type == "kcp" || type == "mkcp") {
                 transport.put("type", "kcp")
@@ -1056,6 +1075,11 @@ object ConfigInjector {
                     headers.put("Host", host)
                     transport.put("headers", headers)
                 }
+                val edVal = queryParams["ed"]?.toIntOrNull()
+                if (edVal != null) {
+                    transport.put("max_early_data", edVal)
+                    transport.put("early_data_header_name", "Sec-Raw-Websocket-Protocol")
+                }
             } else if (type == "grpc") {
                 val serviceName = queryParams["serviceName"] ?: queryParams["service_name"] ?: ""
                 transport.put("service_name", serviceName)
@@ -1069,16 +1093,30 @@ object ConfigInjector {
                     headers.put("Host", host)
                     transport.put("headers", headers)
                 }
+            } else if (type == "http") {
+                val path = queryParams["path"] ?: "/"
+                transport.put("path", path)
+                val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
+                if (host.isNotEmpty()) {
+                    val hostArray = JSONArray()
+                    hostArray.put(host)
+                    transport.put("host", hostArray)
+                    val headers = JSONObject()
+                    headers.put("Host", host)
+                    transport.put("headers", headers)
+                }
+                val method = queryParams["method"] ?: "GET"
+                transport.put("method", method)
             } else if (type == "kcp" || type == "mkcp") {
                 val seed = queryParams["seed"]
                 if (seed != null && seed.isNotEmpty()) {
                     transport.put("seed", seed)
                 }
-                val headerType = queryParams["headerType"] ?: queryParams["header_type"] ?: queryParams["header"]
-                if (headerType != null && headerType.isNotEmpty()) {
-                    transport.put("header_type", headerType)
+                val hType = queryParams["headerType"] ?: queryParams["header_type"] ?: queryParams["header"]
+                if (hType != null && hType.isNotEmpty()) {
+                    transport.put("header_type", hType)
                     val headerObj = JSONObject()
-                    headerObj.put("type", headerType)
+                    headerObj.put("type", hType)
                     transport.put("header", headerObj)
                 }
             } else if (type == "xhttp") {
@@ -1177,7 +1215,13 @@ object ConfigInjector {
                                 }
                             } else if (transType == "httpupgrade" || transType == "http") {
                                 if (!transport.has("host")) {
-                                    transport.put("host", server)
+                                    if (transType == "http") {
+                                        val hostArray = JSONArray()
+                                        hostArray.put(server)
+                                        transport.put("host", hostArray)
+                                    } else {
+                                        transport.put("host", server)
+                                    }
                                 }
                                 var headers = transport.optJSONObject("headers")
                                 if (headers == null) {
