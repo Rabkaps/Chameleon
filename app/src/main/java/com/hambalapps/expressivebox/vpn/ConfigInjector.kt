@@ -223,10 +223,8 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapServer = JSONObject().apply {
-            put("tag", "dns-bootstrap")
-            put("type", "local")
-        }
+        val bootstrapDnsAddr = if (settings.bypassIran) "https://178.22.122.100/dns-query" else "https://1.1.1.1/dns-query"
+        val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
@@ -517,8 +515,10 @@ object ConfigInjector {
             if (tag == "proxy" && settings.enableFragment) {
                 injectFragmentToOutbound(out, settings)
             }
-            // Inject multiplexing if enabled (disabled in gaming mode for lower latencies)
-            if (tag == "proxy" && settings.enableMux && settings.vpnMode != "gaming") {
+            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality configs)
+            val tls = out.optJSONObject("tls")
+            val isReality = tls?.has("reality") ?: false
+            if (tag == "proxy" && settings.enableMux && settings.vpnMode != "gaming" && !isReality) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -526,7 +526,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (tag == "proxy" && settings.vpnMode == "gaming") {
+            } else if (tag == "proxy" && (settings.vpnMode == "gaming" || isReality)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
