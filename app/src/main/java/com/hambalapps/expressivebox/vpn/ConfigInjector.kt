@@ -223,8 +223,10 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapDnsAddr = if (settings.bypassIran) "tcp://178.22.122.100" else "tcp://1.1.1.1"
-        val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
+        val bootstrapServer = JSONObject().apply {
+            put("tag", "dns-bootstrap")
+            put("type", "local")
+        }
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
@@ -345,7 +347,8 @@ object ConfigInjector {
         // Block Private DNS (DoT) on port 853 to force fallback to hijacked standard DNS
         val blockDotRule = JSONObject().apply {
             put("port", JSONArray(listOf(853)))
-            put("outbound", "block")
+            put("action", "reject")
+            put("method", "default")
         }
         newRules.put(blockDotRule)
 
@@ -1188,7 +1191,7 @@ object ConfigInjector {
                 val server = outbound.optString("server")
                 if (server.isNotEmpty() && !isIpAddress(server)) {
                     android.util.Log.i("ExpressiveBox", "Pre-resolving proxy server domain: $server")
-                    val resolvedIp = resolveDomainWithFallbacks(server, settings.bypassIran)
+                    val resolvedIp = resolveDomainWithFallbacks(context, server, settings)
                     if (resolvedIp != null) {
                         android.util.Log.i("ExpressiveBox", "Proxy server $server successfully pre-resolved to IP: $resolvedIp")
                         
@@ -1248,13 +1251,27 @@ object ConfigInjector {
         }
     }
 
-    private fun resolveDomainWithFallbacks(domain: String, bypassIran: Boolean): String? {
-        val dnsServers = if (bypassIran) {
+    private fun resolveDomainWithFallbacks(context: Context, domain: String, settings: InjectorSettings): String? {
+        val systemDns = getSystemDnsServers(context)
+        val dnsServers = mutableListOf<String>()
+        
+        // Add system DNS first as it is always accessible locally
+        dnsServers.addAll(systemDns)
+        
+        if (settings.bypassIran) {
             // For Iran: prioritize clean domestic resolvers that bypass censorship/sanctions, then Cloudflare
-            listOf("185.51.200.2", "178.22.122.100", "10.202.10.10", "1.1.1.1", "8.8.8.8")
+            listOf("185.51.200.2", "178.22.122.100", "10.202.10.10", "1.1.1.1", "8.8.8.8").forEach { ip ->
+                if (!dnsServers.contains(ip)) {
+                    dnsServers.add(ip)
+                }
+            }
         } else {
             // Outside Iran: prioritize Cloudflare, Google, then Shecan
-            listOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "178.22.122.100")
+            listOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "178.22.122.100").forEach { ip ->
+                if (!dnsServers.contains(ip)) {
+                    dnsServers.add(ip)
+                }
+            }
         }
 
         for (dnsServer in dnsServers) {
