@@ -78,20 +78,20 @@ object ConfigInjector {
             // Sanitize invalid port fields in outbounds and inbounds
             sanitizePortFields(configJson)
 
-            // 1. Inject or update inbounds (TUN interface)
+            // 1. Pre-resolve proxy server domains to raw IPs to bypass DNS hijacking
+            preResolveProxyServers(context, configJson, settings)
+
+            // 2. Inject or update inbounds (TUN interface)
             injectTunInbound(configJson, settings)
 
-            // 2. Inject or update DNS (Split DNS rules)
+            // 3. Inject or update DNS (Split DNS rules)
             injectDns(context, configJson, settings)
 
-            // 3. Inject or update Routing Rules (Iran bypass)
+            // 4. Inject or update Routing Rules (Iran bypass)
             injectRouting(context, configJson, settings)
 
-            // 4. Inject direct/block outbounds
+            // 5. Inject direct/block outbounds
             injectOutbounds(configJson, settings)
-
-            // 5. Pre-resolve proxy server domains to raw IPs to bypass DNS hijacking
-            preResolveProxyServers(context, configJson, settings)
 
             return configJson.toString(2)
         } catch (e: Exception) {

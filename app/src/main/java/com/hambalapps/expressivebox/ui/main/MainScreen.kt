@@ -4395,6 +4395,23 @@ private fun LogsConsole(
             vpnLogs.split("\n")
         }
     }
+
+    var selectedFilter by remember { mutableStateOf("ALL") }
+    val filteredLogLines = remember(logLines, selectedFilter) {
+        if (selectedFilter == "ALL") {
+            logLines
+        } else {
+            logLines.filter { line ->
+                when (selectedFilter) {
+                    "INFO" -> line.contains("INFO", ignoreCase = true)
+                    "WARN" -> line.contains("WARN", ignoreCase = true)
+                    "ERROR" -> line.contains("ERROR", ignoreCase = true) || line.contains("FATAL", ignoreCase = true)
+                    "DEBUG" -> line.contains("DEBUG", ignoreCase = true)
+                    else -> true
+                }
+            }
+        }
+    }
     
     val cardBackground = if (isDark) Color.Black else Color(0xFFF7F9FB)
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -4478,7 +4495,8 @@ private fun LogsConsole(
                     TextButton(
                         onClick = {
                             val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("VPN Logs", vpnLogs)
+                            val logsToCopy = filteredLogLines.joinToString("\n")
+                            val clip = android.content.ClipData.newPlainText("VPN Logs", logsToCopy)
                             clipboardManager.setPrimaryClip(clip)
                         },
                         modifier = Modifier.pressScaleEffect()
@@ -4495,12 +4513,48 @@ private fun LogsConsole(
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Log level filter chips
+            val filterLevels = listOf("ALL", "INFO", "WARN", "ERROR", "DEBUG")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                filterLevels.forEach { level ->
+                    val isSelected = selectedFilter == level
+                    val chipBg = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent
+                    val chipText = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    val chipBorder = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = chipBg,
+                        border = chipBorder,
+                        modifier = Modifier
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { selectedFilter = level }
+                    ) {
+                        Text(
+                            text = level,
+                            color = chipText,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             
             val listState = rememberLazyListState()
-            LaunchedEffect(logLines.size) {
-                if (logLines.isNotEmpty()) {
-                    listState.scrollToItem(logLines.size - 1)
+            LaunchedEffect(filteredLogLines.size) {
+                if (filteredLogLines.isNotEmpty()) {
+                    listState.scrollToItem(filteredLogLines.size - 1)
                 }
             }
             
@@ -4509,10 +4563,10 @@ private fun LogsConsole(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                if (logLines.isEmpty()) {
+                if (filteredLogLines.isEmpty()) {
                     item {
                         Text(
-                            text = stringResource(R.string.logs_placeholder),
+                            text = if (logLines.isEmpty()) stringResource(R.string.logs_placeholder) else "No logs match this filter",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
@@ -4520,7 +4574,7 @@ private fun LogsConsole(
                         )
                     }
                 } else {
-                    itemsIndexed(logLines) { index, line ->
+                    itemsIndexed(filteredLogLines) { index, line ->
                         Text(
                             text = line,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
