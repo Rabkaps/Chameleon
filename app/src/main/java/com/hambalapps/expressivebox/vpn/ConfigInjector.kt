@@ -676,7 +676,7 @@ object ConfigInjector {
                 }
 
                 // Transport
-                injectTransport(outbound, queryParams)
+                injectTransport(outbound, queryParams, host)
             } else if (scheme == "trojan") {
                 outbound.put("type", "trojan")
                 outbound.put("password", userInfo)
@@ -697,7 +697,7 @@ object ConfigInjector {
                 outbound.put("tls", tls)
 
                 // Transport
-                injectTransport(outbound, queryParams)
+                injectTransport(outbound, queryParams, host)
             } else if (scheme == "ss") {
                 outbound.put("type", "shadowsocks")
                 // Shadowsocks format: ss://base64(method:password)@host:port or ss://base64(method:password@host:port)
@@ -819,21 +819,22 @@ object ConfigInjector {
                         val transType = if (net == "h2") "http" else net
                         transport.put("type", transType)
 
+                        val fallbackHost = if (host.isNotEmpty()) host else add
                         if (net == "ws") {
                             transport.put("path", if (path.startsWith("/")) path else "/$path")
-                            if (host.isNotEmpty()) {
+                            if (fallbackHost.isNotEmpty()) {
                                 val headers = JSONObject()
-                                headers.put("Host", host)
+                                headers.put("Host", fallbackHost)
                                 transport.put("headers", headers)
                             }
                         } else if (net == "grpc") {
                             transport.put("service_name", path)
                         } else if (net == "httpupgrade" || net == "http" || net == "h2") {
                             transport.put("path", if (path.startsWith("/")) path else "/$path")
-                            if (host.isNotEmpty()) {
-                                transport.put("host", host)
+                            if (fallbackHost.isNotEmpty()) {
+                                transport.put("host", fallbackHost)
                                 val headers = JSONObject()
-                                headers.put("Host", host)
+                                headers.put("Host", fallbackHost)
                                 transport.put("headers", headers)
                             }
                         }
@@ -861,7 +862,7 @@ object ConfigInjector {
                         tls.put("utls", utls)
                         outbound.put("tls", tls)
                     }
-                    injectTransport(outbound, queryParams)
+                    injectTransport(outbound, queryParams, host)
                 }
             } else if (scheme == "hysteria2" || scheme == "hy2") {
                 outbound.put("type", "hysteria2")
@@ -1037,7 +1038,7 @@ object ConfigInjector {
         }
     }
 
-    private fun injectTransport(outbound: JSONObject, queryParams: Map<String, String>) {
+    private fun injectTransport(outbound: JSONObject, queryParams: Map<String, String>, defaultHost: String) {
         val type = queryParams["type"] ?: return
         if (type == "ws" || type == "grpc" || type == "httpupgrade" || type == "xhttp" || type == "kcp" || type == "mkcp") {
             val transport = JSONObject()
@@ -1049,8 +1050,8 @@ object ConfigInjector {
             if (type == "ws") {
                 val path = queryParams["path"] ?: "/"
                 transport.put("path", path)
-                val host = queryParams["host"] ?: queryParams["sni"]
-                if (host != null && host.isNotEmpty()) {
+                val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
+                if (host.isNotEmpty()) {
                     val headers = JSONObject()
                     headers.put("Host", host)
                     transport.put("headers", headers)
@@ -1061,8 +1062,8 @@ object ConfigInjector {
             } else if (type == "httpupgrade") {
                 val path = queryParams["path"] ?: "/"
                 transport.put("path", path)
-                val host = queryParams["host"] ?: queryParams["sni"]
-                if (host != null && host.isNotEmpty()) {
+                val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
+                if (host.isNotEmpty()) {
                     transport.put("host", host)
                     val headers = JSONObject()
                     headers.put("Host", host)
@@ -1083,7 +1084,7 @@ object ConfigInjector {
             } else if (type == "xhttp") {
                 val path = queryParams["path"] ?: "/"
                 transport.put("path", path)
-                val host = queryParams["host"] ?: queryParams["sni"] ?: ""
+                val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
                 if (host.isNotEmpty()) {
                     transport.put("host", host)
                 }
@@ -1158,6 +1159,38 @@ object ConfigInjector {
                         if (tls != null) {
                             if (tls.optBoolean("enabled", false) && !tls.has("server_name")) {
                                 tls.put("server_name", server)
+                            }
+                        }
+                        
+                        // Preserve original domain hostname in transport host / Host headers if pre-resolved
+                        val transport = outbound.optJSONObject("transport")
+                        if (transport != null) {
+                            val transType = transport.optString("type")
+                            if (transType == "ws") {
+                                var headers = transport.optJSONObject("headers")
+                                if (headers == null) {
+                                    headers = JSONObject()
+                                    transport.put("headers", headers)
+                                }
+                                if (!headers.has("Host")) {
+                                    headers.put("Host", server)
+                                }
+                            } else if (transType == "httpupgrade" || transType == "http") {
+                                if (!transport.has("host")) {
+                                    transport.put("host", server)
+                                }
+                                var headers = transport.optJSONObject("headers")
+                                if (headers == null) {
+                                    headers = JSONObject()
+                                    transport.put("headers", headers)
+                                }
+                                if (!headers.has("Host")) {
+                                    headers.put("Host", server)
+                                }
+                            } else if (transType == "xhttp") {
+                                if (!transport.has("host")) {
+                                    transport.put("host", server)
+                                }
                             }
                         }
                         
