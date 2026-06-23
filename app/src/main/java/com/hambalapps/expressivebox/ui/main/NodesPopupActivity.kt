@@ -94,7 +94,12 @@ class NodesPopupActivity : ComponentActivity() {
                         if (matchesTab) {
                             val name = ProxyNameResolver.getProxyName(serverLink, context)
                             if (name.contains(searchQuery, ignoreCase = true)) {
-                                ServerItem(link = serverLink, name = name, type = type)
+                                ServerItem(
+                                    link = serverLink,
+                                    name = name,
+                                    type = type,
+                                    transport = getTransportType(serverLink)
+                                )
                             } else null
                         } else null
                     }
@@ -324,6 +329,7 @@ class NodesPopupActivity : ComponentActivity() {
                                         val isSelected = activeProfile == serverLink
                                         val name = serverItem.name
                                         val type = serverItem.type
+                                        val transport = serverItem.transport
 
                                         val tagContainerColor = when (type) {
                                             "VLESS" -> MaterialTheme.colorScheme.primaryContainer
@@ -397,23 +403,41 @@ class NodesPopupActivity : ComponentActivity() {
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .clip(ExpressiveChipShape)
-                                                            .background(tagContainerColor)
-                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = type,
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = tagTextColor,
-                                                            fontWeight = FontWeight.Bold,
-                                                            maxLines = 1,
-                                                            softWrap = false
-                                                        )
-                                                    }
+                                                     Box(
+                                                         modifier = Modifier
+                                                             .clip(ExpressiveChipShape)
+                                                             .background(tagContainerColor)
+                                                             .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                     ) {
+                                                         Text(
+                                                             text = type,
+                                                             style = MaterialTheme.typography.labelSmall,
+                                                             color = tagTextColor,
+                                                             fontWeight = FontWeight.Bold,
+                                                             maxLines = 1,
+                                                             softWrap = false
+                                                         )
+                                                     }
 
-                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                     Spacer(modifier = Modifier.width(4.dp))
+
+                                                     Box(
+                                                         modifier = Modifier
+                                                             .clip(ExpressiveChipShape)
+                                                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                                                             .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                     ) {
+                                                         Text(
+                                                             text = transport,
+                                                             style = MaterialTheme.typography.labelSmall,
+                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                             fontWeight = FontWeight.Bold,
+                                                             maxLines = 1,
+                                                             softWrap = false
+                                                         )
+                                                     }
+
+                                                     Spacer(modifier = Modifier.width(8.dp))
 
                                                     val ping = pingsMap[serverLink]
                                                     if (ping != null) {

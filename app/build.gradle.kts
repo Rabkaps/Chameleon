@@ -157,6 +157,9 @@ dependencies {
 
   // ML Kit Barcode Scanning
   implementation("com.google.mlkit:barcode-scanning:17.2.0")
+
+  // ZXing for QR Code Generation
+  implementation("com.google.zxing:core:3.5.3")
 }
 
 tasks.configureEach {

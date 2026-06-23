@@ -77,6 +77,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import com.hambalapps.expressivebox.Config
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.text.selection.SelectionContainer
 
 // Expressive shapes defining Material 3 Expressive aesthetics
 private val ExpressiveCardShape = RoundedCornerShape(topStart = 32.dp, bottomEnd = 32.dp, topEnd = 8.dp, bottomStart = 8.dp)
@@ -187,10 +193,16 @@ fun MainScreen(
                         val updatedSubs = currentSubs.map { sub ->
                             if (!sub.url.startsWith("local://")) {
                                 try {
-                                    val fetched = fetchSubscription(sub.url)
-                                    if (fetched.isNotEmpty()) {
+                                    val result = fetchSubscription(sub.url)
+                                    if (result.servers.isNotEmpty()) {
                                         anyUpdated = true
-                                        sub.copy(servers = fetched.joinToString("\n"))
+                                        sub.copy(
+                                            servers = result.servers.joinToString("\n"),
+                                            upload = result.upload,
+                                            download = result.download,
+                                            total = result.total,
+                                            expire = result.expire
+                                        )
                                     } else {
                                         sub
                                     }
@@ -302,13 +314,19 @@ fun MainScreen(
             if (matchesTab) {
                 val name = ProxyNameResolver.getProxyName(serverLink, context)
                 if (name.contains(searchQuery, ignoreCase = true)) {
-                    ServerItem(link = serverLink, name = name, type = type)
+                    ServerItem(
+                        link = serverLink,
+                        name = name,
+                        type = type,
+                        transport = getTransportType(serverLink)
+                    )
                 } else null
             } else null
         }
     }
 
     var showLoveNoteDialog by remember { mutableStateOf(false) }
+    var qrCodeToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
     var currentLoveNote by remember { mutableStateOf("") }
     var scanResultCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var editingNodeLink by remember { mutableStateOf<String?>(null) }
@@ -1217,8 +1235,8 @@ fun MainScreen(
                                                                 isFetching = true
                                                                 fetchError = null
                                                                 try {
-                                                                    val servers = fetchSubscription(subUrlInput)
-                                                                    if (servers.isNotEmpty()) {
+                                                                    val result = fetchSubscription(subUrlInput)
+                                                                    if (result.servers.isNotEmpty()) {
                                                                         val domain = try {
                                                                             java.net.URI(subUrlInput).host ?: context.getString(R.string.custom_provider)
                                                                         } catch (e: Exception) {
@@ -1229,12 +1247,16 @@ fun MainScreen(
                                                                             id = java.util.UUID.randomUUID().toString(),
                                                                             name = name,
                                                                             url = subUrlInput.trim(),
-                                                                            servers = servers.joinToString("\n")
+                                                                            servers = result.servers.joinToString("\n"),
+                                                                            upload = result.upload,
+                                                                            download = result.download,
+                                                                            total = result.total,
+                                                                            expire = result.expire
                                                                         )
                                                                         val updatedList = subscriptions + newSub
                                                                         settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
                                                                         settingsManager.setActiveSubId(newSub.id)
-                                                                        settingsManager.setActiveProfile(servers[0])
+                                                                        settingsManager.setActiveProfile(result.servers[0])
                                                                         
                                                                         subUrlInput = ""
                                                                         subNameInput = ""
@@ -1390,6 +1412,53 @@ fun MainScreen(
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
+
+                                                        if (sub.total != null && sub.total > 0) {
+                                                            Spacer(modifier = Modifier.height(6.dp))
+                                                            val up = sub.upload ?: 0L
+                                                            val down = sub.download ?: 0L
+                                                            val used = up + down
+                                                            val total = sub.total
+                                                            val pct = (used.toDouble() / total.toDouble()).coerceIn(0.0, 1.0)
+                                                            
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                            ) {
+                                                                androidx.compose.material3.LinearProgressIndicator(
+                                                                    progress = pct.toFloat(),
+                                                                    modifier = Modifier
+                                                                        .weight(1f)
+                                                                        .height(4.dp)
+                                                                        .clip(CircleShape),
+                                                                    color = if (pct > 0.9) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                                                )
+                                                                Text(
+                                                                    text = "${(pct * 100).toInt()}%",
+                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                    fontSize = 9.sp,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            }
+                                                            Spacer(modifier = Modifier.height(2.dp))
+                                                            Text(
+                                                                text = "${formatBytes(used)} / ${formatBytes(total)}" + 
+                                                                    if (sub.expire != null && sub.expire > 0) " • Exp: ${formatExpiry(sub.expire)}" else "",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontSize = 9.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        } else if (sub.expire != null && sub.expire > 0) {
+                                                            Spacer(modifier = Modifier.height(2.dp))
+                                                            Text(
+                                                                text = "Expires: ${formatExpiry(sub.expire)}",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontSize = 9.sp,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                            )
+                                                        }
                                                     }
 
                                                     val isAutoConnectEnabled = autoConnectSubs.contains(sub.id)
@@ -1417,11 +1486,17 @@ fun MainScreen(
                                                                 scope.launch {
                                                                     refreshingSubs[sub.id] = true
                                                                     try {
-                                                                        val fetchedServers = fetchSubscription(sub.url)
-                                                                        if (fetchedServers.isNotEmpty()) {
+                                                                        val result = fetchSubscription(sub.url)
+                                                                        if (result.servers.isNotEmpty()) {
                                                                             val updatedList = subscriptions.map {
                                                                                 if (it.id == sub.id) {
-                                                                                    it.copy(servers = fetchedServers.joinToString("\n"))
+                                                                                    it.copy(
+                                                                                        servers = result.servers.joinToString("\n"),
+                                                                                        upload = result.upload,
+                                                                                        download = result.download,
+                                                                                        total = result.total,
+                                                                                        expire = result.expire
+                                                                                    )
                                                                                 } else {
                                                                                     it
                                                                                 }
@@ -1429,7 +1504,7 @@ fun MainScreen(
                                                                             settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
                                                                             if (isActive) {
                                                                                 val currentActive = activeProfile
-                                                                                val sList = fetchedServers.map { it.trim() }.filter { it.isNotEmpty() }
+                                                                                val sList = result.servers.map { it.trim() }.filter { it.isNotEmpty() }
                                                                                 if (sList.isNotEmpty() && !sList.contains(currentActive)) {
                                                                                     settingsManager.setActiveProfile(sList[0])
                                                                                     if (vpnState == "CONNECTED") {
@@ -1464,6 +1539,40 @@ fun MainScreen(
                                                                     modifier = Modifier.size(20.dp)
                                                                 )
                                                             }
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                val sendIntent = Intent().apply {
+                                                                    action = Intent.ACTION_SEND
+                                                                    putExtra(Intent.EXTRA_TEXT, sub.url)
+                                                                    type = "text/plain"
+                                                                }
+                                                                val shareIntent = Intent.createChooser(sendIntent, null)
+                                                                context.startActivity(shareIntent)
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Share,
+                                                                contentDescription = "Share",
+                                                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
+                                                        }
+
+                                                        IconButton(
+                                                            onClick = {
+                                                                qrCodeToShare = Pair(sub.name, sub.url)
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.QrCode,
+                                                                contentDescription = "QR Share",
+                                                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                                modifier = Modifier.size(18.dp)
+                                                            )
                                                         }
                                                     }
                                                     
@@ -1738,6 +1847,7 @@ fun MainScreen(
                                                     val isSelected = activeProfile == serverLink
                                                     val name = serverItem.name
                                                     val type = serverItem.type
+                                                    val transport = serverItem.transport
                                                     
                                                     val tagContainerColor = when (type) {
                                                         "VLESS" -> MaterialTheme.colorScheme.primaryContainer
@@ -1825,6 +1935,24 @@ fun MainScreen(
                                                                         softWrap = false
                                                                     )
                                                                 }
+
+                                                                Spacer(modifier = Modifier.width(4.dp))
+
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .clip(ExpressiveChipShape)
+                                                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = transport,
+                                                                        style = MaterialTheme.typography.labelSmall,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        maxLines = 1,
+                                                                        softWrap = false
+                                                                    )
+                                                                }
                                                                 
                                                                 Spacer(modifier = Modifier.width(8.dp))
  
@@ -1889,6 +2017,20 @@ fun MainScreen(
                                                                 Icon(
                                                                     imageVector = Icons.Default.Share,
                                                                     contentDescription = stringResource(R.string.share_config),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                            }
+ 
+                                                            IconButton(
+                                                                onClick = {
+                                                                    qrCodeToShare = Pair(name, serverLink)
+                                                                },
+                                                                modifier = Modifier.size(36.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.QrCode,
+                                                                    contentDescription = "QR Share",
                                                                     tint = MaterialTheme.colorScheme.primary,
                                                                     modifier = Modifier.size(18.dp)
                                                                 )
@@ -2568,8 +2710,8 @@ fun MainScreen(
                                 if (isImportingSubscription) {
                                     isImportFetching = true
                                     try {
-                                        val servers = fetchSubscription(trimmedImport)
-                                        if (servers.isNotEmpty()) {
+                                        val result = fetchSubscription(trimmedImport)
+                                        if (result.servers.isNotEmpty()) {
                                             val domain = try {
                                                 java.net.URI(trimmedImport).host ?: context.getString(R.string.custom_provider)
                                             } catch (e: Exception) {
@@ -2579,12 +2721,16 @@ fun MainScreen(
                                                 id = java.util.UUID.randomUUID().toString(),
                                                 name = domain,
                                                 url = trimmedImport,
-                                                servers = servers.joinToString("\n")
+                                                servers = result.servers.joinToString("\n"),
+                                                upload = result.upload,
+                                                download = result.download,
+                                                total = result.total,
+                                                expire = result.expire
                                             )
                                             val updatedList = subscriptions + newSub
                                             settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
                                             settingsManager.setActiveSubId(newSub.id)
-                                            settingsManager.setActiveProfile(servers[0])
+                                            settingsManager.setActiveProfile(result.servers[0])
                                             
                                             if (vpnState == "CONNECTED") {
                                                 startVpnService(context)
@@ -3114,6 +3260,15 @@ fun MainScreen(
         )
     }
 
+    val currentQrShare = qrCodeToShare
+    if (currentQrShare != null) {
+        QrCodeShareDialog(
+            title = currentQrShare.first,
+            content = currentQrShare.second,
+            onDismiss = { qrCodeToShare = null }
+        )
+    }
+
     AnimatedVisibility(
         visible = isNodesExpanded,
         enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400, easing = FastOutSlowInEasing)) + fadeIn(),
@@ -3314,6 +3469,7 @@ fun MainScreen(
                             val isSelected = activeProfile == serverLink
                             val name = serverItem.name
                             val type = serverItem.type
+                            val transport = serverItem.transport
 
                             val tagContainerColor = when (type) {
                                 "VLESS" -> MaterialTheme.colorScheme.primaryContainer
@@ -3402,6 +3558,24 @@ fun MainScreen(
                                             )
                                         }
 
+                                        Spacer(modifier = Modifier.width(6.dp))
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(ExpressiveChipShape)
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = transport,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = FontWeight.Bold,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                        }
+
                                         Spacer(modifier = Modifier.width(12.dp))
 
                                         val ping = pingsMap[serverLink]
@@ -3466,6 +3640,20 @@ fun MainScreen(
                                         Icon(
                                             imageVector = Icons.Default.Share,
                                             contentDescription = stringResource(R.string.share_config),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            qrCodeToShare = Pair(name, serverLink)
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.QrCode,
+                                            contentDescription = "QR Share",
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -3933,21 +4121,71 @@ private fun stopVpnService(context: Context) {
     context.startService(intent)
 }
 
-private suspend fun fetchSubscription(urlStr: String): List<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    val url = java.net.URL(urlStr)
-    val connection = url.openConnection() as java.net.HttpURLConnection
-    connection.connectTimeout = 15000
-    connection.readTimeout = 15000
-    connection.requestMethod = "GET"
-    connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
-    connection.connect()
-    val responseCode = connection.responseCode
-    if (responseCode == 200) {
-        val rawData = connection.inputStream.bufferedReader().use { it.readText() }
-        val decoded = tryBase64Decode(rawData) ?: rawData
-        decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-    } else {
-        emptyList()
+private data class FetchResult(
+    val servers: List<String>,
+    val upload: Long? = null,
+    val download: Long? = null,
+    val total: Long? = null,
+    val expire: Long? = null
+)
+
+private data class SubscriptionUserInfo(
+    val upload: Long?,
+    val download: Long?,
+    val total: Long?,
+    val expire: Long?
+)
+
+private fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
+    if (header == null) return null
+    var upload: Long? = null
+    var download: Long? = null
+    var total: Long? = null
+    var expire: Long? = null
+    header.split(";").forEach { part ->
+        val pair = part.split("=")
+        if (pair.size == 2) {
+            val key = pair[0].trim().lowercase()
+            val value = pair[1].trim().toLongOrNull()
+            when (key) {
+                "upload" -> upload = value
+                "download" -> download = value
+                "total" -> total = value
+                "expire" -> expire = value
+            }
+        }
+    }
+    return SubscriptionUserInfo(upload, download, total, expire)
+}
+
+private suspend fun fetchSubscription(urlStr: String): FetchResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    try {
+        val url = java.net.URL(urlStr)
+        val connection = url.openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 15000
+        connection.readTimeout = 15000
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
+        connection.connect()
+        val responseCode = connection.responseCode
+        if (responseCode == 200) {
+            val rawData = connection.inputStream.bufferedReader().use { it.readText() }
+            val decoded = tryBase64Decode(rawData) ?: rawData
+            val servers = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            val userInfoHeader = connection.getHeaderField("subscription-userinfo") ?: connection.getHeaderField("Subscription-Userinfo")
+            val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
+            FetchResult(
+                servers = servers,
+                upload = parsedInfo?.upload,
+                download = parsedInfo?.download,
+                total = parsedInfo?.total,
+                expire = parsedInfo?.expire
+            )
+        } else {
+            FetchResult(emptyList())
+        }
+    } catch (e: Exception) {
+        FetchResult(emptyList())
     }
 }
 
@@ -3980,8 +4218,82 @@ fun Modifier.pressScaleEffect(): Modifier {
 data class ServerItem(
     val link: String,
     val name: String,
-    val type: String
+    val type: String,
+    val transport: String
 )
+
+fun getTransportType(link: String): String {
+    val scheme = link.substringBefore("://").lowercase()
+    if (scheme == "vmess") {
+        val base64Part = link.substringAfter("vmess://")
+        val decoded = tryBase64Decode(base64Part)
+        if (decoded != null && decoded.startsWith("{")) {
+            try {
+                val json = org.json.JSONObject(decoded)
+                val net = json.optString("net").lowercase()
+                if (net.isNotEmpty()) {
+                    return when (net) {
+                        "tcp" -> "TCP"
+                        "ws" -> "WebSocket"
+                        "h2" -> "HTTP/2"
+                        "http" -> "HTTP"
+                        "grpc" -> "gRPC"
+                        "httpupgrade" -> "HTTPUpgrade"
+                        "kcp" -> "mKCP"
+                        "mkcp" -> "mKCP"
+                        "quic" -> "QUIC"
+                        else -> net.uppercase()
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    } else {
+        try {
+            val uri = java.net.URI(link)
+            val query = uri.rawQuery
+            if (query != null) {
+                val params = query.split("&").associate {
+                    val parts = it.split("=")
+                    val key = parts[0].lowercase()
+                    val value = if (parts.size > 1) java.net.URLDecoder.decode(parts[1], "UTF-8") else ""
+                    key to value
+                }
+                
+                val type = params["type"]?.lowercase()
+                if (type != null && type.isNotEmpty()) {
+                    return when (type) {
+                        "tcp" -> {
+                            val headerType = params["headerType"] ?: params["header_type"]
+                            if (headerType == "http") "HTTP" else "TCP"
+                        }
+                        "ws" -> "WebSocket"
+                        "grpc" -> "gRPC"
+                        "httpupgrade" -> "HTTPUpgrade"
+                        "xhttp" -> "xHTTP"
+                        "kcp" -> "mKCP"
+                        "mkcp" -> "mKCP"
+                        "quic" -> "QUIC"
+                        else -> type.uppercase()
+                    }
+                }
+                val plugin = params["plugin"]
+                if (plugin != null && plugin.isNotEmpty()) {
+                    return plugin.substringBefore(";").uppercase()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+    return when (scheme) {
+        "hysteria", "hysteria2", "hy2" -> "Hysteria"
+        "tuic" -> "TUIC"
+        "ssh" -> "SSH"
+        else -> "TCP"
+    }
+}
 
 private class WaveCache(points: Int) {
     val cosAngle = FloatArray(points + 1)
@@ -4588,3 +4900,120 @@ private fun LogsConsole(
         }
     }
 }
+
+fun generateQrCode(text: String, size: Int): Bitmap? {
+    return try {
+        val writer = QRCodeWriter()
+        val bitMatrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size)
+        val width = bitMatrix.width
+        val height = bitMatrix.height
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bitmap
+    } catch (e: Exception) {
+        null
+    }
+}
+
+@Composable
+fun QrCodeShareDialog(
+    title: String,
+    content: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val qrBitmap = remember(content) {
+        generateQrCode(content, 512)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (qrBitmap != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(220.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .padding(12.dp)
+                    ) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "QR Code",
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Failed to generate QR Code",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                SelectionContainer {
+                    Text(
+                        text = content,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val sendIntent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_TEXT, content)
+                        type = "text/plain"
+                    }
+                    val shareIntent = Intent.createChooser(sendIntent, null)
+                    context.startActivity(shareIntent)
+                }
+            ) {
+                Text(stringResource(R.string.share_config))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel)) // or R.string.close or cancel
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+
+fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+    return String.format(java.util.Locale.US, "%.2f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
+fun formatExpiry(expirySecs: Long): String {
+    if (expirySecs <= 0) return ""
+    val ms = expirySecs * 1000L
+    val date = java.util.Date(ms)
+    val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+    return format.format(date)
+}
+

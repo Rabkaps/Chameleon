@@ -46,6 +46,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
+
 
 @Composable
 fun QrScannerScreen(
@@ -208,7 +212,18 @@ fun CameraPreviewScanner(
 
         // Setup CameraX Lifecycle
         LaunchedEffect(cameraProviderFuture) {
-            val cameraProvider = cameraProviderFuture.get()
+            val cameraProvider = suspendCancellableCoroutine<ProcessCameraProvider> { continuation ->
+                cameraProviderFuture.addListener(
+                    {
+                        try {
+                            continuation.resume(cameraProviderFuture.get())
+                        } catch (e: Exception) {
+                            continuation.resumeWithException(e)
+                        }
+                    },
+                    ContextCompat.getMainExecutor(context)
+                )
+            }
             val preview = Preview.Builder().build().also {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
