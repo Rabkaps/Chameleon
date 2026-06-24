@@ -158,7 +158,7 @@ fun CameraPreviewScanner(
     }
     val scanner = remember { BarcodeScanning.getClient(options) }
 
-    DisposableEffect(activeCameraProvider) {
+    DisposableEffect(Unit) {
         onDispose {
             try {
                 activeCameraProvider?.unbindAll()
@@ -262,20 +262,26 @@ fun CameraPreviewScanner(
                                 imageProxy.imageInfo.rotationDegrees
                             )
                             
-                            scanner.process(image)
-                                .addOnSuccessListener { barcodes ->
-                                    for (barcode in barcodes) {
-                                        val rawValue = barcode.rawValue
-                                        if (rawValue != null && isScanningActive) {
-                                            isScanningActive = false
-                                            onScanSuccess(rawValue)
-                                            break
+                            try {
+                                scanner.process(image)
+                                    .addOnSuccessListener { barcodes ->
+                                        for (barcode in barcodes) {
+                                            val rawValue = barcode.rawValue
+                                            if (rawValue != null && isScanningActive) {
+                                                isScanningActive = false
+                                                ContextCompat.getMainExecutor(context).execute {
+                                                    onScanSuccess(rawValue)
+                                                }
+                                                break
+                                            }
                                         }
                                     }
-                                }
-                                .addOnCompleteListener {
-                                    imageProxy.close()
-                                }
+                                    .addOnCompleteListener {
+                                        imageProxy.close()
+                                    }
+                            } catch (e: Exception) {
+                                imageProxy.close()
+                            }
                         } else {
                             imageProxy.close()
                         }
