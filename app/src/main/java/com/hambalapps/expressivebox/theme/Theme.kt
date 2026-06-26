@@ -549,33 +549,31 @@ fun ExpressiveBoxTheme(
 
         // Material Expressive Color & Surface Strategy
         if (isDark) {
-            val bgRatio = if (cardStyle == "pastel") 0.06f else 0.0f
-            val svRatio = if (cardStyle == "pastel") 0.20f else 0.12f
-            val sclowestRatio = if (cardStyle == "pastel") 0.04f else 0.0f
-            val sclowRatio = if (cardStyle == "pastel") 0.10f else 0.06f
-            val scRatio = if (cardStyle == "pastel") 0.16f else 0.10f
-            val schighRatio = if (cardStyle == "pastel") 0.24f else 0.16f
-            val schighestRatio = if (cardStyle == "pastel") 0.32f else 0.22f
+            val svRatio = if (cardStyle == "pastel") 0.35f else 0.12f
+            val sclowRatio = if (cardStyle == "pastel") 0.20f else 0.06f
+            val scRatio = if (cardStyle == "pastel") 0.28f else 0.10f
+            val schighRatio = if (cardStyle == "pastel") 0.38f else 0.16f
+            val schighestRatio = if (cardStyle == "pastel") 0.48f else 0.22f
             
             baseScheme.copy(
-                background = tintColor(Color.Black, baseScheme.primary, ratio = bgRatio),
-                surface = tintColor(Color.Black, baseScheme.primary, ratio = bgRatio),
+                background = Color.Black,
+                surface = Color.Black,
                 surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = svRatio),
-                surfaceContainerLowest = tintColor(Color.Black, baseScheme.primary, ratio = sclowestRatio),
+                surfaceContainerLowest = Color.Black,
                 surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = sclowRatio),
                 surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = scRatio),
                 surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = schighRatio),
                 surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = schighestRatio)
             )
         } else {
-            val bgRatio = if (cardStyle == "pastel") 0.12f else 0.05f
-            val surfaceRatio = if (cardStyle == "pastel") 0.12f else 0.05f
-            val svRatio = if (cardStyle == "pastel") 0.16f else 0.08f
-            val sclowestRatio = if (cardStyle == "pastel") 0.06f else 0.02f
-            val sclowRatio = if (cardStyle == "pastel") 0.10f else 0.06f
-            val scRatio = if (cardStyle == "pastel") 0.14f else 0.09f
-            val schighRatio = if (cardStyle == "pastel") 0.18f else 0.12f
-            val schighestRatio = if (cardStyle == "pastel") 0.24f else 0.16f
+            val bgRatio = if (cardStyle == "pastel") 0.28f else 0.05f
+            val surfaceRatio = if (cardStyle == "pastel") 0.28f else 0.05f
+            val svRatio = if (cardStyle == "pastel") 0.32f else 0.08f
+            val sclowestRatio = if (cardStyle == "pastel") 0.12f else 0.02f
+            val sclowRatio = if (cardStyle == "pastel") 0.20f else 0.06f
+            val scRatio = if (cardStyle == "pastel") 0.26f else 0.09f
+            val schighRatio = if (cardStyle == "pastel") 0.32f else 0.12f
+            val schighestRatio = if (cardStyle == "pastel") 0.40f else 0.16f
             
             baseScheme.copy(
                 background = tintColor(Color.White, baseScheme.primary, ratio = bgRatio),
