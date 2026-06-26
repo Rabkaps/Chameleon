@@ -549,42 +549,65 @@ fun ExpressiveBoxTheme(
 
         // Material Expressive Color & Surface Strategy
         if (isDark) {
-            val svRatio = if (cardStyle == "pastel") 0.35f else 0.12f
-            val sclowRatio = if (cardStyle == "pastel") 0.20f else 0.06f
-            val scRatio = if (cardStyle == "pastel") 0.28f else 0.10f
-            val schighRatio = if (cardStyle == "pastel") 0.38f else 0.16f
-            val schighestRatio = if (cardStyle == "pastel") 0.48f else 0.22f
-            
-            baseScheme.copy(
-                background = Color.Black,
-                surface = Color.Black,
-                surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = svRatio),
-                surfaceContainerLowest = Color.Black,
-                surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = sclowRatio),
-                surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = scRatio),
-                surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = schighRatio),
-                surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = schighestRatio)
-            )
+            if (cardStyle == "pastel") {
+                baseScheme.copy(
+                    background = Color.Black,
+                    surface = Color.Black,
+                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.35f),
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.20f),
+                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.28f),
+                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.38f),
+                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.48f),
+                    primaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    onPrimaryContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.90f),
+                    secondaryContainer = tintColor(Color.Black, baseScheme.secondary, ratio = 0.55f),
+                    onSecondaryContainer = tintColor(Color.White, baseScheme.secondary, ratio = 0.90f),
+                    tertiaryContainer = tintColor(Color.Black, baseScheme.tertiary, ratio = 0.55f),
+                    onTertiaryContainer = tintColor(Color.White, baseScheme.tertiary, ratio = 0.90f)
+                )
+            } else {
+                baseScheme.copy(
+                    background = Color.Black,
+                    surface = Color.Black,
+                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.10f),
+                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.16f),
+                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.22f)
+                )
+            }
         } else {
-            val bgRatio = if (cardStyle == "pastel") 0.28f else 0.05f
-            val surfaceRatio = if (cardStyle == "pastel") 0.28f else 0.05f
-            val svRatio = if (cardStyle == "pastel") 0.32f else 0.08f
-            val sclowestRatio = if (cardStyle == "pastel") 0.12f else 0.02f
-            val sclowRatio = if (cardStyle == "pastel") 0.20f else 0.06f
-            val scRatio = if (cardStyle == "pastel") 0.26f else 0.09f
-            val schighRatio = if (cardStyle == "pastel") 0.32f else 0.12f
-            val schighestRatio = if (cardStyle == "pastel") 0.40f else 0.16f
-            
-            baseScheme.copy(
-                background = tintColor(Color.White, baseScheme.primary, ratio = bgRatio),
-                surface = tintColor(Color.White, baseScheme.primary, ratio = surfaceRatio),
-                surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = svRatio),
-                surfaceContainerLowest = tintColor(Color.White, baseScheme.primary, ratio = sclowestRatio),
-                surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = sclowRatio),
-                surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = scRatio),
-                surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = schighRatio),
-                surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = schighestRatio)
-            )
+            if (cardStyle == "pastel") {
+                baseScheme.copy(
+                    background = tintColor(Color.White, baseScheme.primary, ratio = 0.04f),
+                    surface = tintColor(Color.White, baseScheme.primary, ratio = 0.04f),
+                    surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerLowest = Color.White,
+                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.03f),
+                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.09f),
+                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.12f),
+                    primaryContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.60f),
+                    onPrimaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.85f),
+                    secondaryContainer = tintColor(Color.White, baseScheme.secondary, ratio = 0.60f),
+                    onSecondaryContainer = tintColor(Color.Black, baseScheme.secondary, ratio = 0.85f),
+                    tertiaryContainer = tintColor(Color.White, baseScheme.tertiary, ratio = 0.60f),
+                    onTertiaryContainer = tintColor(Color.Black, baseScheme.tertiary, ratio = 0.85f)
+                )
+            } else {
+                baseScheme.copy(
+                    background = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
+                    surface = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
+                    surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerLowest = tintColor(Color.White, baseScheme.primary, ratio = 0.02f),
+                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.09f),
+                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.16f)
+                )
+            }
         }
     }
 

@@ -25,3 +25,9 @@ local.properties
 /.claude/
 *.apk
 /app/release.keystore
+
+# Local Warp API registration outputs
+warp_response.json
+app/warp_response.json
+.kotlin/
+

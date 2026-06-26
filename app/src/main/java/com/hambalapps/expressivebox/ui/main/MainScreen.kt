@@ -393,9 +393,11 @@ fun MainScreen(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh) {
-        if (cardStyle == "solid" || cardStyle == "pastel") {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer) {
+        if (cardStyle == "solid") {
             SolidColor(surfaceContainerHigh)
+        } else if (cardStyle == "pastel") {
+            SolidColor(primaryContainer)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -4319,9 +4321,11 @@ fun ConnectionDashboard(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh) {
-        if (cardStyle == "solid" || cardStyle == "pastel") {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer) {
+        if (cardStyle == "solid") {
             SolidColor(surfaceContainerHigh)
+        } else if (cardStyle == "pastel") {
+            SolidColor(primaryContainer)
         } else {
             val colors = if (isDark) {
                 listOf(
