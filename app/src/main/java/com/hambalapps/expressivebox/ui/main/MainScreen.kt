@@ -3002,7 +3002,9 @@ fun MainScreen(
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             listOf(
