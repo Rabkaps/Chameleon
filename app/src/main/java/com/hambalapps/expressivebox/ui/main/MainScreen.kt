@@ -414,11 +414,11 @@ fun MainScreen(
         }
     }
 
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer) {
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, primaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainer)
         } else if (cardStyle == "pastel") {
-            SolidColor(secondaryContainer)
+            SolidColor(primaryContainer)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -435,11 +435,11 @@ fun MainScreen(
         }
     }
 
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer) {
+    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerLow)
         } else if (cardStyle == "pastel") {
-            SolidColor(tertiaryContainer)
+            SolidColor(primaryContainer)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -5228,6 +5228,7 @@ private fun LogsConsole(
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
     val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
     val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
         if (cardStyle == "solid" || cardStyle == "pastel") {
@@ -5241,11 +5242,11 @@ private fun LogsConsole(
         }
     }
 
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer) {
+    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerLow)
         } else if (cardStyle == "pastel") {
-            SolidColor(tertiaryContainer)
+            SolidColor(primaryContainer)
         } else {
             val colors = if (isDark) {
                 listOf(
