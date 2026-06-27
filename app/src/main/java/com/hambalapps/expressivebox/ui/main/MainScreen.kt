@@ -2269,7 +2269,7 @@ fun MainScreen(
                                                 modifier = listModifier,
                                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                itemsIndexed(filteredServerList, key = { _, item -> item.link }) { index, serverItem ->
+                                                itemsIndexed(filteredServerList, key = { index, item -> "${item.link}_$index" }) { index, serverItem ->
                                                     val serverLink = serverItem.link
                                                     val isSelected = activeProfile == serverLink
                                                     val name = serverItem.name
@@ -4032,7 +4032,7 @@ fun MainScreen(
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(filteredServerList, key = { _, item -> item.link }) { index, serverItem ->
+                        itemsIndexed(filteredServerList, key = { index, item -> "${item.link}_$index" }) { index, serverItem ->
                             val serverLink = serverItem.link
                             val isSelected = activeProfile == serverLink
                             val name = serverItem.name
