@@ -122,8 +122,8 @@ fun VibrantCardContent(
                 
                 secondary = onPrimaryContainer,
                 onSecondary = cardBackground,
-                secondaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
-                onSecondaryContainer = onPrimaryContainer,
+                secondaryContainer = onPrimaryContainer,
+                onSecondaryContainer = cardBackground,
                 
                 tertiary = onPrimaryContainer,
                 onTertiary = cardBackground,
@@ -137,6 +137,7 @@ fun VibrantCardContent(
                 
                 outline = onPrimaryContainer.copy(alpha = 0.45f),
                 outlineVariant = onPrimaryContainer.copy(alpha = 0.25f),
+                onError = Color.White,
                 
                 surfaceContainerLowest = onPrimaryContainer.copy(alpha = 0.05f),
                 surfaceContainerLow = onPrimaryContainer.copy(alpha = 0.10f),
@@ -1296,6 +1297,7 @@ fun MainScreen(
                                             containerColor = Color.Transparent
                                         )
                                     ) {
+                                        VibrantCardContent(settings.cardStyle) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -1330,6 +1332,7 @@ fun MainScreen(
                                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                                 )
                                             }
+                                        }
                                         }
                                     }
                                 }
@@ -1586,7 +1589,7 @@ fun MainScreen(
                                                         .fillMaxWidth()
                                                         .clip(ExpressiveButtonShape)
                                                         .background(
-                                                            if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                                            if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
                                                             else Color.Transparent
                                                         )
                                                         .clickable {
@@ -2234,6 +2237,8 @@ fun MainScreen(
                                                         Text(
                                                             text = title, 
                                                             fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (selectedTab == index) MaterialTheme.colorScheme.primary
+                                                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                             fontSize = 13.sp
                                                         ) 
                                                     }
@@ -2288,12 +2293,12 @@ fun MainScreen(
                                                             .fillMaxWidth()
                                                             .clip(ExpressiveButtonShape)
                                                             .background(
-                                                                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
                                                                 else Color.Transparent
                                                             )
                                                             .border(
                                                                 width = 1.dp,
-                                                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
+                                                                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
                                                                 shape = ExpressiveButtonShape
                                                             )
                                                             .clickable {
@@ -2392,7 +2397,7 @@ fun MainScreen(
                                                                     Text(
                                                                         text = if (isTimeout) "Timeout" else "${ping} ms",
                                                                         style = MaterialTheme.typography.labelSmall,
-                                                                        color = pingColor,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                         fontWeight = FontWeight.Bold,
                                                                         maxLines = 1,
                                                                         softWrap = false
@@ -3936,6 +3941,8 @@ fun MainScreen(
                                 Text(
                                     text = title,
                                     fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selectedTab == index) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -3996,12 +4003,12 @@ fun MainScreen(
                                     .fillMaxWidth()
                                     .clip(ExpressiveButtonShape)
                                     .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
                                         else Color.Transparent
                                     )
                                     .border(
                                         width = 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
                                         shape = ExpressiveButtonShape
                                     )
                                     .clickable {
@@ -4268,7 +4275,7 @@ fun ConnectionDashboard(
         when (s) {
             "CONNECTED" -> MaterialTheme.colorScheme.onPrimary
             "CONNECTING" -> MaterialTheme.colorScheme.onSecondary
-            "DISCONNECTING" -> MaterialTheme.colorScheme.onSecondary
+            "DISCONNECTING" -> MaterialTheme.colorScheme.onError
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
     }
