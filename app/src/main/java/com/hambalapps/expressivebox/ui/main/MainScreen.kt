@@ -4786,8 +4786,8 @@ fun BandwidthSpeedGraph(
                 color = primaryColor,
                 style = Stroke(
                     width = 2.dp.toPx(),
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    join = androidx.compose.ui.graphics.StrokeJoin.Round
                 )
             )
 

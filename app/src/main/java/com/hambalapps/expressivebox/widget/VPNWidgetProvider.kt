@@ -43,7 +43,7 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     val showLiveNotification = settingsManager.showLiveNotification.first()
                     
                     val toggleIntent = Intent(context, VpnServiceWrapper::class.java).apply {
-                        action = if (lastVpnState == "CONNECTED") {
+                        this.action = if (lastVpnState == "CONNECTED") {
                             VpnServiceWrapper.ACTION_STOP
                         } else {
                             VpnServiceWrapper.ACTION_START
