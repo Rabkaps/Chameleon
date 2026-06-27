@@ -105,6 +105,30 @@ private fun compositeColor(foreground: Color, background: Color): Color {
     )
 }
 
+@Composable
+fun VibrantCardContent(
+    cardStyle: String,
+    content: @Composable () -> Unit
+) {
+    if (cardStyle == "vibrant") {
+        val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                primary = onPrimaryContainer,
+                secondary = onPrimaryContainer,
+                onSurface = onPrimaryContainer,
+                onSurfaceVariant = onPrimaryContainer.copy(alpha = 0.70f),
+                surfaceVariant = onPrimaryContainer.copy(alpha = 0.15f),
+                outline = onPrimaryContainer.copy(alpha = 0.30f),
+                outlineVariant = onPrimaryContainer.copy(alpha = 0.20f)
+            ),
+            content = content
+        )
+    } else {
+        content()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen(
@@ -793,7 +817,8 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(20.dp)) {
                                     Text(
                                         text = stringResource(R.string.vpn_mode_title),
                                         fontWeight = FontWeight.Bold,
@@ -1083,6 +1108,7 @@ fun MainScreen(
                                         }
                                     }
                                 }
+                                }
                             }
 
                             if (isRegisteringWarp) {
@@ -1342,7 +1368,8 @@ fun MainScreen(
                                     containerColor = Color.Transparent
                                 )
                             ) {
-                                Column(modifier = Modifier.padding(20.dp)) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(20.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2018,6 +2045,7 @@ fun MainScreen(
                                         }
                                     }
                                 }
+                                }
                             }
                         }
 
@@ -2045,7 +2073,8 @@ fun MainScreen(
                                         containerColor = Color.Transparent
                                     )
                                 ) {
-                                    Column(modifier = Modifier.padding(20.dp)) {
+                                    VibrantCardContent(settings.cardStyle) {
+                                        Column(modifier = Modifier.padding(20.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -2444,6 +2473,7 @@ fun MainScreen(
                                             }
                                         }
                                     }
+                                    }
                                 }
                             }
                         }
@@ -2522,7 +2552,8 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
                                         text = stringResource(R.string.conn_settings),
                                         fontWeight = FontWeight.Bold,
@@ -2659,6 +2690,7 @@ fun MainScreen(
                                         )
                                     }
                                 }
+                                }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -2673,6 +2705,7 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
+                                VibrantCardContent(settings.cardStyle) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -2710,6 +2743,7 @@ fun MainScreen(
                                         Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                     }
                                 }
+                                }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -2722,7 +2756,8 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2765,6 +2800,7 @@ fun MainScreen(
                                          }
                                      }
                                 }
+                                }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -2777,7 +2813,8 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
-                                Column(modifier = Modifier.animateContentSize()) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.animateContentSize()) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2887,6 +2924,7 @@ fun MainScreen(
                                          }
                                      }
                                 }
+                                }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
@@ -2903,7 +2941,8 @@ fun MainScreen(
                                     shape = ExpressiveCardShape,
                                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                                 ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
+                                    VibrantCardContent(settings.cardStyle) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
                                         // Row 1: Dark Mode Toggle
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -3023,6 +3062,7 @@ fun MainScreen(
                                             }
                                         }
                                     }
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
@@ -3035,7 +3075,8 @@ fun MainScreen(
                                 shape = ExpressiveCardShape,
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
-                                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         text = "Expressive Box $appVersion",
                                         fontWeight = FontWeight.Bold,
@@ -3047,6 +3088,7 @@ fun MainScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
                                 }
                             }
                             Spacer(modifier = Modifier.height(32.dp))
@@ -5279,7 +5321,8 @@ private fun LogsConsole(
             containerColor = Color.Transparent
         )
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        VibrantCardContent(cardStyle) {
+            Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -5395,6 +5438,7 @@ private fun LogsConsole(
                     }
                 }
             }
+        }
         }
     }
 }
