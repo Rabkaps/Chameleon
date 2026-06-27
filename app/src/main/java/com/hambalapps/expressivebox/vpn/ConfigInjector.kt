@@ -1272,6 +1272,8 @@ object ConfigInjector {
     }
 
     private fun preResolveProxyServers(context: Context, config: JSONObject, settings: InjectorSettings) {
+        // Disable pre-resolving proxy server hostname to avoid local DNS poisoning/hijacking
+        return
         val outbounds = config.optJSONArray("outbounds") ?: return
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
