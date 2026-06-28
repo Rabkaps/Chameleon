@@ -329,15 +329,15 @@ class VPNWidgetProvider : AppWidgetProvider() {
 
                     val selectedViews = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val viewMapping = mapOf(
-                            android.util.SizeF(120f, 70f) to viewsSmall,
-                            android.util.SizeF(180f, 110f) to viewsMedium,
-                            android.util.SizeF(250f, 220f) to viewsLarge
+                            android.util.SizeF(120f, 40f) to viewsSmall,
+                            android.util.SizeF(120f, 90f) to viewsMedium,
+                            android.util.SizeF(220f, 170f) to viewsLarge
                         )
                         RemoteViews(viewMapping)
                     } else {
-                        if (minWidth >= 220 && minHeight >= 180) {
+                        if (minWidth >= 220 && minHeight >= 170) {
                             viewsLarge
-                        } else if (minWidth < 150 || minHeight < 90) {
+                        } else if (minHeight < 90) {
                             viewsSmall
                         } else {
                             viewsMedium
