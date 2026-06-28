@@ -152,12 +152,27 @@ object ConfigInjector {
             if (path.length > 1) {
                 serverObj.put("path", path)
             }
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+            }
+            serverObj.put("tls", tls)
         } else if (trimmed.startsWith("tls://")) {
             serverObj.put("type", "tls")
             serverObj.put("server", trimmed.substringAfter("tls://"))
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+            }
+            serverObj.put("tls", tls)
         } else if (trimmed.startsWith("quic://")) {
             serverObj.put("type", "quic")
             serverObj.put("server", trimmed.substringAfter("quic://"))
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+            }
+            serverObj.put("tls", tls)
         } else {
             serverObj.put("type", "udp")
             serverObj.put("server", trimmed)

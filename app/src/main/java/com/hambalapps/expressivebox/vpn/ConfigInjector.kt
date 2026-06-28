@@ -228,30 +228,35 @@ object ConfigInjector {
             if (path.length > 1) {
                 serverObj.put("path", path)
             }
-            if (hostPart == "10.202.10.10") {
-                val tls = JSONObject().apply {
-                    put("enabled", true)
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+                if (hostPart == "10.202.10.10") {
                     put("server_name", "radar.game")
-                    put("insecure", true)
-                }
-                serverObj.put("tls", tls)
-            } else if (hostPart == "185.51.200.2" || hostPart == "178.22.122.100") {
-                val tls = JSONObject().apply {
-                    put("enabled", true)
+                } else if (hostPart == "185.51.200.2" || hostPart == "178.22.122.100") {
                     put("server_name", "shecan.ir")
-                    put("insecure", true)
                 }
-                serverObj.put("tls", tls)
             }
+            serverObj.put("tls", tls)
         } else if (trimmed.startsWith("tls://")) {
             serverObj.put("type", "tls")
             serverObj.put("server", trimmed.substringAfter("tls://"))
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+            }
+            serverObj.put("tls", tls)
         } else if (trimmed.startsWith("tcp://")) {
             serverObj.put("type", "tcp")
             serverObj.put("server", trimmed.substringAfter("tcp://"))
         } else if (trimmed.startsWith("quic://")) {
             serverObj.put("type", "quic")
             serverObj.put("server", trimmed.substringAfter("quic://"))
+            val tls = JSONObject().apply {
+                put("enabled", true)
+                put("insecure", true)
+            }
+            serverObj.put("tls", tls)
         } else {
             serverObj.put("type", "udp")
             serverObj.put("server", trimmed)
