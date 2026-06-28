@@ -1,48 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_container"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:paddingHorizontal="16dp"
-    android:paddingVertical="8dp"
-    android:gravity="center_vertical"
-    android:theme="@style/Theme.ExpressiveBox"
-    android:background="@drawable/widget_background_pill">
+    android:theme="@style/Theme.ExpressiveBox">
 
-    <!-- Small Node Status Icon -->
-    <ImageView
-        android:layout_width="20dp"
-        android:layout_height="20dp"
-        android:src="@drawable/ic_node"
-        android:tint="?attr/colorPrimary"
-        android:layout_marginEnd="10dp" />
+    <!-- Thin Capsule Container (Locked to 48dp height to look exactly like native Samsung/Google search & health pills) -->
+    <LinearLayout
+        android:id="@+id/widget_container"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:layout_marginHorizontal="8dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:gravity="center_vertical"
+        android:background="@drawable/widget_background_pill">
 
-    <!-- Connection Status Text -->
-    <TextView
-        android:id="@+id/widget_status"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:text="UNPROTECTED"
-        android:textColor="?attr/colorOutline"
-        android:textSize="15sp"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:textStyle="bold"
-        android:letterSpacing="0.02" />
+        <!-- Status Dot / Node Icon -->
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_node"
+            android:tint="?attr/colorPrimary"
+            android:layout_marginEnd="10dp" />
 
-    <!-- Toggle Power Button -->
-    <ImageView
-        android:id="@+id/widget_button_toggle"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:background="@drawable/widget_button_background"
-        android:src="@drawable/ic_power"
-        android:padding="8dp"
-        android:scaleType="fitCenter"
-        android:clickable="true"
-        android:focusable="true"
-        android:contentDescription="Toggle Connection" />
+        <!-- Status Info Text -->
+        <TextView
+            android:id="@+id/widget_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="UNPROTECTED"
+            android:textColor="?attr/colorOutline"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textStyle="bold"
+            android:letterSpacing="0.02" />
 
-</LinearLayout>
+        <!-- Thin Capsule Toggle Button (Centered inside the 48dp height) -->
+        <ImageView
+            android:id="@+id/widget_button_toggle"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/widget_button_background"
+            android:src="@drawable/ic_power"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="Toggle Connection" />
+
+    </LinearLayout>
+
+</FrameLayout>
