@@ -15,8 +15,8 @@ android {
         applicationId = "com.hambalapps.expressivebox"
         minSdk = 23
         targetSdk = 36
-        versionCode = 174
-        versionName = "1.6.14"
+        versionCode = 175
+        versionName = "1.6.15"
     }
 
     testOptions {
