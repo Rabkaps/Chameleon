@@ -8,6 +8,10 @@ import org.json.JSONObject
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import com.hambalapps.expressivebox.data.deserializeProxyChains
+import com.hambalapps.expressivebox.data.deserializeCamouflageSettings
+import com.hambalapps.expressivebox.data.ProxyChain
+import com.hambalapps.expressivebox.data.CamouflageConfig
 
 data class InjectorSettings(
     val bypassIran: Boolean,
@@ -27,7 +31,9 @@ data class InjectorSettings(
     val warpDetourMode: String = "proxy",
     val warpPort: String = "2408",
     val shareVpnLan: Boolean = false,
-    val shareVpnPort: String = "10808"
+    val shareVpnPort: String = "10808",
+    val proxyChains: String = "",
+    val camouflageSettings: String = ""
 )
 
 object ConfigInjector {
@@ -59,6 +65,15 @@ object ConfigInjector {
             val trimmedProfile = rawProfile.trim()
             val configJson = if (trimmedProfile.startsWith("{")) {
                 JSONObject(rawProfile)
+            } else if (trimmedProfile.startsWith("chain://")) {
+                val chainId = trimmedProfile.substringAfter("chain://").substringBefore("#")
+                val chains = deserializeProxyChains(settings.proxyChains)
+                val chainItem = chains.find { it.id == chainId }
+                if (chainItem != null) {
+                    buildConfigFromChain(chainItem, settings)
+                } else {
+                    buildDefaultSkeleton(settings)
+                }
             } else if (trimmedProfile.startsWith("vless://") ||
                 trimmedProfile.startsWith("trojan://") ||
                 trimmedProfile.startsWith("ss://") ||
@@ -538,6 +553,8 @@ object ConfigInjector {
         var hasDirect = false
         var hasBlock = false
 
+        val camConfigs = deserializeCamouflageSettings(settings.camouflageSettings)
+
         for (i in 0 until outbounds.length()) {
             val out = outbounds.optJSONObject(i) ?: continue
             val type = out.optString("type")
@@ -547,6 +564,17 @@ object ConfigInjector {
             }
             if (tag == "direct") hasDirect = true
             if (tag == "block") hasBlock = true
+
+            // Resolve and apply Stealth Camouflage if configured
+            val originalLink = out.optString("_original_link")
+            if (originalLink.isNotEmpty()) {
+                val configLinkWithoutRemark = originalLink.substringBefore("#")
+                val camConfig = camConfigs.find { it.nodeLink.substringBefore("#") == configLinkWithoutRemark }
+                if (camConfig != null && camConfig.enabled) {
+                    applyCamouflage(out, camConfig, settings)
+                }
+                out.remove("_original_link") // Clean up temporary key
+            }
 
             // Inject fragmentation into proxy outbound if enabled
             if (tag == "proxy" && settings.enableFragment) {
@@ -583,6 +611,78 @@ object ConfigInjector {
         }
 
         config.put("outbounds", cleanOutbounds)
+    }
+
+    private fun buildConfigFromChain(chainItem: ProxyChain, settings: InjectorSettings): JSONObject {
+        val config = buildDefaultSkeleton(settings)
+        val outbounds = config.getJSONArray("outbounds")
+        try {
+            // Parse exit outbound with tag "proxy"
+            val exitOutbound = parseOutboundFromUri(chainItem.exitLink, "proxy")
+            // Detour exit outbound to relay outbound
+            exitOutbound.put("detour", "relay-out")
+            // Parse relay outbound with tag "relay-out"
+            val relayOutbound = parseOutboundFromUri(chainItem.relayLink, "relay-out")
+
+            // Index 0 in buildDefaultSkeleton is "proxy". Replace it with exitOutbound
+            outbounds.put(0, exitOutbound)
+            // Add the relayOutbound
+            outbounds.put(relayOutbound)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return config
+    }
+
+    private fun applyCamouflage(outbound: JSONObject, config: CamouflageConfig, settings: InjectorSettings) {
+        val originalServer = outbound.optString("server")
+        if (originalServer.isEmpty()) return
+
+        // 1. Get clean CDN IP from scanner based on preset
+        val cleanIp = CdnIpScanner.getCleanIp(config.preset) ?: originalServer
+        outbound.put("server", cleanIp)
+
+        // 2. Setup TLS section
+        val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
+        tls.put("enabled", true)
+
+        val targetSni = when (config.preset) {
+            "cloudflare" -> "speedtest.net" // Default Cloudflare SNI
+            "cloudfront" -> "aws.amazon.com" // Default Cloudfront SNI
+            else -> config.customSni.ifEmpty { "microsoft.com" }
+        }
+        tls.put("server_name", targetSni)
+
+        // 3. Setup Transport Host Header (WS/HTTPUpgrade/xHTTP)
+        val transport = outbound.optJSONObject("transport") ?: JSONObject().apply {
+            put("type", "ws") // Default to WS if transport is not defined
+        }.also { outbound.put("transport", it) }
+
+        val transType = transport.optString("type")
+        val targetHost = if (config.preset == "custom" && config.customHost.isNotEmpty()) {
+            config.customHost
+        } else {
+            originalServer // Original hostname acts as the Host/routing header target
+        }
+
+        if (transType == "ws") {
+            var headers = transport.optJSONObject("headers")
+            if (headers == null) {
+                headers = JSONObject()
+                transport.put("headers", headers)
+            }
+            headers.put("Host", targetHost)
+        } else if (transType == "httpupgrade" || transType == "http") {
+            transport.put("host", targetHost)
+            var headers = transport.optJSONObject("headers")
+            if (headers == null) {
+                headers = JSONObject()
+                transport.put("headers", headers)
+            }
+            headers.put("Host", targetHost)
+        } else if (transType == "xhttp") {
+            transport.put("host", targetHost)
+        }
     }
 
     private fun injectFragmentToOutbound(outbound: JSONObject, settings: InjectorSettings) {
@@ -676,6 +776,19 @@ object ConfigInjector {
     private fun buildConfigFromUri(uriStr: String, settings: InjectorSettings): JSONObject {
         val config = buildDefaultSkeleton(settings)
         val outbounds = config.getJSONArray("outbounds")
+        try {
+            val outbound = parseOutboundFromUri(uriStr, "proxy")
+            outbounds.put(0, outbound)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return config
+    }
+
+    private fun parseOutboundFromUri(uriStr: String, defaultTag: String): JSONObject {
+        val outbound = JSONObject()
+        outbound.put("tag", defaultTag)
+        outbound.put("_original_link", uriStr)
 
         try {
             val trimmed = uriStr.trim()
@@ -688,7 +801,7 @@ object ConfigInjector {
             
             val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
             val schemeIdx = rest.indexOf("://")
-            if (schemeIdx < 0) return config
+            if (schemeIdx < 0) return outbound
             val scheme = rest.substring(0, schemeIdx).lowercase()
             
             val content = rest.substring(schemeIdx + 3)
@@ -706,9 +819,6 @@ object ConfigInjector {
             val port = portStr.toIntOrNull() ?: 443
             
             val queryParams = parseQueryParams(queryPart)
-            val tag = "proxy"
-            val outbound = JSONObject()
-            outbound.put("tag", tag)
 
             if (scheme == "vless") {
                 outbound.put("type", "vless")
@@ -1076,13 +1186,11 @@ object ConfigInjector {
                 }
             }
 
-            // Replace the fallback direct outbound in index 0
-            outbounds.put(0, outbound)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        return config
+        return outbound
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {

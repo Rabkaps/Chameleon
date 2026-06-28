@@ -193,4 +193,13 @@
     <string name="mode_ai_bypass_title">AI Bypass</string>
     <string name="tag_stable">Stable</string>
     <string name="tag_experimental">Experimental</string>
+    <string name="chain_str">Chain</string>
+    <string name="build_chain">Build Chain</string>
+    <string name="relay_node">Relay Server (First Hop)</string>
+    <string name="exit_node">Destination Server (Second Hop)</string>
+    <string name="camouflage_settings">Stealth Camouflage (Domain Fronting)</string>
+    <string name="enable_camouflage">Enable Camouflage Masquerading</string>
+    <string name="camouflage_preset">Camouflage Preset</string>
+    <string name="custom_sni">Custom SNI</string>
+    <string name="custom_host">Custom Host Header</string>
 </resources>

@@ -51,6 +51,8 @@ class SettingsManager(private val context: Context) {
         val WARP_PORT = stringPreferencesKey("warp_port")
         val SHARE_VPN_LAN = booleanPreferencesKey("share_vpn_lan")
         val SHARE_VPN_PORT = stringPreferencesKey("share_vpn_port")
+        val PROXY_CHAINS = stringPreferencesKey("proxy_chains")
+        val CAMOUFLAGE_SETTINGS = stringPreferencesKey("camouflage_settings")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -93,7 +95,9 @@ class SettingsManager(private val context: Context) {
             warpPort = "2408",
             shareVpnLan = false,
             shareVpnPort = "10808",
-            deserializedSubscriptions = emptyList()
+            deserializedSubscriptions = emptyList(),
+            proxyChains = "",
+            camouflageSettings = ""
         )
     }
 
@@ -151,7 +155,9 @@ class SettingsManager(private val context: Context) {
             warpPort = prefs[WARP_PORT] ?: "2408",
             shareVpnLan = prefs[SHARE_VPN_LAN] ?: false,
             shareVpnPort = prefs[SHARE_VPN_PORT] ?: "10808",
-            deserializedSubscriptions = deserialized
+            deserializedSubscriptions = deserialized,
+            proxyChains = prefs[PROXY_CHAINS] ?: "",
+            camouflageSettings = prefs[CAMOUFLAGE_SETTINGS] ?: ""
         )
     }.distinctUntilChanged()
 
@@ -189,6 +195,11 @@ class SettingsManager(private val context: Context) {
     val delayTestUrl: Flow<String> = context.dataStore.data.map { it[DELAY_TEST_URL] ?: "http://cp.cloudflare.com/generate_204" }.distinctUntilChanged()
     val warpDetourMode: Flow<String> = context.dataStore.data.map { it[WARP_DETOUR_MODE] ?: "proxy" }.distinctUntilChanged()
     val warpPort: Flow<String> = context.dataStore.data.map { it[WARP_PORT] ?: "2408" }.distinctUntilChanged()
+    val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
+    val camouflageSettings: Flow<String> = context.dataStore.data.map { it[CAMOUFLAGE_SETTINGS] ?: "" }.distinctUntilChanged()
+
+    suspend fun setProxyChains(value: String) { context.dataStore.edit { it[PROXY_CHAINS] = value } }
+    suspend fun setCamouflageSettings(value: String) { context.dataStore.edit { it[CAMOUFLAGE_SETTINGS] = value } }
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
@@ -285,7 +296,9 @@ data class UserSettings(
     val warpPort: String,
     val shareVpnLan: Boolean,
     val shareVpnPort: String,
-    val deserializedSubscriptions: List<Subscription>
+    val deserializedSubscriptions: List<Subscription>,
+    val proxyChains: String,
+    val camouflageSettings: String
 )
 
 data class Subscription(
@@ -297,6 +310,21 @@ data class Subscription(
     val download: Long? = null,
     val total: Long? = null,
     val expire: Long? = null
+)
+
+data class ProxyChain(
+    val id: String,
+    val name: String,
+    val relayLink: String,
+    val exitLink: String
+)
+
+data class CamouflageConfig(
+    val nodeLink: String,
+    val enabled: Boolean,
+    val preset: String,
+    val customSni: String,
+    val customHost: String
 )
 
 fun deserializeSubscriptions(data: String): List<Subscription> {
@@ -328,5 +356,55 @@ fun serializeSubscriptions(subs: List<Subscription>): String {
         val totalStr = sub.total?.toString() ?: ""
         val expireStr = sub.expire?.toString() ?: ""
         "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers\u001f$uploadStr\u001f$downloadStr\u001f$totalStr\u001f$expireStr"
+    }
+}
+
+fun deserializeProxyChains(data: String): List<ProxyChain> {
+    if (data.isEmpty()) return emptyList()
+    return data.split("\u001e").mapNotNull { record ->
+        val fields = record.split("\u001f")
+        if (fields.size >= 4) {
+            ProxyChain(
+                id = fields[0],
+                name = fields[1],
+                relayLink = fields[2],
+                exitLink = fields[3]
+            )
+        } else null
+    }
+}
+
+fun serializeProxyChains(chains: List<ProxyChain>): String {
+    return chains.joinToString("\u001e") { chain ->
+        val safeName = chain.name.replace("\u001e", "").replace("\u001f", "")
+        val safeRelay = chain.relayLink.replace("\u001e", "").replace("\u001f", "")
+        val safeExit = chain.exitLink.replace("\u001e", "").replace("\u001f", "")
+        "${chain.id}\u001f$safeName\u001f$safeRelay\u001f$safeExit"
+    }
+}
+
+fun deserializeCamouflageSettings(data: String): List<CamouflageConfig> {
+    if (data.isEmpty()) return emptyList()
+    return data.split("\u001e").mapNotNull { record ->
+        val fields = record.split("\u001f")
+        if (fields.size >= 5) {
+            CamouflageConfig(
+                nodeLink = fields[0],
+                enabled = fields[1] == "true",
+                preset = fields[2],
+                customSni = fields[3],
+                customHost = fields[4]
+            )
+        } else null
+    }
+}
+
+fun serializeCamouflageSettings(configs: List<CamouflageConfig>): String {
+    return configs.joinToString("\u001e") { config ->
+        val safeLink = config.nodeLink.replace("\u001e", "").replace("\u001f", "")
+        val safePreset = config.preset.replace("\u001e", "").replace("\u001f", "")
+        val safeSni = config.customSni.replace("\u001e", "").replace("\u001f", "")
+        val safeHost = config.customHost.replace("\u001e", "").replace("\u001f", "")
+        "$safeLink\u001f${config.enabled}\u001f$safePreset\u001f$safeSni\u001f$safeHost"
     }
 }

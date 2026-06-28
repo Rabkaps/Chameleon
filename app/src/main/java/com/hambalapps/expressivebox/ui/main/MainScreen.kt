@@ -57,6 +57,12 @@ import com.hambalapps.expressivebox.data.UserSettings
 import com.hambalapps.expressivebox.data.Subscription
 import com.hambalapps.expressivebox.data.serializeSubscriptions
 import com.hambalapps.expressivebox.data.deserializeSubscriptions
+import com.hambalapps.expressivebox.data.ProxyChain
+import com.hambalapps.expressivebox.data.CamouflageConfig
+import com.hambalapps.expressivebox.data.deserializeProxyChains
+import com.hambalapps.expressivebox.data.serializeProxyChains
+import com.hambalapps.expressivebox.data.deserializeCamouflageSettings
+import com.hambalapps.expressivebox.data.serializeCamouflageSettings
 import com.hambalapps.expressivebox.vpn.VpnServiceWrapper
 import com.hambalapps.expressivebox.vpn.measurePingDelay
 import com.hambalapps.expressivebox.vpn.getHostAndPortFromLink
@@ -313,7 +319,7 @@ fun MainScreen(
 
     // Observe VPN state and logs
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
-    var appVersion by remember { mutableStateOf("v1.6.9") }
+    var appVersion by remember { mutableStateOf("v1.6.12") }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
@@ -323,7 +329,7 @@ fun MainScreen(
                     @Suppress("DEPRECATION")
                     context.packageManager.getPackageInfo(context.packageName, 0)
                 }
-                val version = "v${pInfo.versionName ?: "1.6.9"}"
+                val version = "v${pInfo.versionName ?: "1.6.12"}"
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     appVersion = version
                 }
@@ -408,6 +414,10 @@ fun MainScreen(
     var editTransportServiceName by remember { mutableStateOf("") }
     var editTransportSeed by remember { mutableStateOf("") }
     var editTransportHeaderType by remember { mutableStateOf("none") }
+    var editCamouflageEnabled by remember { mutableStateOf(false) }
+    var editCamouflagePreset by remember { mutableStateOf("cloudflare") }
+    var editCamouflageSni by remember { mutableStateOf("") }
+    var editCamouflageHost by remember { mutableStateOf("") }
     var isNodesExpanded by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -2058,8 +2068,8 @@ fun MainScreen(
                                             shape = ExpressiveButtonShape
                                         ) {
                                             Icon(imageVector = Icons.Default.AddLink, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(stringResource(R.string.import_str))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(stringResource(R.string.import_str), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                         Button(
                                             onClick = {
@@ -2078,8 +2088,19 @@ fun MainScreen(
                                             shape = ExpressiveButtonShape
                                         ) {
                                             Icon(imageVector = Icons.Default.AddCircle, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(stringResource(R.string.create_str))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(stringResource(R.string.create_str), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                editingNodeLink = "new_chain"
+                                            },
+                                            modifier = Modifier.weight(1f).pressScaleEffect(),
+                                            shape = ExpressiveButtonShape
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Link, contentDescription = null)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(stringResource(R.string.chain_str), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
                                 }
@@ -2289,6 +2310,7 @@ fun MainScreen(
                                                         "VMESS" -> MaterialTheme.colorScheme.tertiaryContainer
                                                         "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.errorContainer
                                                         "TUIC" -> MaterialTheme.colorScheme.primaryContainer
+                                                        "CHAIN" -> MaterialTheme.colorScheme.tertiaryContainer
                                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                                     }
                                                     val tagTextColor = when (type) {
@@ -2297,6 +2319,7 @@ fun MainScreen(
                                                         "VMESS" -> MaterialTheme.colorScheme.onTertiaryContainer
                                                         "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.onErrorContainer
                                                         "TUIC" -> MaterialTheme.colorScheme.onPrimaryContainer
+                                                        "CHAIN" -> MaterialTheme.colorScheme.onTertiaryContainer
                                                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                                                     }
                                                     
@@ -2488,6 +2511,18 @@ fun MainScreen(
                                                                             val updatedManualList = serverList.filter { it != serverLink }
                                                                             val updatedManualStr = updatedManualList.joinToString("\n")
                                                                             settingsManager.setManualServers(updatedManualStr)
+
+                                                                            if (serverLink.startsWith("chain://")) {
+                                                                                val chainId = serverLink.substringAfter("chain://").substringBefore("#")
+                                                                                val currentChains = deserializeProxyChains(settings.proxyChains)
+                                                                                val updatedChains = currentChains.filter { it.id != chainId }
+                                                                                settingsManager.setProxyChains(serializeProxyChains(updatedChains))
+                                                                            }
+                                                                            
+                                                                            val currentCam = deserializeCamouflageSettings(settings.camouflageSettings)
+                                                                            val updatedCam = currentCam.filter { it.nodeLink.substringBefore("#") != serverLink.substringBefore("#") }
+                                                                            settingsManager.setCamouflageSettings(serializeCamouflageSettings(updatedCam))
+
                                                                             if (isSelected) {
                                                                                 val nextActive = updatedManualList.firstOrNull() ?: ""
                                                                                 settingsManager.setActiveProfile(nextActive)
@@ -3378,6 +3413,10 @@ fun MainScreen(
                 editTransportServiceName = ""
                 editTransportSeed = ""
                 editTransportHeaderType = "none"
+                editCamouflageEnabled = false
+                editCamouflagePreset = "cloudflare"
+                editCamouflageSni = ""
+                editCamouflageHost = ""
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
@@ -3434,6 +3473,22 @@ fun MainScreen(
                     
                     editLinkInput = link
                     editorMode = "form"
+
+                    // Parse existing camouflage config for this node
+                    val configs = deserializeCamouflageSettings(settings.camouflageSettings)
+                    val configLinkWithoutRemark = link.substringBefore("#")
+                    val camConfig = configs.find { it.nodeLink.substringBefore("#") == configLinkWithoutRemark }
+                    if (camConfig != null) {
+                        editCamouflageEnabled = camConfig.enabled
+                        editCamouflagePreset = camConfig.preset
+                        editCamouflageSni = camConfig.customSni
+                        editCamouflageHost = camConfig.customHost
+                    } else {
+                        editCamouflageEnabled = false
+                        editCamouflagePreset = "cloudflare"
+                        editCamouflageSni = ""
+                        editCamouflageHost = ""
+                    }
                 } catch(e: Exception) {
                     editorMode = "link"
                     editLinkInput = link
@@ -3444,9 +3499,59 @@ fun MainScreen(
 
     // Edit/Create Node Dialog
     if (editingNodeLink != null) {
-        val isNewNode = editingNodeLink == "new_node"
-        AlertDialog(
-            onDismissRequest = { editingNodeLink = null },
+        val link = editingNodeLink!!
+        val isChain = link.startsWith("chain://") || link == "new_chain"
+        if (isChain) {
+            ChainBuilderDialog(
+                editingChainLink = link,
+                proxyChainsStr = settings.proxyChains,
+                serverList = serverList,
+                onDismiss = { editingNodeLink = null },
+                onSave = { name, relay, exit ->
+                    scope.launch {
+                        val currentChains = deserializeProxyChains(settings.proxyChains).toMutableList()
+                        val isNewChain = link == "new_chain"
+                        
+                        val chainId = if (isNewChain) {
+                            java.util.UUID.randomUUID().toString()
+                        } else {
+                            link.substringAfter("chain://").substringBefore("#")
+                        }
+                        
+                        currentChains.removeAll { it.id == chainId }
+                        currentChains.add(ProxyChain(id = chainId, name = name, relayLink = relay, exitLink = exit))
+                        settingsManager.setProxyChains(serializeProxyChains(currentChains))
+                        
+                        val finalLink = "chain://$chainId#${java.net.URLEncoder.encode(name, "UTF-8")}"
+                        
+                        if (isNewChain) {
+                            val currentManual = manualServersStr
+                            val updatedManual = if (currentManual.isEmpty()) finalLink else "$currentManual\n$finalLink"
+                            settingsManager.setManualServers(updatedManual)
+                            settingsManager.setActiveSubId("manual")
+                            settingsManager.setActiveProfile(finalLink)
+                        } else {
+                            val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                            val updatedManualList = currentManualList.map {
+                                if (it == link) finalLink else it
+                            }
+                            settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                            if (activeProfile == link) {
+                                settingsManager.setActiveProfile(finalLink)
+                            }
+                        }
+                        
+                        if (vpnState == "CONNECTED") {
+                            startVpnService(context)
+                        }
+                        editingNodeLink = null
+                    }
+                }
+            )
+        } else {
+            val isNewNode = editingNodeLink == "new_node"
+            AlertDialog(
+                onDismissRequest = { editingNodeLink = null },
             title = {
                 Text(
                     text = if (isNewNode) stringResource(R.string.create_custom_node) else stringResource(R.string.edit_node_config),
@@ -3705,6 +3810,69 @@ fun MainScreen(
                                 }
                             }
                         }
+                        
+                        // Stealth Camouflage Expandable Section
+                        if (editType == "vless" || editType == "trojan" || editType == "vmess" || editType == "ss") {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            Text(
+                                text = stringResource(R.string.camouflage_settings),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(stringResource(R.string.enable_camouflage), style = MaterialTheme.typography.bodyMedium)
+                                Switch(
+                                    checked = editCamouflageEnabled,
+                                    onCheckedChange = { editCamouflageEnabled = it }
+                                )
+                            }
+                            
+                            if (editCamouflageEnabled) {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(stringResource(R.string.camouflage_preset), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        listOf("cloudflare" to "Cloudflare", "cloudfront" to "Cloudfront", "custom" to "Custom").forEach { (presetVal, label) ->
+                                            FilterChip(
+                                                selected = editCamouflagePreset == presetVal,
+                                                onClick = { editCamouflagePreset = presetVal },
+                                                label = { Text(label) },
+                                                shape = ExpressiveChipShape
+                                            )
+                                        }
+                                    }
+
+                                    if (editCamouflagePreset == "custom") {
+                                        OutlinedTextField(
+                                            value = editCamouflageSni,
+                                            onValueChange = { editCamouflageSni = it },
+                                            label = { Text(stringResource(R.string.custom_sni)) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape,
+                                            singleLine = true,
+                                            placeholder = { Text("e.g. microsoft.com") }
+                                        )
+
+                                        OutlinedTextField(
+                                            value = editCamouflageHost,
+                                            onValueChange = { editCamouflageHost = it },
+                                            label = { Text(stringResource(R.string.custom_host)) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape,
+                                            singleLine = true,
+                                            placeholder = { Text("e.g. my-worker.workers.dev") }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // Raw text area
                         OutlinedTextField(
@@ -3794,6 +3962,28 @@ fun MainScreen(
                                             settingsManager.setActiveProfile(finalLink)
                                         }
                                     }
+
+                                    // Save Camouflage configuration
+                                    val currentCamList = deserializeCamouflageSettings(settings.camouflageSettings).toMutableList()
+                                    val configLinkWithoutRemark = finalLink.substringBefore("#")
+                                    currentCamList.removeAll { 
+                                        it.nodeLink.substringBefore("#") == configLinkWithoutRemark || 
+                                        (!isNewNode && it.nodeLink.substringBefore("#") == originalLink.substringBefore("#")) 
+                                    }
+                                     
+                                    if (editCamouflageEnabled) {
+                                        currentCamList.add(
+                                            CamouflageConfig(
+                                                nodeLink = finalLink,
+                                                enabled = editCamouflageEnabled,
+                                                preset = editCamouflagePreset,
+                                                customSni = editCamouflageSni.trim(),
+                                                customHost = editCamouflageHost.trim()
+                                            )
+                                        )
+                                    }
+                                    settingsManager.setCamouflageSettings(serializeCamouflageSettings(currentCamList))
+
                                     if (vpnState == "CONNECTED") {
                                         startVpnService(context)
                                     }
@@ -3819,6 +4009,7 @@ fun MainScreen(
             shape = ExpressiveCardShape
         )
     }
+}
 
     val currentCallback = scanResultCallback
     if (currentCallback != null) {
@@ -4052,6 +4243,7 @@ fun MainScreen(
                                 "VMESS" -> MaterialTheme.colorScheme.tertiaryContainer
                                 "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.errorContainer
                                 "TUIC" -> MaterialTheme.colorScheme.primaryContainer
+                                "CHAIN" -> MaterialTheme.colorScheme.tertiaryContainer
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             }
                             val tagTextColor = when (type) {
@@ -4060,6 +4252,7 @@ fun MainScreen(
                                 "VMESS" -> MaterialTheme.colorScheme.onTertiaryContainer
                                 "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.onErrorContainer
                                 "TUIC" -> MaterialTheme.colorScheme.onPrimaryContainer
+                                "CHAIN" -> MaterialTheme.colorScheme.onTertiaryContainer
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
@@ -4256,6 +4449,18 @@ fun MainScreen(
                                                     val updatedManualList = serverList.filter { it != serverLink }
                                                     val updatedManualStr = updatedManualList.joinToString("\n")
                                                     settingsManager.setManualServers(updatedManualStr)
+
+                                                    if (serverLink.startsWith("chain://")) {
+                                                        val chainId = serverLink.substringAfter("chain://").substringBefore("#")
+                                                        val currentChains = deserializeProxyChains(settings.proxyChains)
+                                                        val updatedChains = currentChains.filter { it.id != chainId }
+                                                        settingsManager.setProxyChains(serializeProxyChains(updatedChains))
+                                                    }
+                                                    
+                                                    val currentCam = deserializeCamouflageSettings(settings.camouflageSettings)
+                                                    val updatedCam = currentCam.filter { it.nodeLink.substringBefore("#") != serverLink.substringBefore("#") }
+                                                    settingsManager.setCamouflageSettings(serializeCamouflageSettings(updatedCam))
+
                                                     if (isSelected) {
                                                         val nextActive = updatedManualList.firstOrNull() ?: ""
                                                         settingsManager.setActiveProfile(nextActive)
@@ -5748,5 +5953,180 @@ fun formatExpiry(expirySecs: Long): String {
     val date = java.util.Date(ms)
     val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
     return format.format(date)
+}
+
+@Composable
+fun ChainBuilderDialog(
+    editingChainLink: String?,
+    proxyChainsStr: String,
+    serverList: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (name: String, relay: String, exit: String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // Parse all available single servers (exclude chains to prevent circular dependencies)
+    val poolNodes = remember(serverList) {
+        serverList.filter { !it.startsWith("chain://") }
+    }
+
+    var chainName by remember { mutableStateOf("") }
+    var selectedRelay by remember { mutableStateOf("") }
+    var selectedExit by remember { mutableStateOf("") }
+
+    // Dropdown open states
+    var relayDropdownExpanded by remember { mutableStateOf(false) }
+    var exitDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Parse existing settings if editing
+    LaunchedEffect(editingChainLink) {
+        if (editingChainLink != null && editingChainLink.startsWith("chain://")) {
+            val chainId = editingChainLink.substringAfter("chain://").substringBefore("#")
+            val chains = deserializeProxyChains(proxyChainsStr)
+            val existing = chains.find { it.id == chainId }
+            if (existing != null) {
+                chainName = existing.name
+                selectedRelay = existing.relayLink
+                selectedExit = existing.exitLink
+            }
+        } else {
+            chainName = "Custom Chain"
+            selectedRelay = poolNodes.firstOrNull() ?: ""
+            selectedExit = poolNodes.getOrNull(1) ?: poolNodes.firstOrNull() ?: ""
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (editingChainLink == null || editingChainLink == "new_chain") 
+                    stringResource(R.string.build_chain) else stringResource(R.string.edit_node_config),
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Chain Name Input
+                OutlinedTextField(
+                    value = chainName,
+                    onValueChange = { chainName = it },
+                    label = { Text("Chain Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = ExpressiveButtonShape
+                )
+
+                // Relay Node Selector (First Hop)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.relay_node),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = if (selectedRelay.isNotEmpty()) ProxyNameResolver.getProxyName(selectedRelay, context) else "Select Server",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                IconButton(onClick = { relayDropdownExpanded = true }) {
+                                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { relayDropdownExpanded = true },
+                            shape = ExpressiveButtonShape
+                        )
+                        DropdownMenu(
+                            expanded = relayDropdownExpanded,
+                            onDismissRequest = { relayDropdownExpanded = false },
+                            modifier = Modifier.fillMaxWidth(0.9f)
+                        ) {
+                            poolNodes.forEach { node ->
+                                DropdownMenuItem(
+                                    text = { Text(ProxyNameResolver.getProxyName(node, context)) },
+                                    onClick = {
+                                        selectedRelay = node
+                                        relayDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Exit Node Selector (Second Hop)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.exit_node),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = if (selectedExit.isNotEmpty()) ProxyNameResolver.getProxyName(selectedExit, context) else "Select Server",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = {
+                                IconButton(onClick = { exitDropdownExpanded = true }) {
+                                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { exitDropdownExpanded = true },
+                            shape = ExpressiveButtonShape
+                        )
+                        DropdownMenu(
+                            expanded = exitDropdownExpanded,
+                            onDismissRequest = { exitDropdownExpanded = false },
+                            modifier = Modifier.fillMaxWidth(0.9f)
+                        ) {
+                            poolNodes.forEach { node ->
+                                DropdownMenuItem(
+                                    text = { Text(ProxyNameResolver.getProxyName(node, context)) },
+                                    onClick = {
+                                        selectedExit = node
+                                        exitDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (chainName.trim().isNotEmpty() && selectedRelay.isNotEmpty() && selectedExit.isNotEmpty()) {
+                        onSave(chainName.trim(), selectedRelay, selectedExit)
+                    }
+                },
+                modifier = Modifier.pressScaleEffect(),
+                shape = ExpressiveButtonShape
+            ) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.pressScaleEffect()
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
