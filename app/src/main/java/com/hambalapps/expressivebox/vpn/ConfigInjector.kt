@@ -290,7 +290,7 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapDnsAddr = "https://8.8.8.8/dns-query"
+        val bootstrapDnsAddr = "8.8.8.8"
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {

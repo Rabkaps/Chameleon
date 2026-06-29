@@ -203,7 +203,7 @@ object ConfigInjector {
         servers.put(directServer)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably
-        val bootstrapDnsAddr = "https://8.8.8.8/dns-query"
+        val bootstrapDnsAddr = "8.8.8.8"
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
         servers.put(bootstrapServer)
 
