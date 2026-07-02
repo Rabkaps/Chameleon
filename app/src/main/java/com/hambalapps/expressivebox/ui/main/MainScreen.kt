@@ -1748,22 +1748,72 @@ fun MainScreen(
                                         ) {
                                             Column {
                                                 Spacer(modifier = Modifier.height(8.dp))
-                                                OutlinedTextField(
-                                                    value = searchQuery,
-                                                    onValueChange = { searchQuery = it },
-                                                    placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = ExpressiveButtonShape,
-                                                    singleLine = true,
-                                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                                    trailingIcon = {
-                                                        if (searchQuery.isNotEmpty()) {
-                                                            IconButton(onClick = { searchQuery = "" }) {
-                                                                Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
-                                                            }
-                                                        }
-                                                    }
-                                                )
+                                    Row(
+                                     modifier = Modifier.fillMaxWidth(),
+                                     verticalAlignment = Alignment.CenterVertically,
+                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                 ) {
+                                     OutlinedTextField(
+                                         value = searchQuery,
+                                         onValueChange = { searchQuery = it },
+                                         placeholder = { Text("Search servers...") },
+                                         modifier = Modifier.weight(1f),
+                                         shape = CircleShape,
+                                         singleLine = true,
+                                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                         trailingIcon = {
+                                             if (searchQuery.isNotEmpty()) {
+                                                 IconButton(onClick = { searchQuery = "" }) {
+                                                     Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                                                 }
+                                             }
+                                         }
+                                     )
+                                     
+                                     FilledIconButton(
+                                         onClick = {
+                                             if (!isTestingPings) {
+                                                 scope.launch {
+                                                     isTestingPings = true
+                                                     val jobs = serverList.map { link ->
+                                                         scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                             val hostPort = getHostAndPortFromLink(link)
+                                                             val ping = if (hostPort != null) {
+                                                                 measurePingDelay(hostPort.first, hostPort.second)
+                                                             } else {
+                                                                 -1
+                                                             }
+                                                             link to ping
+                                                         }
+                                                     }
+                                                     val results = jobs.awaitAll()
+                                                     pingsMap = pingsMap + results.toMap()
+                                                     isTestingPings = false
+                                                 }
+                                             }
+                                         },
+                                         modifier = Modifier.size(48.dp).pressScaleEffect(),
+                                         colors = IconButtonDefaults.filledIconButtonColors(
+                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                         ),
+                                         shape = CircleShape,
+                                         enabled = !isTestingPings
+                                     ) {
+                                         if (isTestingPings) {
+                                             LoadingIndicator(
+                                                 modifier = Modifier.size(18.dp),
+                                                 color = MaterialTheme.colorScheme.onPrimaryContainer
+                                             )
+                                         } else {
+                                             Icon(
+                                                 imageVector = Icons.Default.Speed,
+                                                 contentDescription = stringResource(R.string.test_pings),
+                                                 modifier = Modifier.size(20.dp)
+                                             )
+                                         }
+                                     }
+                                 }
                                             }
                                         }
 
@@ -2210,23 +2260,74 @@ fun MainScreen(
                                     }
                                 }
 
-                                // Rounded Search Bar
-                                OutlinedTextField(
-                                    value = searchQuery,
-                                    onValueChange = { searchQuery = it },
-                                    placeholder = { Text("Search servers...") },
+                                // Rounded Search Bar & Ping Button
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = CircleShape,
-                                    singleLine = true,
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                    trailingIcon = {
-                                        if (searchQuery.isNotEmpty()) {
-                                            IconButton(onClick = { searchQuery = "" }) {
-                                                Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = searchQuery,
+                                        onValueChange = { searchQuery = it },
+                                        placeholder = { Text("Search servers...") },
+                                        modifier = Modifier.weight(1f),
+                                        shape = CircleShape,
+                                        singleLine = true,
+                                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                        trailingIcon = {
+                                            if (searchQuery.isNotEmpty()) {
+                                                IconButton(onClick = { searchQuery = "" }) {
+                                                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
+                                                }
                                             }
                                         }
+                                    )
+                                    
+                                    // Ping/Speed test button
+                                    FilledIconButton(
+                                        onClick = {
+                                            if (!isTestingPings) {
+                                                scope.launch {
+                                                    isTestingPings = true
+                                                    val jobs = serverList.map { link ->
+                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                             val hostPort = getHostAndPortFromLink(link)
+                                                             val ping = if (hostPort != null) {
+                                                                 measurePingDelay(hostPort.first, hostPort.second)
+                                                             } else {
+                                                                 -1
+                                                             }
+                                                             link to ping
+                                                        }
+                                                    }
+                                                    val results = jobs.awaitAll()
+                                                    pingsMap = pingsMap + results.toMap()
+                                                    isTestingPings = false
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.size(48.dp).pressScaleEffect(),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = CircleShape,
+                                        enabled = !isTestingPings
+                                    ) {
+                                        if (isTestingPings) {
+                                            LoadingIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = stringResource(R.string.test_pings),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
-                                )
+                                }
 
                                 // Horizontal Filters Row
                                 Row(
@@ -4736,6 +4837,99 @@ fun ConnectionDashboard(
     }
     val flagEmoji = remember(serverName) { getFlagEmoji(serverName) }
 
+    // Read settings fields for WARP configuration
+    val settingsState = settingsManager.settings.collectAsState(initial = null).value
+    val warpDetourMode = settingsState?.warpDetourMode ?: "proxy"
+    val warpPort = settingsState?.warpPort ?: "2408"
+    var isRegisteringWarp by remember { mutableStateOf(false) }
+
+    // Recompute bento card brushes to exactly match Settings bento cards styling
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
+    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHigh
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
+    val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
+    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
+    val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
+
+    val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
+        if (cardStyle == "solid" || cardStyle == "vibrant") {
+            SolidColor(outlineVariant)
+        } else {
+            val colors = listOf(
+                primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
+                secondaryColor.copy(alpha = if (isDark) 0.40f else 0.06f)
+            )
+            Brush.linearGradient(colors = colors)
+        }
+    }
+
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer) {
+        if (cardStyle == "solid") {
+            SolidColor(surfaceContainerHigh)
+        } else if (cardStyle == "vibrant") {
+            SolidColor(primaryContainer)
+        } else {
+            val colors = if (isDark) {
+                listOf(
+                    primaryColor.copy(alpha = 0.55f),
+                    secondaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    primaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
+                )
+            }
+            Brush.linearGradient(colors = colors)
+        }
+    }
+
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, primaryContainer) {
+        if (cardStyle == "solid") {
+            SolidColor(surfaceContainer)
+        } else if (cardStyle == "vibrant") {
+            SolidColor(primaryContainer)
+        } else {
+            val colors = if (isDark) {
+                listOf(
+                    secondaryColor.copy(alpha = 0.55f),
+                    tertiaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    secondaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
+                )
+            }
+            Brush.linearGradient(colors = colors)
+        }
+    }
+
+    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
+        if (cardStyle == "solid") {
+            SolidColor(surfaceContainerLow)
+        } else if (cardStyle == "vibrant") {
+            SolidColor(primaryContainer)
+        } else {
+            val colors = if (isDark) {
+                listOf(
+                    tertiaryColor.copy(alpha = 0.55f),
+                    primaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    tertiaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
+                )
+            }
+            Brush.linearGradient(colors = colors)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -4859,79 +5053,65 @@ fun ConnectionDashboard(
             }
         }
 
+        // Active Server Card (Bento Style with brush backgrounds)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
                 .clickable { onNavigateToServers() }
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                .pressScaleEffect(),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            VibrantCardContent(cardStyle) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(Color.White.copy(alpha = 0.6f), shape = CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), CircleShape),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Dns,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = activeSubName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = serverName,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = activeSubName,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = serverName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color.White.copy(alpha = 0.7f), shape = CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = "Select Server",
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
 
+        // Ping and Protocol Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -4939,47 +5119,39 @@ fun ConnectionDashboard(
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(32.dp))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(32.dp)
-                    ),
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(18.dp)
-                        .height(86.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Box(
+                VibrantCardContent(cardStyle) {
+                    Column(
                         modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.6f), shape = CircleShape)
-                            .padding(6.dp)
+                            .padding(18.dp)
+                            .height(86.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Icon(
                             imageVector = Icons.Default.Speed,
                             contentDescription = "Ping",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(20.dp)
                         )
-                    }
-                    Column {
-                        Text(
-                            text = "PING",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = pingTime,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                        Column {
+                            Text(
+                                text = "PING",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = pingTime,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
@@ -4987,219 +5159,311 @@ fun ConnectionDashboard(
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(32.dp))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(32.dp)
-                    ),
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(18.dp)
-                        .height(86.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                VibrantCardContent(cardStyle) {
+                    Column(
+                        modifier = Modifier
+                            .padding(18.dp)
+                            .height(86.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.6f), shape = CircleShape)
-                                .padding(6.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Shield,
                                 contentDescription = "Protocol",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                tint = MaterialTheme.colorScheme.tertiary,
                                 modifier = Modifier.size(20.dp)
                             )
+                            if (state == "CONNECTED" && flagEmoji != "🌐") {
+                                Text(
+                                    text = flagEmoji,
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                            }
                         }
-                        if (state == "CONNECTED" && flagEmoji != "🌐") {
+                        Column {
                             Text(
-                                text = flagEmoji,
-                                style = MaterialTheme.typography.titleLarge
+                                text = "PROTOCOL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = if (protocolName.isEmpty()) "NONE" else protocolName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
-                    }
-                    Column {
-                        Text(
-                            text = "PROTOCOL",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = if (protocolName.isEmpty()) "NONE" else protocolName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
                 }
             }
         }
 
+        // AI-Bypass Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            VibrantCardContent(cardStyle) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.6f), shape = CircleShape)
-                            .padding(8.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             imageVector = Icons.Default.SmartToy,
                             contentDescription = "AI-Bypass",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(22.dp)
                         )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "AI-Bypass",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Smart routing active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "AI-Bypass",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Smart routing active",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-                Switch(
-                    checked = vpnMode == "ai_bypass",
-                    onCheckedChange = { checked ->
-                        scope.launch {
-                            if (checked) {
-                                val privateKey = settingsManager.settings.first().warpPrivateKey
-                                val clientId = settingsManager.settings.first().warpClientId
-                                if (privateKey.isEmpty() || clientId.isEmpty()) {
-                                    val creds = com.hambalapps.expressivebox.vpn.registerWarpAccount()
-                                    if (creds != null) {
-                                        settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                    Switch(
+                        checked = vpnMode == "ai_bypass",
+                        onCheckedChange = { checked ->
+                            scope.launch {
+                                if (checked) {
+                                    val privateKey = settingsManager.settings.first().warpPrivateKey
+                                    val clientId = settingsManager.settings.first().warpClientId
+                                    if (privateKey.isEmpty() || clientId.isEmpty()) {
+                                        isRegisteringWarp = true
+                                        val creds = com.hambalapps.expressivebox.vpn.registerWarpAccount()
+                                        isRegisteringWarp = false
+                                        if (creds != null) {
+                                            settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                                            settingsManager.setVpnMode("ai_bypass")
+                                            if (state == "CONNECTED") {
+                                                startVpnService(context)
+                                            }
+                                        } else {
+                                            android.widget.Toast.makeText(context, "WARP registration failed", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    } else {
                                         settingsManager.setVpnMode("ai_bypass")
                                         if (state == "CONNECTED") {
                                             startVpnService(context)
                                         }
-                                    } else {
-                                        android.widget.Toast.makeText(context, "WARP registration failed", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                 } else {
-                                    settingsManager.setVpnMode("ai_bypass")
+                                    settingsManager.setVpnMode("standard")
                                     if (state == "CONNECTED") {
                                         startVpnService(context)
                                     }
                                 }
-                            } else {
-                                settingsManager.setVpnMode("standard")
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        // WARP Detour & Port Selection Bento Card (shown reactively under AI-Bypass)
+        AnimatedVisibility(
+            visible = vpnMode == "ai_bypass",
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                VibrantCardContent(cardStyle) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = stringResource(R.string.warp_detour_title),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.warp_detour_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("proxy" to "Proxy", "direct" to "Direct").forEach { (optionKey, optionName) ->
+                                val isSelected = warpDetourMode == optionKey
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsManager.setWarpDetourMode(optionKey)
+                                            if (state == "CONNECTED") {
+                                                startVpnService(context)
+                                            }
+                                        }
+                                    },
+                                    label = { Text(optionName) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = ExpressiveButtonShape
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(20.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = stringResource(R.string.warp_port_title),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.warp_port_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("2408", "500", "1701", "4500").forEach { portStr ->
+                                val isSelected = warpPort == portStr
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsManager.setWarpPort(portStr)
+                                            if (state == "CONNECTED") {
+                                                startVpnService(context)
+                                            }
+                                        }
+                                    },
+                                    label = { Text(portStr) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = ExpressiveButtonShape
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Gaming Mode Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            VibrantCardContent(cardStyle) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = "Gaming Mode",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Gaming Mode",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Lowest latency routing",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = vpnMode == "gaming",
+                        onCheckedChange = { checked ->
+                            scope.launch {
+                                if (checked) {
+                                    settingsManager.setVpnMode("gaming")
+                                } else {
+                                    settingsManager.setVpnMode("standard")
+                                }
                                 if (state == "CONNECTED") {
                                     startVpnService(context)
                                 }
                             }
                         }
-                    }
-                )
-            }
-        }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.6f), shape = CircleShape)
-                            .padding(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SportsEsports,
-                            contentDescription = "Gaming Mode",
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "Gaming Mode",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "Lowest latency routing",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
+                    )
                 }
-                Switch(
-                    checked = vpnMode == "gaming",
-                    onCheckedChange = { checked ->
-                        scope.launch {
-                            if (checked) {
-                                settingsManager.setVpnMode("gaming")
-                            } else {
-                                settingsManager.setVpnMode("standard")
-                            }
-                            if (state == "CONNECTED") {
-                                startVpnService(context)
-                            }
-                        }
-                    }
-                )
             }
         }
+    }
+
+    if (isRegisteringWarp) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text(stringResource(R.string.registering_warp)) },
+            text = {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            },
+            shape = ExpressiveCardShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
     }
 }
 
