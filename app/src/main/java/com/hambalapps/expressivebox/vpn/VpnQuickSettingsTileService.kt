@@ -81,21 +81,13 @@ class VpnQuickSettingsTileService : TileService() {
     }
 
     private fun startVpnService() {
-        val settingsManager = SettingsManager(applicationContext)
-        serviceScope.launch {
-            val currentSettings = withContext(Dispatchers.IO) {
-                settingsManager.settings.first()
-            }
-            val intent = Intent(this@VpnQuickSettingsTileService, VpnServiceWrapper::class.java).apply {
-                action = VpnServiceWrapper.ACTION_START
-                putExtra("active_profile", currentSettings.activeProfile)
-                putExtra("show_live_notification", currentSettings.showLiveNotification)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
+        val intent = Intent(this, VpnServiceWrapper::class.java).apply {
+            action = VpnServiceWrapper.ACTION_START
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
         }
     }
 

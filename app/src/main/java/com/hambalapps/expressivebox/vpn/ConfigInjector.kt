@@ -290,7 +290,7 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapDnsAddr = "8.8.8.8"
+        val bootstrapDnsAddr = directDnsAddr
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
@@ -492,22 +492,27 @@ object ConfigInjector {
             val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
             val geoipFile = java.io.File(context.filesDir, "geoip-ir.srs")
 
-            // Inject or update local rule sets declaration
-            val ruleSetArray = JSONArray().apply {
-                put(JSONObject().apply {
+            // Inject or update local rule sets declaration if files exist
+            val ruleSetArray = JSONArray()
+            if (geoipFile.exists()) {
+                ruleSetArray.put(JSONObject().apply {
                     put("tag", "geoip-ir")
                     put("type", "local")
                     put("format", "binary")
                     put("path", geoipFile.absolutePath)
                 })
-                put(JSONObject().apply {
+            }
+            if (geositeFile.exists()) {
+                ruleSetArray.put(JSONObject().apply {
                     put("tag", "geosite-ir")
                     put("type", "local")
                     put("format", "binary")
                     put("path", geositeFile.absolutePath)
                 })
             }
-            route.put("rule_set", ruleSetArray)
+            if (ruleSetArray.length() > 0) {
+                route.put("rule_set", ruleSetArray)
+            }
 
             if (geositeFile.exists()) {
                 val irGeosite = JSONObject().apply {
