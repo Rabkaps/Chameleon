@@ -214,8 +214,19 @@ fun MainScreen(
         subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
     }
 
-    val serverList = remember(activeSubscription) {
-        activeSubscription?.servers?.split("\n")?.filter { it.isNotEmpty() } ?: emptyList()
+    val serverList = remember(subscriptions, manualServersStr) {
+        val list = mutableListOf<String>()
+        subscriptions.forEach { sub ->
+            sub.servers.split("\n").forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotEmpty()) list.add(trimmed)
+            }
+        }
+        manualServersStr.split("\n").forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed.isNotEmpty()) list.add(trimmed)
+        }
+        list
     }
 
     var showLivePromoGuide by remember { mutableStateOf(false) }
@@ -367,9 +378,43 @@ fun MainScreen(
     var selectedCountryFilter by remember { mutableStateOf("All Countries") }
     var selectedSubGroupFilter by remember { mutableStateOf("All Groups") }
     var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
+    var resolvedCountries by remember { mutableStateOf(mapOf<String, String>()) }
     var isTestingPings by remember { mutableStateOf(false) }
 
-    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions) {
+    LaunchedEffect(Unit) {
+        IpCountryResolver.init(context)
+    }
+
+    LaunchedEffect(serverList) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val newResolved = resolvedCountries.toMutableMap()
+            var changed = false
+            serverList.forEach { link ->
+                val host = getHostAndPortFromLink(link)?.first
+                if (host != null) {
+                    val cached = IpCountryResolver.getCachedCountryCode(host)
+                    if (cached != null) {
+                        if (newResolved[link] != cached) {
+                            newResolved[link] = cached
+                            changed = true
+                        }
+                    } else {
+                        val cc = IpCountryResolver.resolveCountryCode(host)
+                        newResolved[link] = cc
+                        changed = true
+                        kotlinx.coroutines.delay(120)
+                    }
+                }
+            }
+            if (changed) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    resolvedCountries = newResolved.toMap()
+                }
+            }
+        }
+    }
+
+    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries) {
         serverList.mapNotNull { serverLink ->
             val type = serverLink.substringBefore("://").uppercase()
             val matchesTab = when (selectedTab) {
@@ -397,7 +442,8 @@ fun MainScreen(
                     true
                 } else {
                     val emoji = selectedCountryFilter.substringBefore(" ")
-                    getFlagEmoji(name) == emoji
+                    val countryCode = resolvedCountries[serverLink]
+                    getFlagEmoji(name, countryCode) == emoji
                 }
                 
                 if (matchesSearch && matchesGroup && matchesCountry) {
@@ -469,8 +515,14 @@ fun MainScreen(
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid" || cardStyle == "vibrant") {
+        if (cardStyle == "solid") {
             SolidColor(outlineVariant)
+        } else if (cardStyle == "vibrant") {
+            val colors = listOf(
+                primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
+                secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = listOf(
                 primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
@@ -480,11 +532,15 @@ fun MainScreen(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer) {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerHigh)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                primaryContainer,
+                secondaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -501,11 +557,15 @@ fun MainScreen(
         }
     }
 
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, primaryContainer) {
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, tertiaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainer)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                secondaryContainer,
+                tertiaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -526,7 +586,11 @@ fun MainScreen(
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerLow)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                tertiaryContainer,
+                primaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -896,34 +960,40 @@ fun MainScreen(
                         var isGroupDropdownExpanded by remember { mutableStateOf(false) }
                         var isCountryDropdownExpanded by remember { mutableStateOf(false) }
                         
-                        val uniqueCountries = remember(serverList) {
+                        val uniqueCountries = remember(serverList, resolvedCountries) {
                             val list = mutableSetOf("All Countries")
                             serverList.forEach { link ->
                                 val name = ProxyNameResolver.getProxyName(link, context)
-                                val emoji = getFlagEmoji(name)
+                                val countryCode = resolvedCountries[link]
+                                val emoji = getFlagEmoji(name, countryCode)
                                 if (emoji != "🌐") {
-                                    val countryName = when (emoji) {
-                                        "🇩🇪" -> "Germany"
-                                        "🇪🇸" -> "Spain"
-                                        "🇯🇵" -> "Japan"
-                                        "🇺🇸" -> "United States"
-                                        "🇬🇧" -> "United Kingdom"
-                                        "🇫🇷" -> "France"
-                                        "🇳🇱" -> "Netherlands"
-                                        "🇸🇬" -> "Singapore"
-                                        "🇹🇷" -> "Turkey"
-                                        "🇨🇦" -> "Canada"
-                                        "🇮🇷" -> "Iran"
-                                        "🇫🇮" -> "Finland"
-                                        "🇸🇪" -> "Sweden"
-                                        "🇮🇹" -> "Italy"
-                                        "🇨🇭" -> "Switzerland"
-                                        "🇦🇪" -> "UAE"
-                                        "🇭🇰" -> "Hong Kong"
-                                        "🇰🇷" -> "Korea"
-                                        else -> ""
+                                    val cc = countryCode ?: when (emoji) {
+                                        "🇩🇪" -> "DE"
+                                        "🇪🇸" -> "ES"
+                                        "🇯🇵" -> "JP"
+                                        "🇺🇸" -> "US"
+                                        "🇬🇧" -> "GB"
+                                        "🇫🇷" -> "FR"
+                                        "🇳🇱" -> "NL"
+                                        "🇸🇬" -> "SG"
+                                        "🇹🇷" -> "TR"
+                                        "🇨🇦" -> "CA"
+                                        "🇮🇷" -> "IR"
+                                        "🇫🇮" -> "FI"
+                                        "🇸🇪" -> "SE"
+                                        "🇮🇹" -> "IT"
+                                        "🇨🇭" -> "CH"
+                                        "🇦🇪" -> "AE"
+                                        "🇭🇰" -> "HK"
+                                        "🇰🇷" -> "KR"
+                                        else -> null
                                     }
-                                    if (countryName.isNotEmpty()) list.add("$emoji $countryName")
+                                    val countryName = if (cc != null) {
+                                        java.util.Locale("", cc).getDisplayCountry(java.util.Locale.US)
+                                    } else ""
+                                    if (countryName.isNotEmpty()) {
+                                        list.add("$emoji $countryName")
+                                    }
                                 }
                             }
                             list.toList()
@@ -2436,7 +2506,8 @@ fun MainScreen(
                                             val isSelected = activeProfile == serverLink
                                             val name = serverItem.name
                                             val type = serverItem.type
-                                            val flagEmoji = remember(name) { getFlagEmoji(name) }
+                                            val countryCode = resolvedCountries[serverLink]
+                                            val flagEmoji = remember(name, countryCode) { getFlagEmoji(name, countryCode) }
                                             val ping = pingsMap[serverLink]
                                             val isTimeout = ping != null && ping < 0
                                             
@@ -2447,6 +2518,9 @@ fun MainScreen(
                                                     .clickable {
                                                         scope.launch {
                                                             settingsManager.setActiveProfile(serverLink)
+                                                            val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
+                                                            val newSubId = parentSub?.id ?: "manual"
+                                                            settingsManager.setActiveSubId(newSubId)
                                                             if (vpnState == "CONNECTED") {
                                                                 startVpnService(context)
                                                             }
@@ -4681,7 +4755,10 @@ fun MainScreen(
     }
 }
 
-fun getFlagEmoji(serverName: String): String {
+fun getFlagEmoji(serverName: String, countryCode: String? = null): String {
+    if (!countryCode.isNullOrEmpty() && countryCode != "🌐") {
+        return getFlagEmojiFromCountryCode(countryCode)
+    }
     val name = serverName.lowercase()
     return when {
         name.contains("germany") || name.contains("de") || name.contains("frankfurt") -> "🇩🇪"
@@ -4721,7 +4798,8 @@ fun ConnectionDashboard(
     settingsManager: SettingsManager,
     scope: CoroutineScope,
     onConnectToggle: () -> Unit,
-    onNavigateToServers: () -> Unit
+    onNavigateToServers: () -> Unit,
+    activeCountryCode: String? = null
 ) {
     val context = LocalContext.current
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
@@ -4835,7 +4913,7 @@ fun ConnectionDashboard(
     } else {
         activeProfile.substringBefore("://").uppercase()
     }
-    val flagEmoji = remember(serverName) { getFlagEmoji(serverName) }
+    val flagEmoji = remember(serverName, activeCountryCode) { getFlagEmoji(serverName, activeCountryCode) }
 
     // Read settings fields for WARP configuration
     val settingsState = settingsManager.settings.collectAsState(initial = null).value
@@ -4856,8 +4934,14 @@ fun ConnectionDashboard(
     val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid" || cardStyle == "vibrant") {
+        if (cardStyle == "solid") {
             SolidColor(outlineVariant)
+        } else if (cardStyle == "vibrant") {
+            val colors = listOf(
+                primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
+                secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = listOf(
                 primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
@@ -4867,11 +4951,15 @@ fun ConnectionDashboard(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer) {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerHigh)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                primaryContainer,
+                secondaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -4888,11 +4976,15 @@ fun ConnectionDashboard(
         }
     }
 
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, primaryContainer) {
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, tertiaryContainer) {
         if (cardStyle == "solid") {
             SolidColor(surfaceContainer)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                secondaryContainer,
+                tertiaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -4913,7 +5005,11 @@ fun ConnectionDashboard(
         if (cardStyle == "solid") {
             SolidColor(surfaceContainerLow)
         } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
+            val colors = listOf(
+                tertiaryContainer,
+                primaryContainer.copy(alpha = 0.7f)
+            )
+            Brush.linearGradient(colors = colors)
         } else {
             val colors = if (isDark) {
                 listOf(
@@ -4940,15 +5036,15 @@ fun ConnectionDashboard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(32.dp))
-                .clickable { onConnectToggle() }
+                .background(brush = if (isVpnActive) primaryCardBrush else secondaryCardBrush, shape = RoundedCornerShape(32.dp))
                 .border(
                     width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                    brush = cardBorderBrush,
                     shape = RoundedCornerShape(32.dp)
-                ),
+                )
+                .clickable { onConnectToggle() },
             shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = containerColor)
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -4994,8 +5090,12 @@ fun ConnectionDashboard(
                             .clip(CircleShape)
                             .background(buttonColor)
                             .border(
-                                width = 2.dp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                width = 4.dp,
+                                color = if (state == "CONNECTED" || state == "CONNECTING") {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
+                                },
                                 shape = CircleShape
                             )
                     ) {
@@ -6673,5 +6773,115 @@ fun ChainBuilderDialog(
         },
         shape = RoundedCornerShape(24.dp)
     )
+}
+
+object IpCountryResolver {
+    private const val CACHE_FILE = "ip_countries_cache.json"
+    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private var cacheFile: java.io.File? = null
+
+    fun init(context: android.content.Context) {
+        cacheFile = java.io.File(context.cacheDir, CACHE_FILE)
+        loadCache()
+    }
+
+    private fun loadCache() {
+        val file = cacheFile ?: return
+        if (file.exists()) {
+            try {
+                val jsonStr = file.readText()
+                val json = org.json.JSONObject(jsonStr)
+                json.keys().forEach { key ->
+                    cache[key] = json.getString(key)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun saveCache() {
+        val file = cacheFile ?: return
+        try {
+            val json = org.json.JSONObject()
+            cache.forEach { (k, v) ->
+                json.put(k, v)
+            }
+            file.writeText(json.toString())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getCachedCountryCode(host: String): String? {
+        return cache[host]
+    }
+
+    fun resolveCountryCode(host: String): String {
+        val ip = try {
+            java.net.InetAddress.getByName(host).hostAddress
+        } catch (e: Exception) {
+            host
+        }
+
+        val cached = cache[ip]
+        if (cached != null) {
+            cache[host] = cached
+            return cached
+        }
+
+        var cc = fetchCountryCodeFromFreeIpApi(ip)
+        if (cc.isEmpty() || cc == "🌐") {
+            cc = fetchCountryCodeFromIpApi(ip)
+        }
+
+        if (cc.isNotEmpty() && cc != "🌐") {
+            cache[ip] = cc
+            cache[host] = cc
+            saveCache()
+            return cc
+        }
+        return "🌐"
+    }
+
+    private fun fetchCountryCodeFromFreeIpApi(ip: String): String {
+        return try {
+            val url = java.net.URL("https://freeipapi.com/api/json/$ip")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "GET"
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(text)
+            json.optString("countryCode", "")
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun fetchCountryCodeFromIpApi(ip: String): String {
+        return try {
+            val url = java.net.URL("http://ip-api.com/json/$ip")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "GET"
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(text)
+            if (json.optString("status") == "success") {
+                json.optString("countryCode", "")
+            } else ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+}
+
+fun getFlagEmojiFromCountryCode(countryCode: String): String {
+    if (countryCode.length != 2) return "🌐"
+    val code = countryCode.uppercase()
+    val firstChar = Character.codePointAt(code, 0) - 0x41 + 0x1F1E6
+    val secondChar = Character.codePointAt(code, 1) - 0x41 + 0x1F1E6
+    return String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
 }
 
