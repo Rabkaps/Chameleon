@@ -213,5 +213,35 @@ class ConfigInjectorTest {
         assert(hasRelayDnsDomain) { "relay host domain should be resolved via bootstrap DNS" }
         assert(hasExitDnsDomain) { "exit host domain should be resolved via bootstrap DNS to prevent startup deadlock loop" }
     }
+
+    @Test
+    fun testXhttpHostHeaderInjected() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val uri = "vless://uuid@myhost.com:443?type=xhttp&host=mycdn.com&path=/mypath"
+        val configStr = ConfigInjector.injectConfig(mockContext, uri, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbounds = json.getJSONArray("outbounds")
+        val proxyOutbound = outbounds.getJSONObject(0)
+
+        assert(proxyOutbound.getString("type") == "vless")
+        val transport = proxyOutbound.getJSONObject("transport")
+        assert(transport.getString("type") == "xhttp")
+        assert(transport.getString("host") == "mycdn.com")
+        assert(transport.getString("path") == "/mypath")
+        val headers = transport.getJSONObject("headers")
+        assert(headers.getString("Host") == "mycdn.com") { "Host header inside headers should be set to mycdn.com for xhttp transport" }
+    }
 }
 

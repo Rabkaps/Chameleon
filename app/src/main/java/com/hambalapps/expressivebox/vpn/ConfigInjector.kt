@@ -1375,6 +1375,9 @@ object ConfigInjector {
                 val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
                 if (host.isNotEmpty()) {
                     transport.put("host", host)
+                    val headers = JSONObject()
+                    headers.put("Host", host)
+                    transport.put("headers", headers)
                 }
                 val mode = queryParams["mode"] ?: "stream-one"
                 transport.put("mode", mode)
