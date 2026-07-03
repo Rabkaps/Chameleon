@@ -1456,9 +1456,9 @@ object ConfigInjector {
         val outbounds = config.optJSONArray("outbounds") ?: return
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
-            val tag = outbound.optString("tag")
-            val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
-            if (isProxyOrRelay) {
+            val detour = outbound.optString("detour")
+            val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
+            if (isEntryProxy) {
                 val server = outbound.optString("server")
                 if (server.isNotEmpty() && !isIpAddress(server)) {
                     android.util.Log.i("ExpressiveBox", "Pre-resolving proxy server domain: $server")
