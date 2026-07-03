@@ -378,6 +378,8 @@ fun MainScreen(
     var selectedCountryFilter by remember { mutableStateOf("All Countries") }
     var selectedSubGroupFilter by remember { mutableStateOf("All Groups") }
     var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    var selectedNodes by remember { mutableStateOf(setOf<String>()) }
     var resolvedCountries by remember { mutableStateOf(mapOf<String, String>()) }
     var isTestingPings by remember { mutableStateOf(false) }
 
@@ -414,8 +416,8 @@ fun MainScreen(
         }
     }
 
-    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries) {
-        serverList.mapNotNull { serverLink ->
+    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries, pingsMap) {
+        val mapped = serverList.mapIndexedNotNull { originalIndex, serverLink ->
             val type = serverLink.substringBefore("://").uppercase()
             val matchesTab = when (selectedTab) {
                 0 -> true
@@ -448,6 +450,7 @@ fun MainScreen(
                 
                 if (matchesSearch && matchesGroup && matchesCountry) {
                     ServerItem(
+                        id = "${serverLink}_$originalIndex",
                         link = serverLink,
                         name = name,
                         type = type,
@@ -455,6 +458,14 @@ fun MainScreen(
                     )
                 } else null
             } else null
+        }
+        
+        mapped.sortedWith { item1, item2 ->
+            val p1 = pingsMap[item1.link] ?: -1
+            val p2 = pingsMap[item2.link] ?: -1
+            val latency1 = if (p1 < 0) Int.MAX_VALUE else p1
+            val latency2 = if (p2 < 0) Int.MAX_VALUE else p2
+            latency1.compareTo(latency2)
         }
     }
 
@@ -850,26 +861,87 @@ fun MainScreen(
                 }
             },
             bottomBar = {
-                NavigationBar(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, cardBorderBrush, RoundedCornerShape(24.dp)),
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
-                    tonalElevation = 8.dp
-                ) {
-                    tabs.forEach { (tabId, label, icon) ->
-                        val pageIdx = tabs.indexOfFirst { it.first == tabId }
-                        NavigationBarItem(
-                            selected = if (pageIdx >= 0) pagerState.targetPage == pageIdx else false,
-                            onClick = { 
-                                if (pageIdx >= 0) {
-                                    scope.launch { pagerState.animateScrollToPage(pageIdx) }
-                                } 
-                            },
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                        )
+                if (isMultiSelectMode) {
+                    NavigationBar(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
+                        tonalElevation = 8.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${selectedNodes.size} selected",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = {
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Text(stringResource(R.string.cancel))
+                                }
+                                Button(
+                                    onClick = {
+                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                        val newManualList = currentManualList.filter { !selectedNodes.contains(it) }
+                                        scope.launch {
+                                            settingsManager.setManualServers(newManualList.joinToString("\n"))
+                                        }
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ),
+                                    shape = ExpressiveButtonShape,
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Delete")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    NavigationBar(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, cardBorderBrush, RoundedCornerShape(24.dp)),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
+                        tonalElevation = 8.dp
+                    ) {
+                        tabs.forEach { (tabId, label, icon) ->
+                            val pageIdx = tabs.indexOfFirst { it.first == tabId }
+                            NavigationBarItem(
+                                selected = if (pageIdx >= 0) pagerState.targetPage == pageIdx else false,
+                                onClick = { 
+                                    if (pageIdx >= 0) {
+                                        scope.launch { pagerState.animateScrollToPage(pageIdx) }
+                                    } 
+                                },
+                                icon = { Icon(icon, contentDescription = label) },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
                     }
                 }
             }
@@ -1938,12 +2010,15 @@ fun MainScreen(
                                                 modifier = listModifier,
                                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                itemsIndexed(filteredServerList, key = { index, item -> "${item.link}_$index" }) { index, serverItem ->
+                                                itemsIndexed(filteredServerList, key = { _, item -> item.id }) { index, serverItem ->
                                                     val serverLink = serverItem.link
                                                     val isSelected = activeProfile == serverLink
                                                     val name = serverItem.name
                                                     val type = serverItem.type
                                                     val transport = serverItem.transport
+                                                    val isManualNode = remember(manualServersStr, serverLink) {
+                                                        manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                                                    }
                                                     
                                                     val tagContainerColor = when (type) {
                                                         "VLESS" -> MaterialTheme.colorScheme.primaryContainer
@@ -1978,33 +2053,76 @@ fun MainScreen(
                                                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
                                                                 shape = ExpressiveButtonShape
                                                             )
-                                                            .clickable {
-                                                                scope.launch {
-                                                                    settingsManager.setActiveProfile(serverLink)
-                                                                    if (vpnState == "CONNECTED") {
-                                                                        startVpnService(context)
+                                                            .combinedClickable(
+                                                                onClick = {
+                                                                    if (isMultiSelectMode) {
+                                                                        if (isManualNode) {
+                                                                            selectedNodes = if (selectedNodes.contains(serverLink)) {
+                                                                                selectedNodes - serverLink
+                                                                            } else {
+                                                                                selectedNodes + serverLink
+                                                                            }
+                                                                            if (selectedNodes.isEmpty()) {
+                                                                                isMultiSelectMode = false
+                                                                            }
+                                                                        } else {
+                                                                            android.widget.Toast.makeText(context, "Only custom/manual nodes can be selected for batch deletion", android.widget.Toast.LENGTH_SHORT).show()
+                                                                        }
+                                                                    } else {
+                                                                        scope.launch {
+                                                                            settingsManager.setActiveProfile(serverLink)
+                                                                            val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
+                                                                            val newSubId = parentSub?.id ?: "manual"
+                                                                            settingsManager.setActiveSubId(newSubId)
+                                                                            if (vpnState == "CONNECTED") {
+                                                                                startVpnService(context)
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                },
+                                                                onLongClick = {
+                                                                    if (!isMultiSelectMode && isManualNode) {
+                                                                        isMultiSelectMode = true
+                                                                        selectedNodes = setOf(serverLink)
                                                                     }
                                                                 }
-                                                            }
+                                                            )
                                                             .padding(horizontal = 12.dp, vertical = 10.dp),
                                                         verticalAlignment = Alignment.CenterVertically
                                                     ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(32.dp)
-                                                                .clip(CircleShape)
-                                                                .background(
-                                                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                                                    else MaterialTheme.colorScheme.surfaceVariant
-                                                                ),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
-                                                                contentDescription = null,
-                                                                tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                modifier = Modifier.size(16.dp)
+                                                        if (isMultiSelectMode && isManualNode) {
+                                                            Checkbox(
+                                                                checked = selectedNodes.contains(serverLink),
+                                                                onCheckedChange = { checked ->
+                                                                    selectedNodes = if (checked) {
+                                                                        selectedNodes + serverLink
+                                                                    } else {
+                                                                        selectedNodes - serverLink
+                                                                    }
+                                                                    if (selectedNodes.isEmpty()) {
+                                                                        isMultiSelectMode = false
+                                                                    }
+                                                                },
+                                                                modifier = Modifier.padding(end = 4.dp)
                                                             )
+                                                        } else {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(32.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(
+                                                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                                                        else MaterialTheme.colorScheme.surfaceVariant
+                                                                    ),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
+                                                                    contentDescription = null,
+                                                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    modifier = Modifier.size(16.dp)
+                                                                )
+                                                            }
                                                         }
                                                         Spacer(modifier = Modifier.width(12.dp))
                                                         Column(modifier = Modifier.weight(1f)) {
@@ -2501,7 +2619,7 @@ fun MainScreen(
                                         modifier = Modifier.fillMaxWidth().weight(1f),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        itemsIndexed(filteredServerList, key = { index, item -> "${item.link}_$index" }) { index, serverItem ->
+                                        itemsIndexed(filteredServerList, key = { _, item -> item.id }) { index, serverItem ->
                                             val serverLink = serverItem.link
                                             val isSelected = activeProfile == serverLink
                                             val name = serverItem.name
@@ -2522,18 +2640,38 @@ fun MainScreen(
                                                     .clip(RoundedCornerShape(16.dp))
                                                     .combinedClickable(
                                                         onClick = {
-                                                            scope.launch {
-                                                                settingsManager.setActiveProfile(serverLink)
-                                                                val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
-                                                                val newSubId = parentSub?.id ?: "manual"
-                                                                settingsManager.setActiveSubId(newSubId)
-                                                                if (vpnState == "CONNECTED") {
-                                                                    startVpnService(context)
+                                                            if (isMultiSelectMode) {
+                                                                if (isManualNode) {
+                                                                    selectedNodes = if (selectedNodes.contains(serverLink)) {
+                                                                        selectedNodes - serverLink
+                                                                    } else {
+                                                                        selectedNodes + serverLink
+                                                                    }
+                                                                    if (selectedNodes.isEmpty()) {
+                                                                        isMultiSelectMode = false
+                                                                    }
+                                                                } else {
+                                                                    android.widget.Toast.makeText(context, "Only custom/manual nodes can be selected for batch deletion", android.widget.Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            } else {
+                                                                scope.launch {
+                                                                    settingsManager.setActiveProfile(serverLink)
+                                                                    val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
+                                                                    val newSubId = parentSub?.id ?: "manual"
+                                                                    settingsManager.setActiveSubId(newSubId)
+                                                                    if (vpnState == "CONNECTED") {
+                                                                        startVpnService(context)
+                                                                    }
                                                                 }
                                                             }
                                                         },
                                                         onLongClick = {
-                                                            menuExpanded = true
+                                                            if (!isMultiSelectMode && isManualNode) {
+                                                                isMultiSelectMode = true
+                                                                selectedNodes = setOf(serverLink)
+                                                            } else {
+                                                                menuExpanded = true
+                                                            }
                                                         }
                                                     )
                                                     .border(
@@ -2558,16 +2696,33 @@ fun MainScreen(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         modifier = Modifier.weight(1f)
                                                     ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(40.dp)
-                                                                .background(MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Text(
-                                                                text = flagEmoji,
-                                                                style = MaterialTheme.typography.titleMedium
+                                                        if (isMultiSelectMode && isManualNode) {
+                                                            Checkbox(
+                                                                checked = selectedNodes.contains(serverLink),
+                                                                onCheckedChange = { checked ->
+                                                                    selectedNodes = if (checked) {
+                                                                        selectedNodes + serverLink
+                                                                    } else {
+                                                                        selectedNodes - serverLink
+                                                                    }
+                                                                    if (selectedNodes.isEmpty()) {
+                                                                        isMultiSelectMode = false
+                                                                    }
+                                                                },
+                                                                modifier = Modifier.padding(end = 4.dp)
                                                             )
+                                                        } else {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(40.dp)
+                                                                    .background(MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Text(
+                                                                    text = flagEmoji,
+                                                                    style = MaterialTheme.typography.titleMedium
+                                                                )
+                                                            }
                                                         }
                                                         Spacer(modifier = Modifier.width(12.dp))
                                                         Column {
@@ -3278,6 +3433,37 @@ fun MainScreen(
                                                      value = secureDns,
                                                      onValueChange = { scope.launch { settingsManager.setSecureDns(it) } },
                                                      label = { Text(stringResource(R.string.secure_dns_doh)) },
+                                                     modifier = Modifier.fillMaxWidth(),
+                                                     shape = ExpressiveButtonShape
+                                                 )
+                                                 
+                                                 Spacer(modifier = Modifier.height(6.dp))
+                                                 Row(
+                                                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                 ) {
+                                                     val presets = listOf(
+                                                         Pair("Cloudflare", "https://1.1.1.1/dns-query"),
+                                                         Pair("Google", "https://dns.google/dns-query"),
+                                                         Pair("AdGuard (AdBlock)", "https://dns.adguard-dns.com/dns-query"),
+                                                         Pair("NextDNS", "https://dns.nextdns.io")
+                                                     )
+                                                     presets.forEach { (label, urlVal) ->
+                                                         FilterChip(
+                                                             selected = secureDns == urlVal,
+                                                             onClick = { scope.launch { settingsManager.setSecureDns(urlVal) } },
+                                                             label = { Text(label) },
+                                                             shape = ExpressiveButtonShape
+                                                         )
+                                                     }
+                                                 }
+                                                 
+                                                 Spacer(modifier = Modifier.height(12.dp))
+                                                 
+                                                 OutlinedTextField(
+                                                     value = delayTestUrl,
+                                                     onValueChange = { scope.launch { settingsManager.setDelayTestUrl(it) } },
+                                                     label = { Text("Ping Delay Test URL") },
                                                      modifier = Modifier.fillMaxWidth(),
                                                      shape = ExpressiveButtonShape
                                                  )
@@ -4538,7 +4724,7 @@ fun MainScreen(
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        itemsIndexed(filteredServerList, key = { index, item -> "${item.link}_$index" }) { index, serverItem ->
+                        itemsIndexed(filteredServerList, key = { _, item -> item.id }) { index, serverItem ->
                             val serverLink = serverItem.link
                             val isSelected = activeProfile == serverLink
                             val name = serverItem.name
@@ -5855,6 +6041,7 @@ fun Modifier.pressScaleEffect(): Modifier {
 
 // ServerItem helper class for precomputed server properties to optimize scroll performance
 data class ServerItem(
+    val id: String,
     val link: String,
     val name: String,
     val type: String,

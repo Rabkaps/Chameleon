@@ -82,7 +82,7 @@ class NodesPopupActivity : ComponentActivity() {
                 var isTestingPings by remember { mutableStateOf(false) }
 
                 val filteredServerList = remember(serverList, searchQuery, selectedTab) {
-                    serverList.mapNotNull { serverLink ->
+                    serverList.mapIndexedNotNull { index, serverLink ->
                         val type = serverLink.substringBefore("://").uppercase()
                         val matchesTab = when (selectedTab) {
                             0 -> true
@@ -95,6 +95,7 @@ class NodesPopupActivity : ComponentActivity() {
                             val name = ProxyNameResolver.getProxyName(serverLink, context)
                             if (name.contains(searchQuery, ignoreCase = true)) {
                                 ServerItem(
+                                    id = "${serverLink}_$index",
                                     link = serverLink,
                                     name = name,
                                     type = type,

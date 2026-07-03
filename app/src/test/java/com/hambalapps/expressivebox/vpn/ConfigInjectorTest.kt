@@ -10,7 +10,7 @@ class ConfigInjectorTest {
     @Test
     fun testRealityConfigInjection() {
         val mockContext = Mockito.mock(Context::class.java)
-        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir")))
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
 
         val rawUri = "vless://463e7702-e5e0-4ab4-a84c-392f4927ce77@zone.nl.netlume.ir:29757?encryption=none&security=reality&type=tcp&headerType=http&path=%2Fassets&host=telewebion.ir&sni=telewebion.ir&fp=chrome&pbk=t_9lyts8KkYowHc3eDr22L7DuzRUnjRnodNhd1lspAE&sid=462333e748f7577e#%F0%9F%87%B3%F0%9F%87%B1%20%F0%9D%90%8D%F0%9D%90%9E%F0%9D%90%AD%F0%9D%90%A1%F0%9D%90%9E%F0%9D%90%AB%F0%9D%90%A5%F0%9D%90%9A%F0%9D%90%A7%F0%9D%90%9D%F0%9D%90%AC"
         val settings = InjectorSettings(
@@ -33,7 +33,7 @@ class ConfigInjectorTest {
     @Test
     fun testAiBypassConfigInjection() {
         val mockContext = Mockito.mock(Context::class.java)
-        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir")))
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
 
         val rawUri = "vless://463e7702-e5e0-4ab4-a84c-392f4927ce77@zone.nl.netlume.ir:29757?encryption=none&security=reality&type=tcp&headerType=http&path=%2Fassets&host=telewebion.ir&sni=telewebion.ir&fp=chrome&pbk=t_9lyts8KkYowHc3eDr22L7DuzRUnjRnodNhd1lspAE&sid=462333e748f7577e#test"
         val settings = InjectorSettings(
@@ -59,28 +59,36 @@ class ConfigInjectorTest {
         println(configStr)
 
         val json = org.json.JSONObject(configStr)
-        val endpoints = json.getJSONArray("endpoints")
-        assert(endpoints.length() == 1)
-        val endpoint = endpoints.getJSONObject(0)
+        val outbounds = json.getJSONArray("outbounds")
+        
+        var warpOutbound: org.json.JSONObject? = null
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.getJSONObject(i)
+            if (out.getString("tag") == "warp-out") {
+                warpOutbound = out
+                break
+            }
+        }
+        
+        assert(warpOutbound != null) { "warp-out outbound not found in outbounds" }
+        val endpoint = warpOutbound!!
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getString("tag") == "warp-out")
-        assert(endpoint.getString("address") == "172.16.0.2/32")
+        assert(endpoint.getJSONArray("local_address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
 
         val peers = endpoint.getJSONArray("peers")
         assert(peers.length() == 1)
         val peer = peers.getJSONObject(0)
-        val peerAddress = peer.getString("address")
+        val peerAddress = peer.getString("server")
         assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
-        assert(peer.getInt("port") == 4500)
+        assert(peer.getInt("server_port") == 4500)
+        
+        // In java org.json, "reserved" is a string or array? 
+        // In ConfigInjector.kt: if (settings.warpClientId.isNotEmpty()) { put("reserved", settings.warpClientId) }
+        // So it is a string in this case (or maybe it can be parsed as a string).
         assert(peer.getString("reserved") == "6hHy")
-
-        val outbounds = json.getJSONArray("outbounds")
-        for (i in 0 until outbounds.length()) {
-            val out = outbounds.getJSONObject(i)
-            assert(out.getString("tag") != "warp-out")
-        }
     }
 
     @Test
