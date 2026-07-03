@@ -183,6 +183,33 @@ class ConfigInjectorTest {
 
         assert(hasRelayDomain) { "relay host should be bypassed directly" }
         assert(!hasExitDomain) { "exit host should NOT be bypassed directly (must go through detour)" }
+
+        // DNS bootstrap verification:
+        // Both exit.host.com and relay.host.com MUST be resolved using the bootstrap DNS server (dns-bootstrap)
+        // to prevent circular DNS resolution lockouts since the secure DNS resolver goes through the tunnel itself.
+        val dnsObj = json.getJSONObject("dns")
+        val dnsRules = dnsObj.getJSONArray("rules")
+        var bootstrapDnsRule: org.json.JSONObject? = null
+        for (i in 0 until dnsRules.length()) {
+            val rule = dnsRules.getJSONObject(i)
+            if (rule.optString("server") == "dns-bootstrap" && rule.has("domain")) {
+                bootstrapDnsRule = rule
+                break
+            }
+        }
+
+        assert(bootstrapDnsRule != null)
+        val dnsDomains = bootstrapDnsRule!!.getJSONArray("domain")
+        var hasRelayDnsDomain = false
+        var hasExitDnsDomain = false
+        for (i in 0 until dnsDomains.length()) {
+            val domain = dnsDomains.getString(i)
+            if (domain == "relay.host.com") hasRelayDnsDomain = true
+            if (domain == "exit.host.com") hasExitDnsDomain = true
+        }
+
+        assert(hasRelayDnsDomain) { "relay host domain should be resolved via bootstrap DNS" }
+        assert(hasExitDnsDomain) { "exit host domain should be resolved via bootstrap DNS to prevent startup deadlock loop" }
     }
 }
 

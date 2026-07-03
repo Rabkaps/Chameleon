@@ -440,7 +440,7 @@ object ConfigInjector {
         }
         val directIps = mutableListOf<String>()
         val directDomains = mutableListOf<String>()
-        val proxyHosts = getProxyServerHosts(config)
+        val proxyHosts = getEntrypointProxyServerHosts(config)
 
         val directDnsAddr = extractHostFromUrl(settings.secureDns) ?: ""
         if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
@@ -1396,8 +1396,25 @@ object ConfigInjector {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val type = outbound.optString("type")
             if (proxyTypes.contains(type)) {
+                val server = outbound.optString("server")
+                if (server.isNotEmpty()) {
+                    hosts.add(server)
+                }
+            }
+        }
+        return hosts
+    }
+
+    private fun getEntrypointProxyServerHosts(config: JSONObject): List<String> {
+        val hosts = mutableListOf<String>()
+        val outbounds = config.optJSONArray("outbounds") ?: return hosts
+        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2", "socks", "http")
+        for (i in 0 until outbounds.length()) {
+            val outbound = outbounds.optJSONObject(i) ?: continue
+            val type = outbound.optString("type")
+            if (proxyTypes.contains(type)) {
                 val detour = outbound.optString("detour")
-                if (detour.isEmpty()) { // Only entrypoint server domains need bypass / direct routing
+                if (detour.isEmpty()) {
                     val server = outbound.optString("server")
                     if (server.isNotEmpty()) {
                         hosts.add(server)
