@@ -1891,72 +1891,104 @@ fun MainScreen(
                                         ) {
                                             Column {
                                                 Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                     modifier = Modifier.fillMaxWidth(),
-                                     verticalAlignment = Alignment.CenterVertically,
-                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                 ) {
-                                     OutlinedTextField(
-                                         value = searchQuery,
-                                         onValueChange = { searchQuery = it },
-                                         placeholder = { Text("Search servers...") },
-                                         modifier = Modifier.weight(1f),
-                                         shape = CircleShape,
-                                         singleLine = true,
-                                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                         trailingIcon = {
-                                             if (searchQuery.isNotEmpty()) {
-                                                 IconButton(onClick = { searchQuery = "" }) {
-                                                     Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
-                                                 }
-                                             }
-                                         }
-                                     )
-                                     
-                                     FilledIconButton(
-                                         onClick = {
-                                             if (!isTestingPings) {
-                                                 scope.launch {
-                                                     isTestingPings = true
-                                                     val jobs = serverList.map { link ->
-                                                         scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                             val hostPort = getHostAndPortFromLink(link)
-                                                             val ping = if (hostPort != null) {
-                                                                 measurePingDelay(hostPort.first, hostPort.second)
-                                                             } else {
-                                                                 -1
-                                                             }
-                                                             link to ping
-                                                         }
-                                                     }
-                                                     val results = jobs.awaitAll()
-                                                     pingsMap = pingsMap + results.toMap()
-                                                     isTestingPings = false
-                                                 }
-                                             }
-                                         },
-                                         modifier = Modifier.size(48.dp).pressScaleEffect(),
-                                         colors = IconButtonDefaults.filledIconButtonColors(
-                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                         ),
-                                         shape = CircleShape,
-                                         enabled = !isTestingPings
-                                     ) {
-                                         if (isTestingPings) {
-                                             LoadingIndicator(
-                                                 modifier = Modifier.size(18.dp),
-                                                 color = MaterialTheme.colorScheme.onPrimaryContainer
-                                             )
-                                         } else {
-                                             Icon(
-                                                 imageVector = Icons.Default.Speed,
-                                                 contentDescription = stringResource(R.string.test_pings),
-                                                 modifier = Modifier.size(20.dp)
-                                             )
-                                         }
-                                     }
-                                 }
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    // Group filter chip
+                                                    Box {
+                                                        androidx.compose.material3.FilterChip(
+                                                            selected = selectedSubGroupFilter != "All Groups",
+                                                            onClick = { isGroupDropdownExpanded = true },
+                                                            label = { Text(if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter) }
+                                                        )
+                                                        DropdownMenu(
+                                                            expanded = isGroupDropdownExpanded,
+                                                            onDismissRequest = { isGroupDropdownExpanded = false }
+                                                        ) {
+                                                            subGroups.forEach { group ->
+                                                                DropdownMenuItem(
+                                                                    text = { Text(group) },
+                                                                    onClick = {
+                                                                        selectedSubGroupFilter = group
+                                                                        isGroupDropdownExpanded = false
+                                                                    }
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    // Country filter chip
+                                                    Box {
+                                                        androidx.compose.material3.FilterChip(
+                                                            selected = selectedCountryFilter != "All Countries",
+                                                            onClick = { isCountryDropdownExpanded = true },
+                                                            label = { Text(if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter) }
+                                                        )
+                                                        DropdownMenu(
+                                                            expanded = isCountryDropdownExpanded,
+                                                            onDismissRequest = { isCountryDropdownExpanded = false }
+                                                        ) {
+                                                            uniqueCountries.forEach { country ->
+                                                                DropdownMenuItem(
+                                                                    text = { Text(country) },
+                                                                    onClick = {
+                                                                        selectedCountryFilter = country
+                                                                        isCountryDropdownExpanded = false
+                                                                    }
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    Spacer(modifier = Modifier.weight(1f))
+
+                                                    // Ping/Speed test button
+                                                    FilledIconButton(
+                                                        onClick = {
+                                                            if (!isTestingPings) {
+                                                                scope.launch {
+                                                                    isTestingPings = true
+                                                                    val jobs = serverList.map { link ->
+                                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                                            val hostPort = getHostAndPortFromLink(link)
+                                                                            val ping = if (hostPort != null) {
+                                                                                measurePingDelay(hostPort.first, hostPort.second)
+                                                                            } else {
+                                                                                -1
+                                                                            }
+                                                                            link to ping
+                                                                        }
+                                                                    }
+                                                                    val results = jobs.awaitAll()
+                                                                    pingsMap = pingsMap + results.toMap()
+                                                                    isTestingPings = false
+                                                                }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        enabled = !isTestingPings
+                                                    ) {
+                                                        if (isTestingPings) {
+                                                            LoadingIndicator(
+                                                                modifier = Modifier.size(16.dp),
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                            )
+                                                        } else {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Speed,
+                                                                contentDescription = stringResource(R.string.test_pings),
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
 
@@ -2009,6 +2041,7 @@ fun MainScreen(
                                         } else {
                                             LazyColumn(
                                                 modifier = listModifier,
+                                                contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
                                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
                                                 itemsIndexed(filteredServerList, key = { _, item -> item.id }) { index, serverItem ->
@@ -2541,79 +2574,11 @@ fun MainScreen(
                                     }
                                 }
 
-                                // Rounded Search Bar & Ping Button
+                                // Horizontal Filters Row & Speed Test Button
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = searchQuery,
-                                        onValueChange = { searchQuery = it },
-                                        placeholder = { Text("Search servers...") },
-                                        modifier = Modifier.weight(1f),
-                                        shape = CircleShape,
-                                        singleLine = true,
-                                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                        trailingIcon = {
-                                            if (searchQuery.isNotEmpty()) {
-                                                IconButton(onClick = { searchQuery = "" }) {
-                                                    Icon(Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(20.dp))
-                                                }
-                                            }
-                                        }
-                                    )
-                                    
-                                    // Ping/Speed test button
-                                    FilledIconButton(
-                                        onClick = {
-                                            if (!isTestingPings) {
-                                                scope.launch {
-                                                    isTestingPings = true
-                                                    val jobs = serverList.map { link ->
-                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                             val hostPort = getHostAndPortFromLink(link)
-                                                             val ping = if (hostPort != null) {
-                                                                 measurePingDelay(hostPort.first, hostPort.second)
-                                                             } else {
-                                                                 -1
-                                                             }
-                                                             link to ping
-                                                        }
-                                                    }
-                                                    val results = jobs.awaitAll()
-                                                    pingsMap = pingsMap + results.toMap()
-                                                    isTestingPings = false
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.size(48.dp).pressScaleEffect(),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        shape = CircleShape,
-                                        enabled = !isTestingPings
-                                    ) {
-                                        if (isTestingPings) {
-                                            LoadingIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Speed,
-                                                contentDescription = stringResource(R.string.test_pings),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Horizontal Filters Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     // Group filter chip
                                     Box {
@@ -2658,6 +2623,53 @@ fun MainScreen(
                                                     }
                                                 )
                                             }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    // Ping/Speed test button
+                                    FilledIconButton(
+                                        onClick = {
+                                            if (!isTestingPings) {
+                                                scope.launch {
+                                                    isTestingPings = true
+                                                    val jobs = serverList.map { link ->
+                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                             val hostPort = getHostAndPortFromLink(link)
+                                                             val ping = if (hostPort != null) {
+                                                                 measurePingDelay(hostPort.first, hostPort.second)
+                                                             } else {
+                                                                 -1
+                                                             }
+                                                             link to ping
+                                                        }
+                                                    }
+                                                    val results = jobs.awaitAll()
+                                                    pingsMap = pingsMap + results.toMap()
+                                                    isTestingPings = false
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = CircleShape,
+                                        enabled = !isTestingPings
+                                    ) {
+                                        if (isTestingPings) {
+                                            LoadingIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = stringResource(R.string.test_pings),
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
                                 }
@@ -2710,6 +2722,7 @@ fun MainScreen(
                                 } else {
                                     LazyColumn(
                                         modifier = Modifier.fillMaxWidth().weight(1f),
+                                        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         itemsIndexed(filteredServerList, key = { _, item -> item.id }) { index, serverItem ->
@@ -2942,23 +2955,127 @@ fun MainScreen(
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(80.dp))
                             }
 
-                            androidx.compose.material3.ExtendedFloatingActionButton(
-                                onClick = { editingNodeLink = "new_chain" },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(16.dp)
-                                    .pressScaleEffect(),
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                shape = ExpressiveButtonShape
-                            ) {
-                                Icon(imageVector = Icons.Default.Link, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.chain_str))
-                            }
+                             AnimatedVisibility(
+                                 visible = !isSearchVisible,
+                                 enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
+                                 exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
+                                 modifier = Modifier
+                                     .align(Alignment.BottomEnd)
+                                     .padding(16.dp)
+                                     .navigationBarsPadding()
+                             ) {
+                                 androidx.compose.material3.ExtendedFloatingActionButton(
+                                     onClick = { editingNodeLink = "new_chain" },
+                                     modifier = Modifier.pressScaleEffect(),
+                                     containerColor = MaterialTheme.colorScheme.primary,
+                                     contentColor = MaterialTheme.colorScheme.onPrimary,
+                                     shape = ExpressiveButtonShape
+                                 ) {
+                                     Icon(imageVector = Icons.Default.Link, contentDescription = null)
+                                     Spacer(modifier = Modifier.width(8.dp))
+                                     Text(stringResource(R.string.chain_str))
+                                 }
+                             }
+
+                             // One UI 8.5 Style Floating Search Bar
+                             Box(
+                                 modifier = Modifier
+                                     .align(Alignment.BottomStart)
+                                     .padding(start = 16.dp, bottom = 16.dp)
+                                     .navigationBarsPadding()
+                             ) {
+                                 AnimatedContent(
+                                     targetState = isSearchVisible,
+                                     transitionSpec = {
+                                         fadeIn(animationSpec = tween(250)) togetherWith
+                                         fadeOut(animationSpec = tween(200)) using
+                                         SizeTransform { _, _ ->
+                                             tween(250)
+                                         }
+                                     },
+                                     label = "SearchExpandAnimation"
+                                 ) { expanded ->
+                                     if (expanded) {
+                                         Card(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(end = 16.dp)
+                                                 .height(56.dp)
+                                                 .pressScaleEffect(),
+                                             shape = RoundedCornerShape(28.dp),
+                                             colors = CardDefaults.cardColors(
+                                                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                                             ),
+                                             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                                         ) {
+                                             Row(
+                                                 modifier = Modifier
+                                                     .fillMaxSize()
+                                                     .padding(horizontal = 8.dp),
+                                                 verticalAlignment = Alignment.CenterVertically
+                                             ) {
+                                                 IconButton(onClick = {
+                                                     isSearchVisible = false
+                                                     searchQuery = ""
+                                                 }) {
+                                                     Icon(
+                                                         imageVector = Icons.Default.ArrowBack,
+                                                         contentDescription = "Collapse Search",
+                                                         tint = MaterialTheme.colorScheme.primary
+                                                     )
+                                                 }
+                                                 
+                                                 androidx.compose.foundation.text.BasicTextField(
+                                                     value = searchQuery,
+                                                     onValueChange = { searchQuery = it },
+                                                     modifier = Modifier.weight(1f),
+                                                     singleLine = true,
+                                                     textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                         color = MaterialTheme.colorScheme.onSurface
+                                                     ),
+                                                     decorationBox = { innerTextField ->
+                                                         Box(modifier = Modifier.fillMaxWidth()) {
+                                                             if (searchQuery.isEmpty()) {
+                                                                 Text(
+                                                                     text = "Search servers...",
+                                                                     style = MaterialTheme.typography.bodyMedium,
+                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                                 )
+                                                             }
+                                                             innerTextField()
+                                                         }
+                                                     }
+                                                 )
+                                                 
+                                                 if (searchQuery.isNotEmpty()) {
+                                                     IconButton(onClick = { searchQuery = "" }) {
+                                                         Icon(
+                                                             imageVector = Icons.Default.Clear,
+                                                             contentDescription = "Clear",
+                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                         )
+                                                     }
+                                                 }
+                                             }
+                                         }
+                                     } else {
+                                         androidx.compose.material3.FloatingActionButton(
+                                             onClick = { isSearchVisible = true },
+                                             modifier = Modifier.pressScaleEffect(),
+                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                             shape = CircleShape
+                                         ) {
+                                             Icon(
+                                                 imageVector = Icons.Default.Search,
+                                                 contentDescription = "Expand Search"
+                                             )
+                                         }
+                                     }
+                                 }
+                             }
 
                             if (showSubManagerDialog) {
                                 androidx.compose.ui.window.Dialog(onDismissRequest = { showSubManagerDialog = false }) {
