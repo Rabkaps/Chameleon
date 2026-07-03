@@ -157,7 +157,7 @@ class ConfigInjectorTest {
         // Relay outbound (entrypoint) MUST have multiplex and fragment configurations if enabled
         assert(relayOutbound!!.has("multiplex"))
         // Exit proxy outbound (detoured) must NOT have multiplex (since we detour it to relay-out which is multiplexed/fragmented)
-        assert(!proxyOutbound.has("multiplex"))
+        assert(!proxyOutbound!!.has("multiplex"))
 
         // Direct-bypass routing verification:
         // The exit outbound server domain (exit.host.com) MUST NOT be in the direct domains routing rules because it is detoured.
