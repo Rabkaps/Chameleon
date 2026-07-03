@@ -120,7 +120,7 @@ class ConfigInjectorTest {
             enableMux = true,
             bypassLan = true,
             vpnMode = "normal",
-            proxyChains = "chain-id\u001fMy Custom Chain\u001fvless://uuid@relay.host.com:443?security=tls#relay\u001fvless://uuid@exit.host.com:443?security=tls#exit"
+            proxyChains = "chain-id\u001fMy Custom Chain\u001fvless://uuid@relay.host.com:443?security=tls#relay\u001fvless://uuid@exit.host.com:443?security=tls&flow=xtls-rprx-vision#exit"
         )
 
         val chainUri = "chain://chain-id#My%20Custom%20Chain"
@@ -150,6 +150,8 @@ class ConfigInjectorTest {
         assert(proxyOutbound!!.getString("detour") == "relay-out")
         // Relay outbound must NOT detour (empty/null detour)
         assert(!relayOutbound!!.has("detour"))
+        // Exit proxy outbound MUST have flow parameter stripped (as detour doesn't support XTLS flow)
+        assert(!proxyOutbound.has("flow")) { "flow should be removed from detoured exit outbound" }
 
         // Check fragmentation/mux injection
         // Relay outbound (entrypoint) MUST have multiplex and fragment configurations if enabled

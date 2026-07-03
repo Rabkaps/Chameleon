@@ -588,9 +588,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 commandServer?.startOrReloadService(configJson, overrideOptions)
 
                 if (!rootModeVal) {
-                    // Wait up to 3 seconds for sing-box core to initialize the TUN interface
+                    // Wait up to 10 seconds for sing-box core to initialize the TUN interface
                     var waitCount = 0
-                    while (tunFd == null && waitCount < 30) {
+                    while (tunFd == null && waitCount < 100) {
                         delay(100)
                         waitCount++
                     }
