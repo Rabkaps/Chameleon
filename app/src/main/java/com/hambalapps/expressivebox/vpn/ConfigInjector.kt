@@ -764,18 +764,20 @@ object ConfigInjector {
     private fun injectFragmentToOutbound(outbound: JSONObject, settings: InjectorSettings) {
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
-        tls.put("fragment", true)
-        tls.put("record_fragment", true)
         
-        val interval = settings.fragmentInterval.trim()
-        val delayStr = if (interval.isEmpty()) {
-            "20ms"
-        } else if (interval.endsWith("ms")) {
-            interval
-        } else {
-            "${interval}ms"
+        val fragmentObj = JSONObject().apply {
+            put("enabled", true)
+            put("packets", "tlshello")
+            
+            val lengthStr = settings.fragmentLength.trim()
+            put("length", if (lengthStr.isNotEmpty()) lengthStr else "10-20")
+            
+            val intervalStr = settings.fragmentInterval.trim()
+            put("interval", if (intervalStr.isNotEmpty()) intervalStr else "10-20")
         }
-        tls.put("fragment_fallback_delay", delayStr)
+        tls.put("fragment", fragmentObj)
+        tls.put("record_fragment", true)
+        tls.put("fragment_fallback_delay", "500ms")
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
