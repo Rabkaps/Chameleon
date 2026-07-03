@@ -115,7 +115,7 @@ class SettingsManager(private val context: Context) {
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { prefs ->
         val listStr = prefs[SUBSCRIPTION_LIST] ?: ""
-        val manualStr = prefs[MANUAL_SERVERS] ?: (if (Config.IS_SPECIAL) Config.DEFAULT_PROFILE else "")
+        val manualStr = prefs[MANUAL_SERVERS] ?: ""
         
         // Parse subscriptions in the background thread (flow mapping runs on the DataStore IO dispatcher)
         val deserialized = deserializeSubscriptions(listStr).toMutableList()
@@ -137,11 +137,11 @@ class SettingsManager(private val context: Context) {
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10-20",
             enableMux = prefs[ENABLE_MUX] ?: false,
-            activeProfile = prefs[ACTIVE_PROFILE] ?: (if (Config.IS_SPECIAL) Config.DEFAULT_PROFILE else ""),
+            activeProfile = prefs[ACTIVE_PROFILE] ?: "",
             subscriptionUrl = prefs[SUBSCRIPTION_URL] ?: "",
             subscriptionServers = prefs[SUBSCRIPTION_SERVERS] ?: "",
             subscriptionList = listStr,
-            activeSubId = prefs[ACTIVE_SUB_ID] ?: (if (Config.IS_SPECIAL && Config.DEFAULT_PROFILE.isNotEmpty()) "manual" else ""),
+            activeSubId = prefs[ACTIVE_SUB_ID] ?: "",
             showLiveNotification = prefs[SHOW_LIVE_NOTIFICATION] ?: false,
             splitTunnelingEnabled = prefs[SPLIT_TUNNELING_ENABLED] ?: false,
             splitTunnelingMode = prefs[SPLIT_TUNNELING_MODE] ?: "bypass",
