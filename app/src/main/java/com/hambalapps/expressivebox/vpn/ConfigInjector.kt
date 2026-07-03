@@ -594,9 +594,6 @@ object ConfigInjector {
 
             // Resolve and apply Stealth Camouflage if configured
             val detour = out.optString("detour")
-            if (detour.isNotEmpty()) {
-                out.remove("flow") // Detoured outbounds do not support flow protocols like xtls-rprx-vision
-            }
             val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
             val isCompatibleType = type == "vless" || type == "trojan" || type == "vmess" || type == "shadowsocks" || type == "ss"
             if (isEntryProxy && isCompatibleType) {

@@ -150,8 +150,8 @@ class ConfigInjectorTest {
         assert(proxyOutbound!!.getString("detour") == "relay-out")
         // Relay outbound must NOT detour (empty/null detour)
         assert(!relayOutbound!!.has("detour"))
-        // Exit proxy outbound MUST have flow parameter stripped (as detour doesn't support XTLS flow)
-        assert(!proxyOutbound.has("flow")) { "flow should be removed from detoured exit outbound" }
+        // Exit proxy outbound MUST preserve flow configuration (required by XTLS Vision servers)
+        assert(proxyOutbound.getString("flow") == "xtls-rprx-vision")
 
         // Check fragmentation/mux injection
         // Relay outbound (entrypoint) MUST have multiplex and fragment configurations if enabled
