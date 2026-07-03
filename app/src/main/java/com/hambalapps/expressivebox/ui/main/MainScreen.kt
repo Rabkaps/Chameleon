@@ -2511,21 +2511,31 @@ fun MainScreen(
                                             val ping = pingsMap[serverLink]
                                             val isTimeout = ping != null && ping < 0
                                             
+                                            var menuExpanded by remember { mutableStateOf(false) }
+                                            val isManualNode = remember(manualServersStr, serverLink) {
+                                                manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                                            }
+
                                             Card(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clip(RoundedCornerShape(16.dp))
-                                                    .clickable {
-                                                        scope.launch {
-                                                            settingsManager.setActiveProfile(serverLink)
-                                                            val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
-                                                            val newSubId = parentSub?.id ?: "manual"
-                                                            settingsManager.setActiveSubId(newSubId)
-                                                            if (vpnState == "CONNECTED") {
-                                                                startVpnService(context)
+                                                    .combinedClickable(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                settingsManager.setActiveProfile(serverLink)
+                                                                val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(serverLink.trim()) }
+                                                                val newSubId = parentSub?.id ?: "manual"
+                                                                settingsManager.setActiveSubId(newSubId)
+                                                                if (vpnState == "CONNECTED") {
+                                                                    startVpnService(context)
+                                                                }
                                                             }
+                                                        },
+                                                        onLongClick = {
+                                                            menuExpanded = true
                                                         }
-                                                    }
+                                                    )
                                                     .border(
                                                         width = if (isSelected) 2.dp else 1.dp,
                                                         color = if (isSelected) MaterialTheme.colorScheme.primary
@@ -2612,35 +2622,69 @@ fun MainScreen(
                                                                 onDismissRequest = { menuExpanded = false }
                                                             ) {
                                                                 DropdownMenuItem(
-                                                                    text = { Text("Delete") },
+                                                                    text = { Text(stringResource(R.string.share_config)) },
+                                                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) },
                                                                     onClick = {
                                                                         menuExpanded = false
-                                                                        scope.launch {
-                                                                            val currentManual = manualServersStr.split("\n").filter { it.isNotEmpty() }
-                                                                            val updatedManualList = currentManual.filter { it != serverLink }
-                                                                            settingsManager.setManualServers(updatedManualList.joinToString("\n"))
-                                                                            
-                                                                            if (serverLink.startsWith("chain://")) {
-                                                                                val chainId = serverLink.substringAfter("chain://").substringBefore("#")
-                                                                                val currentChains = deserializeProxyChains(settings.proxyChains)
-                                                                                val updatedChains = currentChains.filter { it.id != chainId }
-                                                                                settingsManager.setProxyChains(serializeProxyChains(updatedChains))
-                                                                            }
-                                                                            
-                                                                            val currentCam = deserializeCamouflageSettings(settings.camouflageSettings)
-                                                                            val updatedCam = currentCam.filter { it.nodeLink.substringBefore("#") != serverLink.substringBefore("#") }
-                                                                            settingsManager.setCamouflageSettings(serializeCamouflageSettings(updatedCam))
-                                                                            
-                                                                            if (isSelected) {
-                                                                                val nextActive = updatedManualList.firstOrNull() ?: ""
-                                                                                settingsManager.setActiveProfile(nextActive)
-                                                                                if (vpnState == "CONNECTED" && nextActive.isNotEmpty()) {
-                                                                                    startVpnService(context)
+                                                                        val sendIntent = Intent().apply {
+                                                                            action = Intent.ACTION_SEND
+                                                                            putExtra(Intent.EXTRA_TEXT, serverLink)
+                                                                            this.type = "text/plain"
+                                                                        }
+                                                                        val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_config))
+                                                                        context.startActivity(shareIntent)
+                                                                    }
+                                                                )
+                                                                DropdownMenuItem(
+                                                                    text = { Text("Share QR Code") },
+                                                                    leadingIcon = { Icon(Icons.Default.QrCode, contentDescription = null) },
+                                                                    onClick = {
+                                                                        menuExpanded = false
+                                                                        qrCodeToShare = Pair(name, serverLink)
+                                                                    }
+                                                                )
+                                                                if (isManualNode) {
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(R.string.edit_config)) },
+                                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                                                        onClick = {
+                                                                            menuExpanded = false
+                                                                            editingNodeLink = serverLink
+                                                                            editLinkInput = serverLink
+                                                                        }
+                                                                    )
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(stringResource(R.string.delete_config)) },
+                                                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                                                        onClick = {
+                                                                            menuExpanded = false
+                                                                            scope.launch {
+                                                                                val currentManual = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                                                                val updatedManualList = currentManual.filter { it != serverLink }
+                                                                                settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                                                                
+                                                                                if (serverLink.startsWith("chain://")) {
+                                                                                    val chainId = serverLink.substringAfter("chain://").substringBefore("#")
+                                                                                    val currentChains = deserializeProxyChains(settings.proxyChains)
+                                                                                    val updatedChains = currentChains.filter { it.id != chainId }
+                                                                                    settingsManager.setProxyChains(serializeProxyChains(updatedChains))
+                                                                                }
+                                                                                
+                                                                                val currentCam = deserializeCamouflageSettings(settings.camouflageSettings)
+                                                                                val updatedCam = currentCam.filter { it.nodeLink.substringBefore("#") != serverLink.substringBefore("#") }
+                                                                                settingsManager.setCamouflageSettings(serializeCamouflageSettings(updatedCam))
+                                                                                
+                                                                                if (isSelected) {
+                                                                                    val nextActive = updatedManualList.firstOrNull() ?: ""
+                                                                                    settingsManager.setActiveProfile(nextActive)
+                                                                                    if (vpnState == "CONNECTED" && nextActive.isNotEmpty()) {
+                                                                                        startVpnService(context)
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         }
-                                                                    }
-                                                                )
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -2887,10 +2931,10 @@ fun MainScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             listOf(
-                                                "http://cp.cloudflare.com/generate_204" to "Cloudflare",
-                                                "http://www.google.com/generate_204" to "Google",
-                                                "http://www.gstatic.com/generate_204" to "GStatic",
-                                                "http://play.googleapis.com/generate_204" to "Google Play"
+                                                "https://cp.cloudflare.com/generate_204" to "Cloudflare",
+                                                "https://www.google.com/generate_204" to "Google",
+                                                "https://www.gstatic.com/generate_204" to "GStatic",
+                                                "https://play.googleapis.com/generate_204" to "Google Play"
                                             ).forEach { (urlVal, label) ->
                                                 FilterChip(
                                                     selected = delayTestUrl == urlVal,
@@ -5496,53 +5540,100 @@ fun ConnectionDashboard(
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             VibrantCardContent(cardStyle) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SportsEsports,
-                            contentDescription = "Gaming Mode",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(
-                                text = "Gaming Mode",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SportsEsports,
+                                contentDescription = "Gaming Mode",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
                             )
-                            Text(
-                                text = "Lowest latency routing",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Switch(
-                        checked = vpnMode == "gaming",
-                        onCheckedChange = { checked ->
-                            scope.launch {
-                                if (checked) {
-                                    settingsManager.setVpnMode("gaming")
-                                } else {
-                                    settingsManager.setVpnMode("standard")
-                                }
-                                if (state == "CONNECTED") {
-                                    startVpnService(context)
-                                }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "Gaming Mode",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Lowest latency routing",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
-                    )
+                        Switch(
+                            checked = vpnMode == "gaming",
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    if (checked) {
+                                        settingsManager.setVpnMode("gaming")
+                                    } else {
+                                        settingsManager.setVpnMode("standard")
+                                    }
+                                    if (state == "CONNECTED") {
+                                        startVpnService(context)
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = vpnMode == "gaming",
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.tunnel_games_title),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.tunnel_games_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Switch(
+                                    checked = vpnModeTunnelGames,
+                                    onCheckedChange = { checked ->
+                                        scope.launch {
+                                            settingsManager.setVpnModeTunnelGames(checked)
+                                            if (state == "CONNECTED") {
+                                                startVpnService(context)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -6818,26 +6909,28 @@ object IpCountryResolver {
     }
 
     fun resolveCountryCode(host: String): String {
-        val ip = try {
-            java.net.InetAddress.getByName(host).hostAddress
-        } catch (e: Exception) {
-            host
+        val trimmed = host.trim()
+        if (trimmed.isEmpty() || trimmed.equals("localhost", ignoreCase = true) || 
+            trimmed.startsWith("127.") || trimmed.startsWith("10.") || 
+            trimmed.startsWith("192.168.") || trimmed.startsWith("172.")) {
+            return "🌐"
         }
 
-        val cached = cache[ip]
+        val cached = cache[trimmed]
         if (cached != null) {
-            cache[host] = cached
             return cached
         }
 
-        var cc = fetchCountryCodeFromFreeIpApi(ip)
+        var cc = fetchCountryCodeFromFreeIpApi(trimmed)
         if (cc.isEmpty() || cc == "🌐") {
-            cc = fetchCountryCodeFromIpApi(ip)
+            cc = fetchCountryCodeFromCountryIs(trimmed)
+        }
+        if (cc.isEmpty() || cc == "🌐") {
+            cc = fetchCountryCodeFromIpWhoIs(trimmed)
         }
 
         if (cc.isNotEmpty() && cc != "🌐") {
-            cache[ip] = cc
-            cache[host] = cc
+            cache[trimmed] = cc
             saveCache()
             return cc
         }
@@ -6859,17 +6952,32 @@ object IpCountryResolver {
         }
     }
 
-    private fun fetchCountryCodeFromIpApi(ip: String): String {
+    private fun fetchCountryCodeFromCountryIs(ip: String): String {
         return try {
-            val url = java.net.URL("http://ip-api.com/json/$ip")
+            val url = java.net.URL("https://api.country.is/$ip")
             val conn = url.openConnection() as java.net.HttpURLConnection
             conn.connectTimeout = 3000
             conn.readTimeout = 3000
             conn.requestMethod = "GET"
             val text = conn.inputStream.bufferedReader().use { it.readText() }
             val json = org.json.JSONObject(text)
-            if (json.optString("status") == "success") {
-                json.optString("countryCode", "")
+            json.optString("country", "")
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun fetchCountryCodeFromIpWhoIs(ip: String): String {
+        return try {
+            val url = java.net.URL("https://ipwho.is/$ip")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.requestMethod = "GET"
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(text)
+            if (json.optBoolean("success", false)) {
+                json.optString("country_code", "")
             } else ""
         } catch (e: Exception) {
             ""

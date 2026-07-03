@@ -96,7 +96,7 @@ class SettingsManager(private val context: Context) {
             warpIpAddress = "",
             warpClientId = "",
             vpnModeTunnelGames = false,
-            delayTestUrl = "http://cp.cloudflare.com/generate_204",
+            delayTestUrl = "https://cp.cloudflare.com/generate_204",
             warpDetourMode = "proxy",
             warpPort = "2408",
             shareVpnLan = false,
@@ -162,7 +162,7 @@ class SettingsManager(private val context: Context) {
             warpIpAddress = prefs[WARP_IP_ADDRESS] ?: "",
             warpClientId = prefs[WARP_CLIENT_ID] ?: "",
             vpnModeTunnelGames = prefs[VPN_MODE_TUNNEL_GAMES] ?: false,
-            delayTestUrl = prefs[DELAY_TEST_URL] ?: "http://cp.cloudflare.com/generate_204",
+            delayTestUrl = prefs[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204",
             warpDetourMode = prefs[WARP_DETOUR_MODE] ?: "proxy",
             warpPort = prefs[WARP_PORT] ?: "2408",
             shareVpnLan = prefs[SHARE_VPN_LAN] ?: false,
@@ -210,7 +210,7 @@ class SettingsManager(private val context: Context) {
     val warpIpAddress: Flow<String> = context.dataStore.data.map { it[WARP_IP_ADDRESS] ?: "" }.distinctUntilChanged()
     val warpClientId: Flow<String> = context.dataStore.data.map { it[WARP_CLIENT_ID] ?: "" }.distinctUntilChanged()
     val vpnModeTunnelGames: Flow<Boolean> = context.dataStore.data.map { it[VPN_MODE_TUNNEL_GAMES] ?: false }.distinctUntilChanged()
-    val delayTestUrl: Flow<String> = context.dataStore.data.map { it[DELAY_TEST_URL] ?: "http://cp.cloudflare.com/generate_204" }.distinctUntilChanged()
+    val delayTestUrl: Flow<String> = context.dataStore.data.map { it[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204" }.distinctUntilChanged()
     val warpDetourMode: Flow<String> = context.dataStore.data.map { it[WARP_DETOUR_MODE] ?: "proxy" }.distinctUntilChanged()
     val warpPort: Flow<String> = context.dataStore.data.map { it[WARP_PORT] ?: "2408" }.distinctUntilChanged()
     val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
