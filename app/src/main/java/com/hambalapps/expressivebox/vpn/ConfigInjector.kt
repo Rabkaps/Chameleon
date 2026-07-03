@@ -443,7 +443,7 @@ object ConfigInjector {
         }
         val directIps = mutableListOf<String>()
         val directDomains = mutableListOf<String>()
-        val proxyHosts = getEntrypointProxyServerHosts(config)
+        val proxyHosts = getProxyServerHosts(config)
 
         val directDnsAddr = extractHostFromUrl(settings.secureDns) ?: ""
         if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
@@ -1301,7 +1301,7 @@ object ConfigInjector {
         // Map type=tcp & headerType=http to http transport, and type=h2 to http transport
         val security = queryParams["security"]?.lowercase()
         val isReality = security == "reality"
-        if ((type == null || type == "tcp") && headerType == "http") {
+        if ((type == null || type == "tcp") && headerType == "http" && !isReality) {
             type = "http"
         } else if (type == "h2") {
             type = "http"

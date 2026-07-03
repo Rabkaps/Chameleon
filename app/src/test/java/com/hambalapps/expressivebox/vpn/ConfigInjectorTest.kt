@@ -184,7 +184,7 @@ class ConfigInjectorTest {
         }
 
         assert(hasRelayDomain) { "relay host should be bypassed directly" }
-        assert(!hasExitDomain) { "exit host should NOT be bypassed directly (must go through detour)" }
+        assert(hasExitDomain) { "exit host should be bypassed directly to prevent routing/DNS loop anomalies" }
 
         // DNS bootstrap verification:
         // Both exit.host.com and relay.host.com MUST be resolved using the bootstrap DNS server (dns-bootstrap)
