@@ -623,10 +623,12 @@ object ConfigInjector {
             if (isEntryProxy && settings.enableFragment) {
                 injectFragmentToOutbound(out, settings)
             }
-            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality configs)
+            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp configs)
             val tls = out.optJSONObject("tls")
             val isReality = tls?.has("reality") ?: false
-            if (isEntryProxy && settings.enableMux && settings.vpnMode != "gaming" && !isReality) {
+            val transport = out.optJSONObject("transport")
+            val isXhttp = transport?.optString("type") == "xhttp"
+            if (isEntryProxy && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -634,7 +636,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (isEntryProxy && (settings.vpnMode == "gaming" || isReality)) {
+            } else if (isEntryProxy && (settings.vpnMode == "gaming" || isReality || isXhttp)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
