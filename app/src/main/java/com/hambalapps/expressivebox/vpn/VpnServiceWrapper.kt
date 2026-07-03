@@ -577,15 +577,17 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 tunFd = null
                 commandServer?.startOrReloadService(configJson, overrideOptions)
 
-                // Wait up to 3 seconds for sing-box core to initialize the TUN interface
-                var waitCount = 0
-                while (tunFd == null && waitCount < 30) {
-                    delay(100)
-                    waitCount++
-                }
+                if (!rootModeVal) {
+                    // Wait up to 3 seconds for sing-box core to initialize the TUN interface
+                    var waitCount = 0
+                    while (tunFd == null && waitCount < 30) {
+                        delay(100)
+                        waitCount++
+                    }
 
-                if (tunFd == null) {
-                    throw IllegalStateException("sing-box core failed to initialize TUN interface (timeout)")
+                    if (tunFd == null) {
+                        throw IllegalStateException("sing-box core failed to initialize TUN interface (timeout)")
+                    }
                 }
 
                 _vpnState.value = "CONNECTED"

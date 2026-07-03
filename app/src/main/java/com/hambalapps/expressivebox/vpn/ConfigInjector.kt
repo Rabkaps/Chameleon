@@ -138,6 +138,9 @@ object ConfigInjector {
     }
 
     private fun injectTunInbound(config: JSONObject, settings: InjectorSettings) {
+        if (settings.rootMode) {
+            return
+        }
         val inbounds = config.optJSONArray("inbounds") ?: JSONArray().also { config.put("inbounds", it) }
         
         // Remove existing TUN inbounds if any
@@ -560,7 +563,7 @@ object ConfigInjector {
 
         route.put("rules", newRules)
         route.put("auto_detect_interface", true)
-        route.put("override_android_vpn", true)
+        route.put("override_android_vpn", !settings.rootMode)
     }
 
     private fun injectOutbounds(context: Context, config: JSONObject, settings: InjectorSettings) {
