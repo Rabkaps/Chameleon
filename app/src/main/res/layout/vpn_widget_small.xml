@@ -32,6 +32,7 @@
             android:contentDescription="Toggle Connection">
 
             <ImageView
+                android:id="@+id/widget_button_icon"
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:layout_gravity="center"
