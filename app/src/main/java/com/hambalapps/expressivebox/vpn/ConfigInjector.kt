@@ -1457,6 +1457,7 @@ object ConfigInjector {
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val detour = outbound.optString("detour")
+            val tag = outbound.optString("tag")
             val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
             if (isEntryProxy) {
                 val server = outbound.optString("server")
