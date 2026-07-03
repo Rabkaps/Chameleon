@@ -104,4 +104,85 @@ class ConfigInjectorTest {
             }
         }
     }
+
+    @Test
+    fun testProxyChainConfigInjection() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = true,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal",
+            proxyChains = "chain-id\u001fMy Custom Chain\u001fvless://uuid@relay.host.com:443?security=tls#relay\u001fvless://uuid@exit.host.com:443?security=tls#exit"
+        )
+
+        val chainUri = "chain://chain-id#My%20Custom%20Chain"
+        val configStr = ConfigInjector.injectConfig(mockContext, chainUri, settings)
+        println("Generated Proxy Chain Configuration:")
+        println(configStr)
+
+        val json = org.json.JSONObject(configStr)
+        val outbounds = json.getJSONArray("outbounds")
+
+        var proxyOutbound: org.json.JSONObject? = null
+        var relayOutbound: org.json.JSONObject? = null
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.getJSONObject(i)
+            val tag = out.getString("tag")
+            if (tag == "proxy") {
+                proxyOutbound = out
+            } else if (tag == "relay-out") {
+                relayOutbound = out
+            }
+        }
+
+        assert(proxyOutbound != null) { "exit proxy outbound not found" }
+        assert(relayOutbound != null) { "relay outbound not found" }
+
+        // Exit proxy outbound MUST detour to relay-out
+        assert(proxyOutbound!!.getString("detour") == "relay-out")
+        // Relay outbound must NOT detour (empty/null detour)
+        assert(!relayOutbound!!.has("detour"))
+
+        // Check fragmentation/mux injection
+        // Relay outbound (entrypoint) MUST have multiplex and fragment configurations if enabled
+        assert(relayOutbound.has("multiplex"))
+        // Exit proxy outbound (detoured) must NOT have multiplex (since we detour it to relay-out which is multiplexed/fragmented)
+        assert(!proxyOutbound.has("multiplex"))
+
+        // Direct-bypass routing verification:
+        // The exit outbound server domain (exit.host.com) MUST NOT be in the direct domains routing rules because it is detoured.
+        // The relay outbound server domain (relay.host.com) MUST be in the direct domains routing rules because it is the entrypoint.
+        val routeObj = json.getJSONObject("route")
+        val rules = routeObj.getJSONArray("rules")
+        var directDomainsRule: org.json.JSONObject? = null
+        for (i in 0 until rules.length()) {
+            val rule = rules.getJSONObject(i)
+            if (rule.optString("outbound") == "direct" && rule.has("domain")) {
+                directDomainsRule = rule
+                break
+            }
+        }
+
+        assert(directDomainsRule != null)
+        val domains = directDomainsRule!!.getJSONArray("domain")
+        var hasRelayDomain = false
+        var hasExitDomain = false
+        for (i in 0 until domains.length()) {
+            val domain = domains.getString(i)
+            if (domain == "relay.host.com") hasRelayDomain = true
+            if (domain == "exit.host.com") hasExitDomain = true
+        }
+
+        assert(hasRelayDomain) { "relay host should be bypassed directly" }
+        assert(!hasExitDomain) { "exit host should NOT be bypassed directly (must go through detour)" }
+    }
 }
+

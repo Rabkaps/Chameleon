@@ -586,9 +586,10 @@ object ConfigInjector {
             if (tag == "block") hasBlock = true
 
             // Resolve and apply Stealth Camouflage if configured
-            val isProxyOutbound = tag == "proxy" || tag == "relay-out"
+            val detour = out.optString("detour")
+            val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
             val isCompatibleType = type == "vless" || type == "trojan" || type == "vmess" || type == "shadowsocks" || type == "ss"
-            if (isProxyOutbound && isCompatibleType) {
+            if (isEntryProxy && isCompatibleType) {
                 if (settings.globalCamouflageEnabled) {
                     val globalConfig = CamouflageConfig(
                         nodeLink = "",
@@ -612,13 +613,13 @@ object ConfigInjector {
             out.remove("_original_link") // Clean up temporary key
 
             // Inject fragmentation into proxy outbound if enabled
-            if (tag == "proxy" && settings.enableFragment) {
+            if (isEntryProxy && settings.enableFragment) {
                 injectFragmentToOutbound(out, settings)
             }
             // Inject multiplexing if enabled (disabled in gaming mode, and for Reality configs)
             val tls = out.optJSONObject("tls")
             val isReality = tls?.has("reality") ?: false
-            if (tag == "proxy" && settings.enableMux && settings.vpnMode != "gaming" && !isReality) {
+            if (isEntryProxy && settings.enableMux && settings.vpnMode != "gaming" && !isReality) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -626,7 +627,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (tag == "proxy" && (settings.vpnMode == "gaming" || isReality)) {
+            } else if (isEntryProxy && (settings.vpnMode == "gaming" || isReality)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
@@ -1395,9 +1396,12 @@ object ConfigInjector {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val type = outbound.optString("type")
             if (proxyTypes.contains(type)) {
-                val server = outbound.optString("server")
-                if (server.isNotEmpty()) {
-                    hosts.add(server)
+                val detour = outbound.optString("detour")
+                if (detour.isEmpty()) { // Only entrypoint server domains need bypass / direct routing
+                    val server = outbound.optString("server")
+                    if (server.isNotEmpty()) {
+                        hosts.add(server)
+                    }
                 }
             }
         }
@@ -1424,7 +1428,9 @@ object ConfigInjector {
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val tag = outbound.optString("tag")
-            if (tag == "proxy") {
+            val detour = outbound.optString("detour")
+            val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
+            if (isEntryProxy) {
                 val server = outbound.optString("server")
                 if (server.isNotEmpty() && !isIpAddress(server)) {
                     android.util.Log.i("ExpressiveBox", "Pre-resolving proxy server domain: $server")
