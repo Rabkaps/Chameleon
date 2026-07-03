@@ -270,10 +270,10 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsSmall.setTextViewText(R.id.widget_node_name, if (lastVpnState == "CONNECTED") nodeName else "Tap to secure")
                     viewsSmall.setTextColor(R.id.widget_node_name, textOnBgVariantColor)
                     viewsSmall.setInt(R.id.widget_container, "setBackgroundResource", bgPillDrawable)
-                    viewsSmall.setInt(R.id.widget_container, "setBackgroundTint", widgetBgColor)
+                    setViewBackgroundTint(viewsSmall, R.id.widget_container, widgetBgColor)
                     
                     viewsSmall.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
-                    viewsSmall.setInt(R.id.widget_button_toggle, "setBackgroundTint", if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
+                    setViewBackgroundTint(viewsSmall, R.id.widget_button_toggle, if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
                     viewsSmall.setInt(R.id.widget_button_icon, "setColorFilter", iconTintColor)
                     viewsSmall.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsSmall.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -284,10 +284,10 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsMedium.setTextViewText(R.id.widget_node_name, nodeName)
                     viewsMedium.setTextColor(R.id.widget_node_name, textOnBgVariantColor)
                     viewsMedium.setInt(R.id.widget_container, "setBackgroundResource", bgDrawable)
-                    viewsMedium.setInt(R.id.widget_container, "setBackgroundTint", widgetBgColor)
+                    setViewBackgroundTint(viewsMedium, R.id.widget_container, widgetBgColor)
                     
                     viewsMedium.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
-                    viewsMedium.setInt(R.id.widget_button_toggle, "setBackgroundTint", if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
+                    setViewBackgroundTint(viewsMedium, R.id.widget_button_toggle, if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
                     viewsMedium.setInt(R.id.widget_button_toggle, "setColorFilter", iconTintColor)
                     viewsMedium.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsMedium.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -298,10 +298,10 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsLarge.setTextViewText(R.id.widget_node_name, nodeName)
                     viewsLarge.setTextColor(R.id.widget_node_name, textOnBgVariantColor)
                     viewsLarge.setInt(R.id.widget_container, "setBackgroundResource", bgDrawable)
-                    viewsLarge.setInt(R.id.widget_container, "setBackgroundTint", widgetBgColor)
+                    setViewBackgroundTint(viewsLarge, R.id.widget_container, widgetBgColor)
                     
                     viewsLarge.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
-                    viewsLarge.setInt(R.id.widget_button_toggle, "setBackgroundTint", if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
+                    setViewBackgroundTint(viewsLarge, R.id.widget_button_toggle, if (lastVpnState == "CONNECTED") colorPrimary else if (lastVpnState == "CONNECTING") colorSecondary else colorOutline)
                     viewsLarge.setInt(R.id.widget_button_toggle, "setColorFilter", iconTintColor)
                     viewsLarge.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsLarge.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -322,11 +322,11 @@ class VPNWidgetProvider : AppWidgetProvider() {
 
                         if (currentVpnMode == mName) {
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_button_background_connected)
-                            viewsLarge.setInt(btnId, "setBackgroundTint", colorPrimary)
+                            setViewBackgroundTint(viewsLarge, btnId, colorPrimary)
                             viewsLarge.setTextColor(btnId, onPrimaryContainer)
                         } else {
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
-                            viewsLarge.setInt(btnId, "setBackgroundTint", colorOutline)
+                            setViewBackgroundTint(viewsLarge, btnId, colorOutline)
                             viewsLarge.setTextColor(btnId, colorOnSurface)
                         }
                     }
@@ -349,17 +349,17 @@ class VPNWidgetProvider : AppWidgetProvider() {
 
                             if (activeProfile == serverLink) {
                                 viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_button_background_connected)
-                                viewsLarge.setInt(btnId, "setBackgroundTint", colorPrimary)
+                                setViewBackgroundTint(viewsLarge, btnId, colorPrimary)
                                 viewsLarge.setTextColor(btnId, onPrimaryContainer)
                             } else {
                                 viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
-                                viewsLarge.setInt(btnId, "setBackgroundTint", colorOutline)
+                                setViewBackgroundTint(viewsLarge, btnId, colorOutline)
                                 viewsLarge.setTextColor(btnId, colorOnSurface)
                             }
                         } else {
                             viewsLarge.setTextViewText(btnId, "Empty")
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
-                            viewsLarge.setInt(btnId, "setBackgroundTint", colorOutline)
+                            setViewBackgroundTint(viewsLarge, btnId, colorOutline)
                             viewsLarge.setTextColor(btnId, (colorOnSurface and 0x00FFFFFF) or 0x66000000)
                             viewsLarge.setOnClickPendingIntent(btnId, null)
                         }
@@ -440,5 +440,11 @@ class VPNWidgetProvider : AppWidgetProvider() {
         val attrId = context.resources.getIdentifier(attrName, "attr", context.packageName)
         if (attrId == 0) return fallbackColor
         return resolveThemeColor(context, attrId, fallbackColor)
+    }
+
+    private fun setViewBackgroundTint(views: RemoteViews, viewId: Int, color: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setColorStateList(viewId, "setBackgroundTintList", android.content.res.ColorStateList.valueOf(color))
+        }
     }
 }
