@@ -899,7 +899,8 @@ object ConfigInjector {
                 }
 
                 // TLS
-                val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443
+                val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isReality
+                val hasTls = (security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443) && !isObfuscatedHttp
                 if (hasTls) {
                     val tls = JSONObject()
                     tls.put("enabled", true)
@@ -1376,9 +1377,6 @@ object ConfigInjector {
                 val host = queryParams["host"] ?: queryParams["sni"] ?: defaultHost
                 if (host.isNotEmpty()) {
                     transport.put("host", host)
-                    val headers = JSONObject()
-                    headers.put("Host", host)
-                    transport.put("headers", headers)
                 }
                 val mode = queryParams["mode"] ?: "stream-one"
                 transport.put("mode", mode)
