@@ -2053,6 +2053,7 @@ fun MainScreen(
                                                                 color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
                                                                 shape = ExpressiveButtonShape
                                                             )
+                                                            .pressScaleEffect()
                                                             .combinedClickable(
                                                                 onClick = {
                                                                     if (isMultiSelectMode) {
@@ -2638,6 +2639,7 @@ fun MainScreen(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .clip(RoundedCornerShape(16.dp))
+                                                    .pressScaleEffect()
                                                     .combinedClickable(
                                                         onClick = {
                                                             if (isMultiSelectMode) {
@@ -3095,7 +3097,8 @@ fun MainScreen(
                                                     selected = delayTestUrl == urlVal,
                                                     onClick = { scope.launch { settingsManager.setDelayTestUrl(urlVal) } },
                                                     label = { Text(label) },
-                                                    shape = ExpressiveButtonShape
+                                                    shape = ExpressiveButtonShape,
+                                                    modifier = Modifier.pressScaleEffect()
                                                 )
                                             }
                                         }
@@ -3453,7 +3456,8 @@ fun MainScreen(
                                                              selected = secureDns == urlVal,
                                                              onClick = { scope.launch { settingsManager.setSecureDns(urlVal) } },
                                                              label = { Text(label) },
-                                                             shape = ExpressiveButtonShape
+                                                             shape = ExpressiveButtonShape,
+                                                             modifier = Modifier.pressScaleEffect()
                                                          )
                                                      }
                                                  }
@@ -5347,13 +5351,22 @@ fun ConnectionDashboard(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = stateText,
-                    color = contentColor,
-                    fontWeight = FontWeight.Black,
-                    style = MaterialTheme.typography.titleMedium,
-                    letterSpacing = 2.sp
-                )
+                AnimatedContent(
+                    targetState = stateText,
+                    transitionSpec = {
+                        (slideInVertically { height -> height } + fadeIn())
+                            .togetherWith(slideOutVertically { height -> -height } + fadeOut())
+                    },
+                    label = "StateTextTransition"
+                ) { targetText ->
+                    Text(
+                        text = targetText,
+                        color = contentColor,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.titleMedium,
+                        letterSpacing = 2.sp
+                    )
+                }
 
                 if (state == "CONNECTED") {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -5835,7 +5848,7 @@ fun ConnectionDashboard(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    CircularWavyProgressIndicator()
                 }
             },
             shape = ExpressiveCardShape,

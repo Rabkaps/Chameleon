@@ -356,6 +356,7 @@ class NodesPopupActivity : ComponentActivity() {
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
                                                     shape = ExpressiveButtonShape
                                                 )
+                                                .pressScaleEffect()
                                                 .clickable {
                                                     scope.launch {
                                                         settingsManager.setActiveProfile(serverLink)
