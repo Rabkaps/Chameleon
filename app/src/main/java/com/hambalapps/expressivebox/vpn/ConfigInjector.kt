@@ -899,7 +899,7 @@ object ConfigInjector {
                 }
 
                 // TLS
-                val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+                val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443
                 if (hasTls) {
                     val tls = JSONObject()
                     tls.put("enabled", true)
