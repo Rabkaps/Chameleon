@@ -198,6 +198,7 @@ fun MainScreen(
     val autoUpdateInterval = settings.autoUpdateInterval
     val lastSubsUpdateTime = settings.lastSubsUpdateTime
     val autoConnectSubs = settings.autoConnectSubs
+    val rootMode = settings.rootMode
     val showLogsTab = settings.showLogsTab
     val vpnMode = settings.vpnMode
     val warpPrivateKey = settings.warpPrivateKey
@@ -1254,8 +1255,54 @@ fun MainScreen(
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.height(16.dp))
                                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Column {
+                                                        Text("Root Mode", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                        Text("Use root privileges for transparent proxy routing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                                Switch(checked = rootMode, onCheckedChange = { checked ->
+                                                    if (checked) {
+                                                        val hasRoot = try {
+                                                            val process = Runtime.getRuntime().exec("su")
+                                                            val os = process.outputStream.bufferedWriter()
+                                                            os.write("exit\n")
+                                                            os.flush()
+                                                            process.waitFor() == 0
+                                                        } catch (e: Exception) {
+                                                            false
+                                                        }
+                                                        if (hasRoot) {
+                                                            scope.launch {
+                                                                settingsManager.setRootMode(true)
+                                                                if (vpnState == "CONNECTED") startVpnService(context)
+                                                            }
+                                                        } else {
+                                                            android.widget.Toast.makeText(context, "Root access not available or denied", android.widget.Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    } else {
+                                                        scope.launch {
+                                                            settingsManager.setRootMode(false)
+                                                            if (vpnState == "CONNECTED") startVpnService(context)
+                                                        }
+                                                    }
+                                                })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
                                         }
                                     }
 

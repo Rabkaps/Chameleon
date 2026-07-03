@@ -114,6 +114,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private var splitTunnelingAppsVal = emptySet<String>()
     private var showLiveNotificationVal = false
     private var activeProfileVal = ""
+    private var rootModeVal = false
 
     override fun onCreate() {
         super.onCreate()
@@ -490,6 +491,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 splitTunnelingEnabledVal = settingsManager.splitTunnelingEnabled.first()
                 splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
+                rootModeVal = settingsManager.rootMode.first()
  
                 val injectorSettings = InjectorSettings(
                     bypassIran = bypassIranVal,
@@ -517,7 +519,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     globalCamouflageSni = globalCamouflageSniVal,
                     globalCamouflageHost = globalCamouflageHostVal,
                     globalCamouflageCustomIps = globalCamouflageCustomIpsVal,
-                    globalCamouflageTimeout = globalCamouflageTimeoutVal
+                    globalCamouflageTimeout = globalCamouflageTimeoutVal,
+                    rootMode = rootModeVal
                 )
 
                 // Inject our custom bypass-Iran rules, split DNS, and advanced parameters
@@ -587,6 +590,29 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
                 _vpnState.value = "CONNECTED"
                 log("VPN Connected successfully.")
+                if (rootModeVal) {
+                    log("Root Mode is enabled. Configuring transparent proxy iptables rules...")
+                    val portVal = shareVpnPortVal.toIntOrNull() ?: 10808
+                    val myUid = android.os.Process.myUid()
+                    val commands = listOf(
+                        "iptables -t nat -N EXPRESSIVEBOX",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 0.0.0.0/8 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 10.0.0.0/8 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 127.0.0.0/8 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 169.254.0.0/16 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 172.16.0.0/12 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -d 192.168.0.0/16 -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -m owner --uid-owner $myUid -j RETURN",
+                        "iptables -t nat -A EXPRESSIVEBOX -p tcp -j REDIRECT --to-ports $portVal",
+                        "iptables -t nat -A OUTPUT -p tcp -j EXPRESSIVEBOX"
+                    )
+                    val success = runRootCommands(commands)
+                    if (success) {
+                        log("Transparent proxy iptables rules applied successfully.")
+                    } else {
+                        log("Failed to apply transparent proxy iptables rules.")
+                    }
+                }
                 downloadDatabasesIfMissing()
             } catch (e: Throwable) {
                 log("Failed to start VPN: ${e.message}")
@@ -692,6 +718,21 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     tunFdInt = -1
                 }
 
+                if (rootModeVal) {
+                    log("Root Mode is enabled. Cleaning up transparent proxy iptables rules...")
+                    val commands = listOf(
+                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX",
+                        "iptables -t nat -F EXPRESSIVEBOX",
+                        "iptables -t nat -X EXPRESSIVEBOX"
+                    )
+                    val success = runRootCommands(commands)
+                    if (success) {
+                        log("Transparent proxy iptables rules cleared successfully.")
+                    } else {
+                        log("Failed to clear transparent proxy iptables rules.")
+                    }
+                }
+
                 log("VPN Engine stopped.")
             } catch (e: Throwable) {
                 log("Error stopping VPN: ${e.message}")
@@ -710,6 +751,14 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     override fun onDestroy() {
+        if (rootModeVal) {
+            val commands = listOf(
+                "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX",
+                "iptables -t nat -F EXPRESSIVEBOX",
+                "iptables -t nat -X EXPRESSIVEBOX"
+            )
+            runRootCommands(commands)
+        }
         super.onDestroy()
         stopLogReader()
         val manager = getSystemService(NotificationManager::class.java)
@@ -1390,6 +1439,26 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         } catch (e: Exception) {
             log("Error copying databases from assets: ${e.message}")
             e.printStackTrace()
+        }
+    }
+
+    private fun runRootCommands(commands: List<String>): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec("su")
+            val os = process.outputStream.bufferedWriter()
+            for (cmd in commands) {
+                os.write(cmd + "\n")
+            }
+            os.write("exit\n")
+            os.flush()
+            val result = process.waitFor()
+            result == 0
+        } catch (e: java.io.IOException) {
+            log("Root command failed (IOException): ${e.message}")
+            false
+        } catch (e: Exception) {
+            log("Root command failed: ${e.message}")
+            false
         }
     }
 }

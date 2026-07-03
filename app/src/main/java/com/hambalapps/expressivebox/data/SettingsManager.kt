@@ -59,6 +59,7 @@ class SettingsManager(private val context: Context) {
         val GLOBAL_CAMOUFLAGE_HOST = stringPreferencesKey("global_camouflage_host")
         val GLOBAL_CAMOUFLAGE_CUSTOM_IPS = stringPreferencesKey("global_camouflage_custom_ips")
         val GLOBAL_CAMOUFLAGE_TIMEOUT = stringPreferencesKey("global_camouflage_timeout")
+        val ROOT_MODE = booleanPreferencesKey("root_mode")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -104,6 +105,7 @@ class SettingsManager(private val context: Context) {
             deserializedSubscriptions = emptyList(),
             proxyChains = "",
             camouflageSettings = "",
+            rootMode = false,
             globalCamouflageEnabled = false,
             globalCamouflagePreset = "cloudflare",
             globalCamouflageSni = "speedtest.net",
@@ -175,7 +177,8 @@ class SettingsManager(private val context: Context) {
             globalCamouflageSni = prefs[GLOBAL_CAMOUFLAGE_SNI] ?: "speedtest.net",
             globalCamouflageHost = prefs[GLOBAL_CAMOUFLAGE_HOST] ?: "",
             globalCamouflageCustomIps = prefs[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] ?: "",
-            globalCamouflageTimeout = prefs[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600"
+            globalCamouflageTimeout = prefs[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600",
+            rootMode = prefs[ROOT_MODE] ?: false
         )
     }.distinctUntilChanged()
 
@@ -215,9 +218,11 @@ class SettingsManager(private val context: Context) {
     val warpPort: Flow<String> = context.dataStore.data.map { it[WARP_PORT] ?: "2408" }.distinctUntilChanged()
     val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
     val camouflageSettings: Flow<String> = context.dataStore.data.map { it[CAMOUFLAGE_SETTINGS] ?: "" }.distinctUntilChanged()
+    val rootMode: Flow<Boolean> = context.dataStore.data.map { it[ROOT_MODE] ?: false }.distinctUntilChanged()
 
     suspend fun setProxyChains(value: String) { context.dataStore.edit { it[PROXY_CHAINS] = value } }
     suspend fun setCamouflageSettings(value: String) { context.dataStore.edit { it[CAMOUFLAGE_SETTINGS] = value } }
+    suspend fun setRootMode(value: Boolean) { context.dataStore.edit { it[ROOT_MODE] = value } }
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
@@ -336,7 +341,8 @@ data class UserSettings(
     val globalCamouflageSni: String,
     val globalCamouflageHost: String,
     val globalCamouflageCustomIps: String,
-    val globalCamouflageTimeout: String
+    val globalCamouflageTimeout: String,
+    val rootMode: Boolean
 )
 
 data class Subscription(

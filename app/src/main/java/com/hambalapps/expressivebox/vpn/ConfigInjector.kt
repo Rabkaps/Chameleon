@@ -39,7 +39,8 @@ data class InjectorSettings(
     val globalCamouflageSni: String = "speedtest.net",
     val globalCamouflageHost: String = "",
     val globalCamouflageCustomIps: String = "",
-    val globalCamouflageTimeout: String = "600"
+    val globalCamouflageTimeout: String = "600",
+    val rootMode: Boolean = false
 )
 
 object ConfigInjector {
@@ -174,12 +175,12 @@ object ConfigInjector {
             }
         }
         
-        if (settings.shareVpnLan) {
+        if (settings.shareVpnLan || settings.rootMode) {
             val portVal = settings.shareVpnPort.toIntOrNull() ?: 10808
             val mixedInbound = JSONObject().apply {
                 put("type", "mixed")
                 put("tag", "mixed-in")
-                put("listen", "0.0.0.0")
+                put("listen", if (settings.shareVpnLan) "0.0.0.0" else "127.0.0.1")
                 put("listen_port", portVal)
             }
             newInbounds.put(mixedInbound)
