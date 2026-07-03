@@ -215,6 +215,18 @@ object ConfigInjector {
         }
         return dnsList
     }
+    private fun getSystemDnsAddress(context: Context): String {
+        val systemDnsList = getSystemDnsServers(context)
+        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
+        for (dnsIp in systemDnsList) {
+            // Filter out well-known hijacked public DNS servers in Iran
+            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
+                directDnsAddr = dnsIp
+                break
+            }
+        }
+        return directDnsAddr
+    }
 
     private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
         val serverObj = JSONObject()
@@ -278,18 +290,9 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 2. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
-        val systemDnsList = getSystemDnsServers(context)
-        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
-        
-        for (dnsIp in systemDnsList) {
-            // Filter out well-known hijacked public DNS servers in Iran
-            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
-                directDnsAddr = dnsIp
-                break
-            }
-        }
+        val directDnsAddr = getSystemDnsAddress(context)
 
-        android.util.Log.i("ExpressiveBox", "Direct DNS set to: $directDnsAddr (from system DNS: $systemDnsList)")
+        android.util.Log.i("ExpressiveBox", "Direct DNS set to: $directDnsAddr")
 
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
@@ -445,6 +448,10 @@ object ConfigInjector {
         val directDnsAddr = extractHostFromUrl(settings.secureDns) ?: ""
         if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
             directIps.add(directDnsAddr)
+        }
+        val systemDnsAddr = getSystemDnsAddress(context)
+        if (systemDnsAddr.isNotEmpty() && isIpAddress(systemDnsAddr)) {
+            directIps.add(systemDnsAddr)
         }
         val bootstrapDnsAddr = "8.8.8.8"
         if (bootstrapDnsAddr.isNotEmpty() && isIpAddress(bootstrapDnsAddr)) {
