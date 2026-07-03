@@ -492,6 +492,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
                 rootModeVal = settingsManager.rootMode.first()
+
+                if (!rootModeVal) {
+                    log("Standard Mode active. Ensuring any previous transparent proxy rules are cleared...")
+                    val cleanupCommands = listOf(
+                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
+                        "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
+                        "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true"
+                    )
+                    runRootCommands(cleanupCommands)
+                }
  
                 val injectorSettings = InjectorSettings(
                     bypassIran = bypassIranVal,
@@ -597,6 +607,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     val portVal = shareVpnPortVal.toIntOrNull() ?: 10808
                     val myUid = android.os.Process.myUid()
                     val commands = listOf(
+                        "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
+                        "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true",
                         "iptables -t nat -N EXPRESSIVEBOX",
                         "iptables -t nat -A EXPRESSIVEBOX -d 0.0.0.0/8 -j RETURN",
                         "iptables -t nat -A EXPRESSIVEBOX -d 10.0.0.0/8 -j RETURN",
@@ -606,6 +618,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                         "iptables -t nat -A EXPRESSIVEBOX -d 192.168.0.0/16 -j RETURN",
                         "iptables -t nat -A EXPRESSIVEBOX -m owner --uid-owner $myUid -j RETURN",
                         "iptables -t nat -A EXPRESSIVEBOX -p tcp -j REDIRECT --to-ports $portVal",
+                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
                         "iptables -t nat -A OUTPUT -p tcp -j EXPRESSIVEBOX"
                     )
                     val success = runRootCommands(commands)
@@ -723,9 +736,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 if (rootModeVal) {
                     log("Root Mode is enabled. Cleaning up transparent proxy iptables rules...")
                     val commands = listOf(
-                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX",
-                        "iptables -t nat -F EXPRESSIVEBOX",
-                        "iptables -t nat -X EXPRESSIVEBOX"
+                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
+                        "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
+                        "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true"
                     )
                     val success = runRootCommands(commands)
                     if (success) {
@@ -755,9 +768,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     override fun onDestroy() {
         if (rootModeVal) {
             val commands = listOf(
-                "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX",
-                "iptables -t nat -F EXPRESSIVEBOX",
-                "iptables -t nat -X EXPRESSIVEBOX"
+                "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
+                "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
+                "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true"
             )
             runRootCommands(commands)
         }
@@ -1453,8 +1466,19 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
             os.write("exit\n")
             os.flush()
-            val result = process.waitFor()
-            result == 0
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val finished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
+                if (!finished) {
+                    process.destroyForcibly()
+                    log("Root command execution timed out.")
+                    return false
+                }
+                process.exitValue() == 0
+            } else {
+                val result = process.waitFor()
+                result == 0
+            }
         } catch (e: java.io.IOException) {
             log("Root command failed (IOException): ${e.message}")
             false
