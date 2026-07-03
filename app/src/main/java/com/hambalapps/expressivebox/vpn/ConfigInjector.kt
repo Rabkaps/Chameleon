@@ -1381,25 +1381,6 @@ object ConfigInjector {
                 }
                 val mode = queryParams["mode"] ?: "stream-one"
                 transport.put("mode", mode)
-
-                val xPaddingBytes = queryParams["x_padding_bytes"] ?: queryParams["xPaddingBytes"]
-                if (xPaddingBytes != null && xPaddingBytes.isNotEmpty()) {
-                    transport.put("x_padding_bytes", xPaddingBytes)
-                }
-                val xPaddingPercentage = queryParams["x_padding_percentage"] ?: queryParams["xPaddingPercentage"]
-                if (xPaddingPercentage != null && xPaddingPercentage.isNotEmpty()) {
-                    xPaddingPercentage.toIntOrNull()?.let {
-                        transport.put("x_padding_percentage", it)
-                    }
-                }
-                val xPaddingType = queryParams["x_padding_type"] ?: queryParams["xPaddingType"]
-                if (xPaddingType != null && xPaddingType.isNotEmpty()) {
-                    transport.put("x_padding_type", xPaddingType)
-                }
-                val xPaddingMode = queryParams["x_padding_mode"] ?: queryParams["xPaddingMode"]
-                if (xPaddingMode != null && xPaddingMode.isNotEmpty()) {
-                    transport.put("x_padding_mode", xPaddingMode)
-                }
                 
                 val extraStr = queryParams["extra"]
                 if (extraStr != null && extraStr.isNotEmpty()) {
