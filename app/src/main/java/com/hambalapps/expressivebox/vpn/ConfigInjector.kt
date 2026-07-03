@@ -922,14 +922,6 @@ object ConfigInjector {
                         reality.put("enabled", true)
                         queryParams["pbk"]?.let { reality.put("public_key", it) }
                         queryParams["sid"]?.let { reality.put("short_id", it) }
-                        val spx = queryParams["spx"] ?: queryParams["spider_x"]
-                        if (spx != null && spx.isNotEmpty()) {
-                            reality.put("spider_x", spx)
-                        }
-                        val spy = queryParams["spy"] ?: queryParams["spider_y"]
-                        if (spy != null && spy.isNotEmpty()) {
-                            reality.put("spider_y", spy)
-                        }
                         tls.put("reality", reality)
                     }
                     outbound.put("tls", tls)
