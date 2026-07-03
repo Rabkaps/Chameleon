@@ -2450,6 +2450,97 @@ fun MainScreen(
                                     }
                                 }
 
+                                // Import & Create Node Bento Row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Import Card
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(100.dp)
+                                            .clip(RoundedCornerShape(28.dp))
+                                            .clickable { showImportDialog = true }
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                                        shape = RoundedCornerShape(28.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AddLink,
+                                                contentDescription = "Import",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Import Link",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                                Text(
+                                                    text = "Add config or sub URL",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Create Card
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(100.dp)
+                                            .clip(RoundedCornerShape(28.dp))
+                                            .clickable {
+                                                editingNodeLink = "new_node"
+                                                editType = "vless"
+                                                editRemark = ""
+                                                editServer = ""
+                                                editPort = "443"
+                                                editCreds = ""
+                                                editTls = false
+                                                editSni = ""
+                                                editLinkInput = ""
+                                                editorMode = "form"
+                                            }
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)),
+                                        shape = RoundedCornerShape(28.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                                            verticalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AddCircle,
+                                                contentDescription = "Create",
+                                                tint = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = "Create Node",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
+                                                Text(
+                                                    text = "Add manual proxy config",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
                                 // Rounded Search Bar & Ping Button
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),

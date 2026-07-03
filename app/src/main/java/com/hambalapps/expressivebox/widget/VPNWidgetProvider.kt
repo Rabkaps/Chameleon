@@ -185,17 +185,8 @@ class VPNWidgetProvider : AppWidgetProvider() {
                 }
 
                 // Drawables
-                val bgDrawable = when (lastVpnState) {
-                    "CONNECTED" -> R.drawable.widget_background_connected
-                    "CONNECTING" -> R.drawable.widget_background_connecting
-                    else -> R.drawable.widget_background
-                }
-
-                val bgPillDrawable = when (lastVpnState) {
-                    "CONNECTED" -> R.drawable.widget_background_pill_connected
-                    "CONNECTING" -> R.drawable.widget_background_pill_connecting
-                    else -> R.drawable.widget_background_pill
-                }
+                val bgDrawable = R.drawable.widget_background
+                val bgPillDrawable = R.drawable.widget_background_pill
 
                 val toggleBgDrawable = when (lastVpnState) {
                     "CONNECTED" -> R.drawable.widget_button_background_connected
@@ -240,29 +231,9 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     val viewsLarge = RemoteViews(context.packageName, R.layout.vpn_widget_large)
 
                     // Resolve custom colors dynamically based on connection state
-                    val widgetBgColor = if (lastVpnState == "CONNECTED") {
-                        resolveCustomThemeColor(context, "colorPrimaryContainer", 0xFF00E5FF.toInt())
-                    } else if (lastVpnState == "CONNECTING") {
-                        resolveCustomThemeColor(context, "colorSecondaryContainer", 0xFFFF9100.toInt())
-                    } else {
-                        resolveCustomThemeColor(context, "colorSurface", 0xFF121212.toInt())
-                    }
-                    
-                    val textOnBgColor = if (lastVpnState == "CONNECTED") {
-                        resolveCustomThemeColor(context, "onPrimaryContainer", 0xFF000000.toInt())
-                    } else if (lastVpnState == "CONNECTING") {
-                        resolveCustomThemeColor(context, "onSecondaryContainer", 0xFF000000.toInt())
-                    } else {
-                        resolveCustomThemeColor(context, "onSurface", 0xFFFFFFFF.toInt())
-                    }
-
-                    val textOnBgVariantColor = if (lastVpnState == "CONNECTED") {
-                        resolveCustomThemeColor(context, "onPrimaryContainer", 0xFF000000.toInt())
-                    } else if (lastVpnState == "CONNECTING") {
-                        resolveCustomThemeColor(context, "onSecondaryContainer", 0xFF000000.toInt())
-                    } else {
-                        resolveCustomThemeColor(context, "onSurfaceVariant", 0xFFFFFFFF.toInt())
-                    }
+                    val widgetBgColor = 0xE615171C.toInt()
+                    val textOnBgColor = 0xFFFFFFFF.toInt()
+                    val textOnBgVariantColor = 0xFFB0B3B8.toInt()
 
                     // 1. Bind viewsSmall
                     viewsSmall.setTextViewText(R.id.widget_status, stateText)
