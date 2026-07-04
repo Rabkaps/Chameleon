@@ -1557,7 +1557,19 @@ object ConfigInjector {
     }
 
     private fun resolveDomainWithFallbacks(context: Context, domain: String, settings: InjectorSettings): String? {
-        // Try secure DoH resolution first to bypass local DNS poisoning and UDP DNS hijacking
+        // Try fast system resolver first (works instantly for unblocked domestic/bridge nodes)
+        try {
+            val addresses = java.net.InetAddress.getAllByName(domain)
+            for (addr in addresses) {
+                val ip = addr.hostAddress
+                if (ip != null && isPublicIp(ip)) {
+                    android.util.Log.i("ExpressiveBox", "System resolver successfully resolved $domain to $ip")
+                    return ip
+                }
+            }
+        } catch (e: Exception) {}
+
+        // Try secure DoH resolution next to bypass local DNS poisoning and UDP DNS hijacking
         val dohIp = resolveDomainViaDoh(domain)
         if (dohIp != null) {
             return dohIp
