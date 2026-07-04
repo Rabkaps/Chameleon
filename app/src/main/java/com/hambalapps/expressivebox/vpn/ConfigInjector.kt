@@ -703,6 +703,22 @@ object ConfigInjector {
             // Parse relay outbound with tag "relay-out"
             val relayOutbound = parseOutboundFromUri(chainItem.relayLink, "relay-out")
 
+            // Prevent uTLS fingerprint collision in nested handshakes (e.g. Reality inside Reality)
+            val exitTls = exitOutbound.optJSONObject("tls")
+            val relayTls = relayOutbound.optJSONObject("tls")
+            if (exitTls != null && relayTls != null) {
+                val exitUtls = exitTls.optJSONObject("utls")
+                val relayUtls = relayTls.optJSONObject("utls")
+                if (exitUtls != null && relayUtls != null) {
+                    val exitFp = exitUtls.optString("fingerprint", "chrome")
+                    val relayFp = relayUtls.optString("fingerprint", "chrome")
+                    if (exitFp == relayFp) {
+                        val newFp = if (exitFp == "chrome") "firefox" else "chrome"
+                        relayUtls.put("fingerprint", newFp)
+                    }
+                }
+            }
+
             // Index 0 in buildDefaultSkeleton is "proxy". Replace it with exitOutbound
             outbounds.put(0, exitOutbound)
             // Add the relayOutbound
