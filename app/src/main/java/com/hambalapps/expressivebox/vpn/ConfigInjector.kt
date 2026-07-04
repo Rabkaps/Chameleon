@@ -104,7 +104,7 @@ object ConfigInjector {
                 if (logFile.exists()) logFile.delete()
             } catch (e: Exception) {}
             val logObj = configJson.optJSONObject("log") ?: JSONObject().also { configJson.put("log", it) }
-            logObj.put("level", "info")
+            logObj.put("level", "debug")
             logObj.put("output", logFile.absolutePath)
             logObj.put("timestamp", true)
 
