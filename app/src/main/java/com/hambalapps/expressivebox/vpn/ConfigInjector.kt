@@ -816,7 +816,7 @@ object ConfigInjector {
     private fun buildDefaultSkeleton(settings: InjectorSettings): JSONObject {
         return JSONObject().apply {
             put("log", JSONObject().apply {
-                put("level", "info")
+                put("level", "debug")
                 put("timestamp", true)
             })
             put("outbounds", JSONArray().apply {
