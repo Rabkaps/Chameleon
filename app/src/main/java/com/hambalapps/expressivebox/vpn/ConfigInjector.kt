@@ -896,6 +896,7 @@ object ConfigInjector {
                 outbound.put("uuid", userInfo)
                 outbound.put("server", host)
                 outbound.put("server_port", port)
+                outbound.put("encryption", "none")
                 outbound.put("packet_encoding", "xudp")
 
                 val security = queryParams["security"]?.lowercase()
@@ -915,8 +916,9 @@ object ConfigInjector {
                 }
 
                 // TLS
-                val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isReality
-                val hasTls = (security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443) && !isObfuscatedHttp
+                val isTlsOrReality = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443
+                val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isTlsOrReality
+                val hasTls = isTlsOrReality && !isObfuscatedHttp
                 if (hasTls) {
                     val tls = JSONObject()
                     tls.put("enabled", true)
@@ -1319,7 +1321,8 @@ object ConfigInjector {
         // Map type=tcp & headerType=http to http transport, and type=h2 to http transport
         val security = queryParams["security"]?.lowercase()
         val isReality = security == "reality"
-        if ((type == null || type == "tcp") && headerType == "http" && !isReality) {
+        val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+        if ((type == null || type == "tcp") && headerType == "http" && !hasTls) {
             type = "http"
         } else if (type == "h2") {
             type = "http"

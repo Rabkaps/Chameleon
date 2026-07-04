@@ -377,7 +377,7 @@ fun MainScreen(
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var selectedCountryFilter by remember { mutableStateOf("All Countries") }
-    var selectedSubGroupFilter by remember { mutableStateOf("All Groups") }
+    var selectedSubGroupFilter by remember(activeSubscription) { mutableStateOf(activeSubscription?.name ?: "All Groups") }
     var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
     var isMultiSelectMode by remember { mutableStateOf(false) }
     var selectedNodes by remember { mutableStateOf(setOf<String>()) }
@@ -4102,9 +4102,10 @@ fun MainScreen(
                                         isImportFetching = false
                                     }
                                 } else {
-                                    val currentManual = manualServersStr
-                                    val updatedManual = if (currentManual.isEmpty()) trimmedImport else "$currentManual\n$trimmedImport"
-                                    settingsManager.setManualServers(updatedManual)
+                                    val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                    val newLinkWithoutRemark = trimmedImport.substringBefore("#")
+                                    val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + trimmedImport
+                                    settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                     settingsManager.setActiveSubId("manual")
                                     settingsManager.setActiveProfile(trimmedImport)
                                     if (vpnState == "CONNECTED") {
@@ -4277,9 +4278,10 @@ fun MainScreen(
                         val finalLink = "chain://$chainId#${java.net.URLEncoder.encode(name, "UTF-8")}"
                         
                         if (isNewChain) {
-                            val currentManual = manualServersStr
-                            val updatedManual = if (currentManual.isEmpty()) finalLink else "$currentManual\n$finalLink"
-                            settingsManager.setManualServers(updatedManual)
+                            val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                            val newLinkWithoutRemark = finalLink.substringBefore("#")
+                            val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                            settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                             settingsManager.setActiveSubId("manual")
                             settingsManager.setActiveProfile(finalLink)
                         } else {
@@ -4699,9 +4701,10 @@ fun MainScreen(
                             if (finalLink.isNotEmpty()) {
                                 scope.launch {
                                     if (isNewNode) {
-                                        val currentManual = manualServersStr
-                                        val updatedManual = if (currentManual.isEmpty()) finalLink else "$currentManual\n$finalLink"
-                                        settingsManager.setManualServers(updatedManual)
+                                        val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                        val newLinkWithoutRemark = finalLink.substringBefore("#")
+                                        val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                                        settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
                                     } else {

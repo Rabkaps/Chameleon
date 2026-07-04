@@ -68,11 +68,14 @@ class NodesPopupActivity : ComponentActivity() {
                 val activeProfile = settings.activeProfile
                 val activeSubId = settings.activeSubId
                 val subscriptions = settings.deserializedSubscriptions
-                val activeSubscription = remember(subscriptions, activeSubId) {
-                    subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
-                }
-                val serverList = remember(activeSubscription) {
-                    activeSubscription?.servers?.split("\n")?.filter { it.isNotEmpty() } ?: emptyList()
+                var filterSubId by remember(activeSubId) { mutableStateOf(activeSubId) }
+                val serverList = remember(subscriptions, filterSubId) {
+                    if (filterSubId == "all") {
+                        subscriptions.flatMap { it.servers.split("\n") }.filter { it.trim().isNotEmpty() }.distinct()
+                    } else {
+                        val sub = subscriptions.find { it.id == filterSubId } ?: subscriptions.firstOrNull()
+                        sub?.servers?.split("\n")?.filter { it.trim().isNotEmpty() } ?: emptyList()
+                    }
                 }
 
                 var searchQuery by remember { mutableStateOf("") }
@@ -254,15 +257,19 @@ class NodesPopupActivity : ComponentActivity() {
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    item {
+                                        FilterChip(
+                                            selected = filterSubId == "all",
+                                            onClick = { filterSubId = "all" },
+                                            label = { Text(stringResource(R.string.tab_all)) },
+                                            shape = ExpressiveChipShape
+                                        )
+                                    }
                                     items(subscriptions) { sub ->
-                                        val isSelected = activeSubId == sub.id
+                                        val isSelected = filterSubId == sub.id
                                         FilterChip(
                                             selected = isSelected,
-                                            onClick = {
-                                                scope.launch {
-                                                    settingsManager.setActiveSubId(sub.id)
-                                                }
-                                            },
+                                            onClick = { filterSubId = sub.id },
                                             label = { Text(sub.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                             shape = ExpressiveChipShape
                                         )

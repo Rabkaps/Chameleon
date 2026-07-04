@@ -241,5 +241,22 @@ class ConfigInjectorTest {
         assert(transport.getString("path") == "/mypath")
         assert(transport.getString("method") == "GET")
     }
+
+    @Test
+    fun testUserProvidedFailedLinks() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(vpnMode = "normal")
+
+        val link1 = "vless://e8ab0871-53f6-4022-9d43-9c37e4b35b0f@gd.30ma.cfd:8443?encryption=mlkem768x25519plus.native.0rtt.RPdkctkk2fIPLCuPV_iACmUXvsGcnbukVhlgxDNlqgfAcPkwZspx3SKm_KNGCYB7C9NWcZpa4CCtHgiz1te4tnVxzhOCY7R5QzEe-3KCmKdcYkY60IXFQYPDQ4V_Oou5L6YERmsF3ScegyjJe3hFtLqtBzmvySG8kbsvjvRmcbIFtXs1a9rNVfDOiMMYv9y65eOZfvVABpJbHZY4BwnMrdQJfXM0SmoiQfUUnnjCepIROFKpCYt1BORIYrkpbvLACoenxdh13XgoBCC5tJqhf6FAb8QuTEdj7tkxcdsYdEtIj_iFPrR28qy_7DQ4EvUIb9hrjkpx3rKnrRAWgsoVkYgMZLJjKLBa7gGtz8CC7GUoaJWVOCKhwgPO2LWYfIWJ7RsE0cqJYLk4cwF1dVVjzwSOMiMquoq1NDHJmSxbkzYKkIYRawOizrhqO6ebBuU3hbZs5hqJ2rJUSWjLMCApIHS3jLkX-mS5lEuTgrfBrlW3dps1jkhwJux5JOWU4ZNfEbt7r6oC9qwtbMpblrN1FTxUCvJBaNJi7Qxt30RZJFuE26ROLzsTLrQ9BJrBZwyErPvPWVVYAPI6xBifrBdOfgxxTZk_sToOKECWIKgNCAeDiHoGzvyNjcWYVhFH0yGNwrpkPNMQbeZ1H-ID4SkSYnxjF5ZQ77hDZ9IlGVFHR2HHRPA7XdQpm0k23jpb1CdwxxoURow-AhiPRfGoJ4BxTRjLmRRWdtE_71lpiMqfgWVl4QmZj5KyQYxZnmZ18gJyKmSq87W5Hqd-LFK3EFsulxdLMjQNmDR_iYsv5CUFKWJhuZtyslxNS3rJWBUwtnQRGKQHcxsrf_msMMU2Zqc7rxILIeSb3Yqi1CRM3pSHpXdbCbCub1invAarbEcKOtHHoQWXZKGL_RifdwQVQ2VKEBCkZ5lk1DN7MFMiNbGIs6shubfDCsWPJaRGd1GrxoQKg1Q1qBq62QhkqekELBRZexSOZJAXoBWWothCaXlqk_SprJmZFxW-d-it5idrF3lxnAIpBlUcjtAAnZQMz5KTCQwbh2oVy4F3qjEglvVewnVDfDGsdeOQv2C5f2sdeOGJfBIYZrqk4qWbOYyNn9hSZRkhzdbCBnw8nMCZTkmKBJKb3TJFFEMu8TWSSVIaUxmzqDxFE-aOFoY1ULB3HbEiisEOZtUO6GFOTslWkSdWRTN-KnuZwOdwS0RBo0yBRxR0yFFuT-ICmpIL8vkcfLDLkjAtU7LJTRVbw6QwvdO4WCnLJdWPeHYQ14o1wKIwormUMzNTOKuoqkkIXpuieusivcwbKbImHlZO5YhWmqNERNKu7aKTSQuBF0ZFtfqR5_COBWhA17E6QXhfuiwV_Kiej2yBgPmIp_CJaaQFAiaduuWoTVGYsBGTvdetP4grSNpWG7uGsxxrHilOjlRvdkowAuqnrDVc-puKrYyFraODFhwgUjOCW0QuIGwYDqB94JbJnsdsSMl63dwU4nhQ1KtLuulzRaRCAmJl-fIdx-Ax-mSwguNYvtBRPphCnBPOsMtFobmjeU3Z8tJIRYGteJZbAFmtZgSlyXyQC88HzMK5L3g&extra=%7B%22mode%22%3A%22auto%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D&fp=chrome&host=gd.30ma.cfd&mode=auto&path=%2Fmyculture&pbk=PAz5HjgkSigwokC0ua-xqrJsrtm1xt4PjZcAM4kIjAQ&security=reality&sid=d97566f404&sni=chat.deepseek.com&spx=%2FoPpFzdutTcuNPKL&type=xhttp&x_padding_bytes=100-1000#D2-Anita"
+        val config1 = ConfigInjector.injectConfig(mockContext, link1, settings)
+        println("Generated config 1:")
+        println(config1)
+
+        val link3 = "vless://463e7702-e5e0-4ab4-a84c-392f4927ce77@zone.us.velaro.ir:47228?encryption=none&security=reality&type=tcp&headerType=http&path=%2Fassets&host=telewebion.ir&sni=telewebion.ir&fp=chrome&pbk=FPwg4_Ajnx_RW2UPn1A1hvkFNIKeQvNgmbARisuFaQs&sid=1891dc07c3a7ccf9#%F0%9F%87%BA%F0%9F%87%B8%20%F0%9D%90%94%F0%9D%90%A7%F0%9D%90%A2%F0%9D%90%AD%F0%9D%90%9E%F0%9D%90%9D%20%F0%9D%90%92%F0%9D%90%AD%F0%9D%90%9E%F0%9D%90%AC"
+        val config3 = ConfigInjector.injectConfig(mockContext, link3, settings)
+        println("Generated config 3:")
+        println(config3)
+    }
 }
 
