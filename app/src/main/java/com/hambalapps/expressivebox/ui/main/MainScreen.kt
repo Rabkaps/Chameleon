@@ -484,6 +484,12 @@ fun MainScreen(
     var editCreds by remember { mutableStateOf("") }
     var editTls by remember { mutableStateOf(false) }
     var editSni by remember { mutableStateOf("") }
+    var editFlow by remember { mutableStateOf("") }
+    var editRealityEnabled by remember { mutableStateOf(false) }
+    var editRealityPbk by remember { mutableStateOf("") }
+    var editRealitySid by remember { mutableStateOf("") }
+    var editRealitySpx by remember { mutableStateOf("") }
+    var editUtlsFingerprint by remember { mutableStateOf("chrome") }
     var editShowAdvanced by remember { mutableStateOf(false) }
     var editTransportType by remember { mutableStateOf("tcp") }
     var editTransportPath by remember { mutableStateOf("") }
@@ -4170,6 +4176,12 @@ fun MainScreen(
                 editCamouflagePreset = "cloudflare"
                 editCamouflageSni = ""
                 editCamouflageHost = ""
+                editFlow = ""
+                editRealityEnabled = false
+                editRealityPbk = ""
+                editRealitySid = ""
+                editRealitySpx = ""
+                editUtlsFingerprint = "chrome"
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
@@ -4223,6 +4235,13 @@ fun MainScreen(
                     editTransportSeed = queryParams["seed"] ?: ""
                     editTransportHeaderType = queryParams["headerType"] ?: queryParams["header_type"] ?: queryParams["header"] ?: "none"
                     editShowAdvanced = type != "tcp" && type.isNotEmpty()
+
+                    editFlow = queryParams["flow"] ?: ""
+                    editRealityEnabled = security == "reality"
+                    editRealityPbk = queryParams["pbk"] ?: ""
+                    editRealitySid = queryParams["sid"] ?: ""
+                    editRealitySpx = queryParams["spx"] ?: ""
+                    editUtlsFingerprint = queryParams["fp"] ?: "chrome"
                     
                     editLinkInput = link
                     editorMode = "form"
@@ -4413,6 +4432,18 @@ fun MainScreen(
                             shape = ExpressiveButtonShape
                         )
 
+                        // Flow control (VLESS only)
+                        if (editType == "vless") {
+                            OutlinedTextField(
+                                value = editFlow,
+                                onValueChange = { editFlow = it },
+                                label = { Text("Flow (e.g. xtls-rprx-vision)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape,
+                                singleLine = true
+                            )
+                        }
+
                         // TLS & SNI options
                         val showTlsOption = editType == "vless" || editType == "trojan" || editType == "https"
                         if (showTlsOption) {
@@ -4435,8 +4466,63 @@ fun MainScreen(
                                     onValueChange = { editSni = it },
                                     label = { Text(stringResource(R.string.sni_server_name)) },
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = ExpressiveButtonShape
+                                    shape = ExpressiveButtonShape,
+                                    singleLine = true
                                 )
+
+                                if (editType == "vless") {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Enable Reality", fontWeight = FontWeight.Bold)
+                                        Switch(
+                                            checked = editRealityEnabled,
+                                            onCheckedChange = { editRealityEnabled = it }
+                                        )
+                                    }
+
+                                    if (editRealityEnabled) {
+                                        OutlinedTextField(
+                                            value = editRealityPbk,
+                                            onValueChange = { editRealityPbk = it },
+                                            label = { Text("Public Key (pbk)") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape,
+                                            singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = editRealitySid,
+                                            onValueChange = { editRealitySid = it },
+                                            label = { Text("Short ID (sid)") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape,
+                                            singleLine = true
+                                        )
+                                        OutlinedTextField(
+                                            value = editRealitySpx,
+                                            onValueChange = { editRealitySpx = it },
+                                            label = { Text("SpiderX (spx)") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape,
+                                            singleLine = true
+                                        )
+                                    }
+                                }
+
+                                if (editType == "vless" || editType == "trojan") {
+                                    OutlinedTextField(
+                                        value = editUtlsFingerprint,
+                                        onValueChange = { editUtlsFingerprint = it },
+                                        label = { Text("uTLS Fingerprint (fp)") },
+                                        placeholder = { Text("chrome") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = ExpressiveButtonShape,
+                                        singleLine = true
+                                    )
+                                }
                             }
                         }
 
@@ -4655,16 +4741,27 @@ fun MainScreen(
                                     val finalPort = editPort.trim().toIntOrNull() ?: 443
                                     val finalRemark = editRemark.trim()
                                     val queryList = mutableListOf<String>()
-                                    if (editType == "vless" || editType == "trojan") {
-                                        if (editTls) {
-                                            queryList.add("security=tls")
-                                            if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
-                                        } else {
-                                            queryList.add("security=none")
-                                        }
-                                    } else if (editType == "https") {
-                                        if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
-                                    }
+                                     if (editType == "vless" || editType == "trojan") {
+                                         if (editTls) {
+                                             if (editRealityEnabled && editType == "vless") {
+                                                 queryList.add("security=reality")
+                                                 if (editRealityPbk.isNotEmpty()) queryList.add("pbk=${java.net.URLEncoder.encode(editRealityPbk.trim(), "UTF-8")}")
+                                                 if (editRealitySid.isNotEmpty()) queryList.add("sid=${java.net.URLEncoder.encode(editRealitySid.trim(), "UTF-8")}")
+                                                 if (editRealitySpx.isNotEmpty()) queryList.add("spx=${java.net.URLEncoder.encode(editRealitySpx.trim(), "UTF-8")}")
+                                             } else {
+                                                 queryList.add("security=tls")
+                                             }
+                                             if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                             if (editUtlsFingerprint.isNotEmpty()) queryList.add("fp=${java.net.URLEncoder.encode(editUtlsFingerprint.trim(), "UTF-8")}")
+                                         } else {
+                                             queryList.add("security=none")
+                                         }
+                                         if (editFlow.isNotEmpty()) {
+                                             queryList.add("flow=${java.net.URLEncoder.encode(editFlow.trim(), "UTF-8")}")
+                                         }
+                                     } else if (editType == "https") {
+                                         if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                     }
 
                                     if (editShowAdvanced && editTransportType != "tcp") {
                                         queryList.add("type=$editTransportType")

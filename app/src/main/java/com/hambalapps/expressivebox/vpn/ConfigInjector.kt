@@ -896,7 +896,6 @@ object ConfigInjector {
                 outbound.put("uuid", userInfo)
                 outbound.put("server", host)
                 outbound.put("server_port", port)
-                outbound.put("encryption", "none")
                 outbound.put("packet_encoding", "xudp")
 
                 val security = queryParams["security"]?.lowercase()
