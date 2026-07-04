@@ -5507,6 +5507,9 @@ fun ConnectionDashboard(
     val settingsState = settingsManager.settings.collectAsState(initial = null).value
     val warpDetourMode = settingsState?.warpDetourMode ?: "proxy"
     val warpPort = settingsState?.warpPort ?: "2408"
+    val enableMtProxy = settingsState?.enableMtProxy ?: false
+    val mtProxyPort = settingsState?.mtProxyPort ?: "19999"
+    val mtProxySecret = settingsState?.mtProxySecret ?: "dd000102030405060708090a0b0c0d0e0f"
     var isRegisteringWarp by remember { mutableStateOf(false) }
 
     // Recompute bento card brushes to exactly match Settings bento cards styling
@@ -6184,6 +6187,173 @@ fun ConnectionDashboard(
                                         }
                                     }
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Telegram Proxy Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            VibrantCardContent(cardStyle) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = "Telegram Proxy",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "Telegram Proxy",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Run local Telegram MTProxy server",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = enableMtProxy,
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    settingsManager.setEnableMtProxy(checked)
+                                    if (state == "CONNECTED") {
+                                        startVpnService(context)
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = enableMtProxy,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Proxy Port",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Port for MTProxy (1024-65535)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                var portText by remember(mtProxyPort) { mutableStateOf(mtProxyPort) }
+                                OutlinedTextField(
+                                    value = portText,
+                                    onValueChange = {
+                                        portText = it
+                                        if (it.toIntOrNull() in 1024..65535) {
+                                            scope.launch { settingsManager.setMtProxyPort(it) }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.width(90.dp),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Secret Key",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "MTProto client obfuscated secret",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                var secretText by remember(mtProxySecret) { mutableStateOf(mtProxySecret) }
+                                OutlinedTextField(
+                                    value = secretText,
+                                    onValueChange = {
+                                        secretText = it
+                                        if (it.length == 34 && it.startsWith("dd")) {
+                                            scope.launch { settingsManager.setMtProxySecret(it) }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.width(180.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Button(
+                                onClick = {
+                                    val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${mtProxySecret}"
+                                    val sendIntent: Intent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, link)
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connect / Share Telegram Proxy")
                             }
                         }
                     }

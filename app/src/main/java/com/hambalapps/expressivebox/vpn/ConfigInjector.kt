@@ -40,7 +40,10 @@ data class InjectorSettings(
     val globalCamouflageHost: String = "",
     val globalCamouflageCustomIps: String = "",
     val globalCamouflageTimeout: String = "600",
-    val rootMode: Boolean = false
+    val rootMode: Boolean = false,
+    val enableMtProxy: Boolean = false,
+    val mtProxyPort: String = "19999",
+    val mtProxySecret: String = "dd000102030405060708090a0b0c0d0e0f"
 )
 
 object ConfigInjector {
@@ -91,7 +94,17 @@ object ConfigInjector {
                 trimmedProfile.startsWith("vmess://") ||
                 trimmedProfile.startsWith("hysteria2://") ||
                 trimmedProfile.startsWith("hy2://") ||
-                trimmedProfile.startsWith("tuic://")) {
+                trimmedProfile.startsWith("tuic://") ||
+                trimmedProfile.startsWith("wireguard://") ||
+                trimmedProfile.startsWith("awg://") ||
+                trimmedProfile.startsWith("openvpn://") ||
+                trimmedProfile.startsWith("ovpn://") ||
+                trimmedProfile.startsWith("mieru://") ||
+                trimmedProfile.startsWith("ssr://") ||
+                trimmedProfile.startsWith("shadowtls://") ||
+                trimmedProfile.startsWith("snell://") ||
+                trimmedProfile.startsWith("client") ||
+                trimmedProfile.contains("dev tun")) {
                 buildConfigFromUri(rawProfile, settings)
             } else {
                 // Return default empty configuration skeleton
@@ -117,6 +130,7 @@ object ConfigInjector {
             // 2. Inject or update inbounds (TUN interface & LAN Proxy Sharing)
             injectTunInbound(configJson, settings)
             injectLocalProxyInbound(configJson, settings)
+            injectMTProxyInbound(configJson, settings)
 
             // 3. Inject or update DNS (Split DNS rules)
             injectDns(context, configJson, settings)
@@ -187,6 +201,35 @@ object ConfigInjector {
                 put("listen_port", portVal)
             }
             newInbounds.put(mixedInbound)
+        }
+        config.put("inbounds", newInbounds)
+    }
+
+    private fun injectMTProxyInbound(config: JSONObject, settings: InjectorSettings) {
+        val inbounds = config.optJSONArray("inbounds") ?: JSONArray().also { config.put("inbounds", it) }
+        
+        val newInbounds = JSONArray()
+        for (i in 0 until inbounds.length()) {
+            val inbound = inbounds.optJSONObject(i) ?: continue
+            if (inbound.optString("tag") != "mtproxy-in") {
+                newInbounds.put(inbound)
+            }
+        }
+        
+        if (settings.enableMtProxy) {
+            val portVal = settings.mtProxyPort.toIntOrNull() ?: 19999
+            val mtProxyInbound = JSONObject().apply {
+                put("type", "mtproxy")
+                put("tag", "mtproxy-in")
+                put("listen", "0.0.0.0")
+                put("listen_port", portVal)
+                
+                val user = JSONObject().apply {
+                    put("secret", settings.mtProxySecret)
+                }
+                put("users", JSONArray().apply { put(user) })
+            }
+            newInbounds.put(mtProxyInbound)
         }
         config.put("inbounds", newInbounds)
     }
@@ -795,18 +838,7 @@ object ConfigInjector {
     private fun injectFragmentToOutbound(outbound: JSONObject, settings: InjectorSettings) {
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
-        
-        val fragmentObj = JSONObject().apply {
-            put("enabled", true)
-            put("packets", "tlshello")
-            
-            val lengthStr = settings.fragmentLength.trim()
-            put("length", if (lengthStr.isNotEmpty()) lengthStr else "10-20")
-            
-            val intervalStr = settings.fragmentInterval.trim()
-            put("interval", if (intervalStr.isNotEmpty()) intervalStr else "10-20")
-        }
-        tls.put("fragment", fragmentObj)
+        tls.put("fragment", true)
         tls.put("record_fragment", true)
         tls.put("fragment_fallback_delay", "500ms")
     }
@@ -915,7 +947,7 @@ object ConfigInjector {
                 }
 
                 // TLS
-                val isTlsOrReality = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || port == 443 || port == 8443
+                val isTlsOrReality = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || ((port == 443 || port == 8443) && headerType != "http")
                 val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isTlsOrReality
                 val hasTls = isTlsOrReality && !isObfuscatedHttp
                 if (hasTls) {
@@ -1256,6 +1288,267 @@ object ConfigInjector {
                 if (hb != null && hb.isNotEmpty()) {
                     val hbStr = if (hb.endsWith("s") || hb.endsWith("ms")) hb else "${hb}s"
                     outbound.put("heartbeat", hbStr)
+                }
+            } else if (scheme == "wireguard" || scheme == "awg") {
+                outbound.put("type", "wireguard")
+                outbound.put("private_key", userInfo)
+                outbound.put("mtu", queryParams["mtu"]?.toIntOrNull() ?: 1400)
+                
+                val addressStr = queryParams["address"] ?: queryParams["ip"] ?: "10.0.0.2/32"
+                val addressArray = JSONArray()
+                addressStr.split(",").forEach { addr ->
+                    val trimmedAddr = addr.trim()
+                    if (trimmedAddr.isNotEmpty()) {
+                        if (trimmedAddr.contains("/")) {
+                            addressArray.put(trimmedAddr)
+                        } else {
+                            addressArray.put("$trimmedAddr/32")
+                        }
+                    }
+                }
+                outbound.put("local_address", addressArray)
+
+                val peer = JSONObject().apply {
+                    put("server", host)
+                    put("server_port", port)
+                    put("public_key", queryParams["public_key"] ?: queryParams["pk"] ?: "")
+                    queryParams["preshared_key"]?.let { put("pre_shared_key", it) }
+                    queryParams["psk"]?.let { put("pre_shared_key", it) }
+                    
+                    val allowedIps = queryParams["allowed_ips"] ?: "0.0.0.0/0"
+                    val allowedIpsArray = JSONArray()
+                    allowedIps.split(",").forEach { ip ->
+                        val trimmedIp = ip.trim()
+                        if (trimmedIp.isNotEmpty()) {
+                            if (trimmedIp.contains("/")) {
+                                allowedIpsArray.put(trimmedIp)
+                            } else {
+                                allowedIpsArray.put("$trimmedIp/0")
+                            }
+                        }
+                    }
+                    put("allowed_ips", allowedIpsArray)
+                    
+                    val keepalive = queryParams["keepalive"] ?: queryParams["persistent_keepalive"]
+                    keepalive?.toIntOrNull()?.let { put("persistent_keepalive_interval", it) }
+                    
+                    val reserved = queryParams["reserved"]
+                    if (reserved != null && reserved.isNotEmpty()) {
+                        val reservedArray = JSONArray()
+                        reserved.split(",").forEach { r ->
+                            r.trim().toIntOrNull()?.let { reservedArray.put(it) }
+                        }
+                        if (reservedArray.length() > 0) {
+                            put("reserved", reservedArray)
+                        }
+                    }
+                }
+                outbound.put("peers", JSONArray().apply { put(peer) })
+
+                val hasAmnezia = queryParams.containsKey("jc") || queryParams.containsKey("jmin") || 
+                                 queryParams.containsKey("jmax") || queryParams.containsKey("s1") || 
+                                 queryParams.containsKey("s2") || queryParams.containsKey("s3") || 
+                                 queryParams.containsKey("s4") || queryParams.containsKey("h1") || 
+                                 queryParams.containsKey("h2") || queryParams.containsKey("h3") || 
+                                 queryParams.containsKey("h4")
+                if (hasAmnezia) {
+                    val amnezia = JSONObject().apply {
+                        queryParams["jc"]?.toIntOrNull()?.let { put("jc", it) }
+                        queryParams["jmin"]?.toIntOrNull()?.let { put("jmin", it) }
+                        queryParams["jmax"]?.toIntOrNull()?.let { put("jmax", it) }
+                        queryParams["s1"]?.toIntOrNull()?.let { put("s1", it) }
+                        queryParams["s2"]?.toIntOrNull()?.let { put("s2", it) }
+                        queryParams["s3"]?.toIntOrNull()?.let { put("s3", it) }
+                        queryParams["s4"]?.toIntOrNull()?.let { put("s4", it) }
+                        queryParams["h1"]?.toIntOrNull()?.let { put("h1", it) }
+                        queryParams["h2"]?.toIntOrNull()?.let { put("h2", it) }
+                        queryParams["h3"]?.toIntOrNull()?.let { put("h3", it) }
+                        queryParams["h4"]?.toIntOrNull()?.let { put("h4", it) }
+                    }
+                    outbound.put("amnezia", amnezia)
+                }
+            } else if (scheme == "openvpn" || scheme == "ovpn" || (!uriStr.contains("://") && (uriStr.trim().startsWith("client") || uriStr.trim().contains("dev tun")))) {
+                outbound.put("type", "openvpn")
+                val configText = if (scheme == "openvpn" || scheme == "ovpn") {
+                    queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
+                } else {
+                    uriStr
+                }
+                if (configText.isNotEmpty()) {
+                    val serversArray = JSONArray()
+                    var protoVal = "udp"
+                    var cipherVal = "AES-256-GCM"
+                    var authVal = "SHA512"
+                    var tlsCryptText = ""
+                    var tlsAuthText = ""
+                    var keyDir = 0
+                    
+                    fun extractTag(text: String, tag: String): String {
+                        val start = "<$tag>"
+                        val end = "</$tag>"
+                        val startIdx = text.indexOf(start)
+                        val endIdx = text.indexOf(end)
+                        if (startIdx >= 0 && endIdx > startIdx) {
+                            return text.substring(startIdx + start.length, endIdx).trim()
+                        }
+                        return ""
+                    }
+                    
+                    tlsCryptText = extractTag(configText, "tls-crypt")
+                    tlsAuthText = extractTag(configText, "tls-auth")
+                    val caText = extractTag(configText, "ca")
+                    val certText = extractTag(configText, "cert")
+                    val keyText = extractTag(configText, "key")
+                    
+                    configText.split("\n").forEach { line ->
+                        val trimmedLine = line.trim()
+                        if (trimmedLine.isEmpty() || trimmedLine.startsWith("#") || trimmedLine.startsWith(";")) return@forEach
+                        val tokens = trimmedLine.split(Regex("\\s+"))
+                        if (tokens.isEmpty()) return@forEach
+                        
+                        when (tokens[0].lowercase()) {
+                            "remote" -> {
+                                if (tokens.size >= 2) {
+                                    val sHost = tokens[1]
+                                    val sPort = if (tokens.size >= 3) tokens[2].toIntOrNull() ?: 1194 else 1194
+                                    val sObj = JSONObject().apply {
+                                        put("server", sHost)
+                                        put("server_port", sPort)
+                                    }
+                                    serversArray.put(sObj)
+                                }
+                            }
+                            "proto" -> {
+                                if (tokens.size >= 2) {
+                                    protoVal = tokens[1].lowercase()
+                                }
+                            }
+                            "cipher" -> {
+                                if (tokens.size >= 2) {
+                                    cipherVal = tokens[1]
+                                }
+                            }
+                            "auth" -> {
+                                if (tokens.size >= 2) {
+                                    authVal = tokens[1]
+                                }
+                            }
+                            "key-direction" -> {
+                                if (tokens.size >= 2) {
+                                    keyDir = tokens[1].toIntOrNull() ?: 0
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (serversArray.length() == 0 && host.isNotEmpty()) {
+                        serversArray.put(JSONObject().apply {
+                            put("server", host)
+                            put("server_port", port)
+                        })
+                    }
+                    outbound.put("servers", serversArray)
+                    outbound.put("proto", protoVal)
+                    outbound.put("cipher", cipherVal)
+                    outbound.put("auth", authVal)
+                    
+                    val tls = JSONObject().apply {
+                        put("enabled", true)
+                        if (caText.isNotEmpty()) put("certificate", caText)
+                        if (certText.isNotEmpty()) put("client_certificate", certText)
+                        if (keyText.isNotEmpty()) put("client_key", keyText)
+                    }
+                    outbound.put("tls", tls)
+                    
+                    if (tlsCryptText.isNotEmpty()) {
+                        outbound.put("tls_crypt", tlsCryptText)
+                    }
+                    if (tlsAuthText.isNotEmpty()) {
+                        outbound.put("tls_auth", tlsAuthText)
+                        outbound.put("key_direction", keyDir)
+                    }
+                } else {
+                    val serversArray = JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("server", host)
+                            put("server_port", port)
+                        })
+                    }
+                    outbound.put("servers", serversArray)
+                    outbound.put("proto", queryParams["proto"] ?: "udp")
+                    outbound.put("cipher", queryParams["cipher"] ?: "AES-256-GCM")
+                    outbound.put("auth", queryParams["auth"] ?: "SHA512")
+                    if (userInfo.contains(":")) {
+                        val parts = userInfo.split(":")
+                        outbound.put("username", parts[0])
+                        outbound.put("password", parts[1])
+                    }
+                }
+            } else if (scheme == "mieru") {
+                outbound.put("type", "mieru")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                if (userInfo.contains(":")) {
+                    val parts = userInfo.split(":")
+                    outbound.put("username", parts[0])
+                    outbound.put("password", parts[1])
+                }
+                val serverPorts = queryParams["ports"] ?: queryParams["server_ports"]
+                if (serverPorts != null && serverPorts.isNotEmpty()) {
+                    val portsArray = JSONArray()
+                    serverPorts.split(",").forEach { portsArray.put(it.trim()) }
+                    outbound.put("server_ports", portsArray)
+                }
+                outbound.put("transport", queryParams["transport"] ?: "tcp")
+                outbound.put("multiplexing", queryParams["multiplexing"] ?: "multiplexing")
+                outbound.put("traffic_pattern", queryParams["traffic_pattern"] ?: "heavy")
+            } else if (scheme == "ssr") {
+                outbound.put("type", "shadowsocksr")
+                val decoded = tryBase64Decode(content)
+                if (decoded != null && decoded.isNotEmpty()) {
+                    val mainPartSsr = decoded.substringBefore("/?")
+                    val queryPartSsr = if (decoded.contains("/?")) decoded.substringAfter("/?") else ""
+                    val tokens = mainPartSsr.split(":")
+                    if (tokens.size >= 6) {
+                        outbound.put("server", tokens[0])
+                        outbound.put("server_port", tokens[1].toIntOrNull() ?: 8388)
+                        outbound.put("protocol", tokens[2])
+                        outbound.put("method", tokens[3])
+                        outbound.put("obfs", tokens[4])
+                        outbound.put("password", tryBase64Decode(tokens[5]) ?: "")
+                    }
+                    if (queryPartSsr.isNotEmpty()) {
+                        val ssrQueryParams = parseQueryParams(queryPartSsr)
+                        ssrQueryParams["obfsparam"]?.let { outbound.put("obfs_param", tryBase64Decode(it) ?: "") }
+                        ssrQueryParams["protoparam"]?.let { outbound.put("protocol_param", tryBase64Decode(it) ?: "") }
+                    }
+                }
+            } else if (scheme == "shadowtls") {
+                outbound.put("type", "shadowtls")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                outbound.put("password", userInfo)
+                outbound.put("version", queryParams["version"]?.toIntOrNull() ?: 3)
+                
+                val tls = JSONObject().apply {
+                    put("enabled", true)
+                    val sni = queryParams["sni"] ?: queryParams["host"] ?: "speedtest.net"
+                    put("server_name", sni)
+                }
+                outbound.put("tls", tls)
+            } else if (scheme == "snell") {
+                outbound.put("type", "snell")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                outbound.put("password", userInfo)
+                outbound.put("version", queryParams["version"]?.toIntOrNull() ?: 2)
+                val obfsType = queryParams["obfs"]
+                if (obfsType != null && obfsType.isNotEmpty() && obfsType != "none") {
+                    val obfsObj = JSONObject().apply {
+                        put("type", obfsType)
+                        put("host", queryParams["obfs-host"] ?: queryParams["obfs_host"] ?: "speedtest.net")
+                    }
+                    outbound.put("obfs", obfsObj)
                 }
             }
 

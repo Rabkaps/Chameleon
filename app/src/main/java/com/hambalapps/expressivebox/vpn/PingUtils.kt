@@ -43,6 +43,26 @@ fun tryBase64Decode(str: String): String? {
             // continue
         }
     }
+    try {
+        val cleaned = str.trim().replace("\r", "").replace("\n", "").replace(" ", "")
+        val javaFlags = listOf(
+            java.util.Base64.getDecoder(),
+            java.util.Base64.getUrlDecoder()
+        )
+        for (decoder in javaFlags) {
+            try {
+                var toDecode = cleaned
+                while (toDecode.length % 4 != 0) {
+                    toDecode += "="
+                }
+                val decoded = decoder.decode(toDecode)
+                val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
+                if (decodedStr.isNotEmpty()) {
+                    return decodedStr
+                }
+            } catch (e: Exception) {}
+        }
+    } catch (e: Exception) {}
     return null
 }
 

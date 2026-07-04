@@ -480,6 +480,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 val warpPortVal = settingsManager.warpPort.first()
                 val shareVpnLanVal = settingsManager.settings.first().shareVpnLan
                 val shareVpnPortVal = settingsManager.settings.first().shareVpnPort
+                val enableMtProxyVal = settingsManager.enableMtProxy.first()
+                val mtProxyPortVal = settingsManager.mtProxyPort.first()
+                val mtProxySecretVal = settingsManager.mtProxySecret.first()
                 val proxyChainsVal = settingsManager.proxyChains.first()
                 val camouflageSettingsVal = settingsManager.camouflageSettings.first()
                 val globalCamouflageEnabledVal = settingsManager.globalCamouflageEnabled.first()
@@ -530,7 +533,10 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     globalCamouflageHost = globalCamouflageHostVal,
                     globalCamouflageCustomIps = globalCamouflageCustomIpsVal,
                     globalCamouflageTimeout = globalCamouflageTimeoutVal,
-                    rootMode = rootModeVal
+                    rootMode = rootModeVal,
+                    enableMtProxy = enableMtProxyVal,
+                    mtProxyPort = mtProxyPortVal,
+                    mtProxySecret = mtProxySecretVal
                 )
 
                 // Inject our custom bypass-Iran rules, split DNS, and advanced parameters
@@ -562,8 +568,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 setupOptions.setTempPath(cacheDir.absolutePath)
                 log("Setting FixAndroidStack...")
                 setupOptions.setFixAndroidStack(true)
-                log("Setting CrashReportSource...")
-                setupOptions.setCrashReportSource("stderr")
                 log("Setting CommandServerListenPort...")
                 setupOptions.setCommandServerListenPort(3000)
                 log("Calling Libbox.setup...")
@@ -1270,10 +1274,10 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     override fun includeAllNetworks(): Boolean = false
     override fun readWIFIState(): WIFIState? = null
 
-    override fun closeNeighborMonitor(listener: NeighborUpdateListener?) {}
     override fun localDNSTransport(): LocalDNSTransport? = null
-    override fun registerMyInterface(name: String?) {}
-    override fun startNeighborMonitor(listener: NeighborUpdateListener?) {}
+    override fun bindInterfaceControl(fd: Int, interfaceName: String?) {
+        log("bindInterfaceControl: fd=$fd, name=$interfaceName")
+    }
     override fun systemCertificates(): StringIterator? = null
     override fun sendNotification(notification: Notification) {}
 
@@ -1369,9 +1373,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         stopVpnEngine()
     }
 
-    override fun triggerNativeCrash() {
-        log("triggerNativeCrash called")
-    }
+
 
     override fun writeDebugMessage(message: String?) {
         log("Debug: $message")

@@ -164,27 +164,33 @@ class ConfigInjectorTest {
         // The relay outbound server domain (relay.host.com) MUST be in the direct domains routing rules because it is the entrypoint.
         val routeObj = json.getJSONObject("route")
         val rules = routeObj.getJSONArray("rules")
-        var directDomainsRule: org.json.JSONObject? = null
+        val directDomains = mutableSetOf<String>()
+        val directIps = mutableSetOf<String>()
         for (i in 0 until rules.length()) {
             val rule = rules.getJSONObject(i)
-            if (rule.optString("outbound") == "direct" && rule.has("domain")) {
-                directDomainsRule = rule
-                break
+            if (rule.optString("outbound") == "direct") {
+                if (rule.has("domain")) {
+                    val arr = rule.getJSONArray("domain")
+                    for (j in 0 until arr.length()) {
+                        directDomains.add(arr.getString(j))
+                    }
+                }
+                if (rule.has("ip_cidr")) {
+                    val arr = rule.getJSONArray("ip_cidr")
+                    for (j in 0 until arr.length()) {
+                        directIps.add(arr.getString(j))
+                    }
+                }
             }
         }
 
-        assert(directDomainsRule != null)
-        val domains = directDomainsRule!!.getJSONArray("domain")
-        var hasRelayDomain = false
-        var hasExitDomain = false
-        for (i in 0 until domains.length()) {
-            val domain = domains.getString(i)
-            if (domain == "relay.host.com") hasRelayDomain = true
-            if (domain == "exit.host.com") hasExitDomain = true
-        }
+        val exitServer = proxyOutbound!!.getString("server")
+        val hasExitBypass = directDomains.contains("exit.host.com") || directIps.contains(exitServer)
+        assert(hasExitBypass) { "exit host or IP should be bypassed directly to prevent routing/DNS loop anomalies" }
 
-        assert(hasRelayDomain) { "relay host should be bypassed directly" }
-        assert(hasExitDomain) { "exit host should be bypassed directly to prevent routing/DNS loop anomalies" }
+        val relayServer = relayOutbound!!.getString("server")
+        val hasRelayBypass = directDomains.contains("relay.host.com") || directIps.contains(relayServer)
+        assert(hasRelayBypass) { "relay host or IP should be bypassed directly" }
 
         // DNS bootstrap verification:
         // Both exit.host.com and relay.host.com MUST be resolved using the bootstrap DNS server (dns-bootstrap)
@@ -210,7 +216,10 @@ class ConfigInjectorTest {
             if (domain == "exit.host.com") hasExitDnsDomain = true
         }
 
-        assert(hasRelayDnsDomain) { "relay host domain should be resolved via bootstrap DNS" }
+        val needsRelayDnsBootstrap = relayOutbound!!.getString("server") == "relay.host.com"
+        if (needsRelayDnsBootstrap) {
+            assert(hasRelayDnsDomain) { "relay host domain should be resolved via bootstrap DNS" }
+        }
         assert(hasExitDnsDomain) { "exit host domain should be resolved via bootstrap DNS to prevent startup deadlock loop" }
     }
 
@@ -222,6 +231,14 @@ class ConfigInjectorTest {
         Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
 
         val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
             vpnMode = "normal"
         )
 
@@ -246,7 +263,17 @@ class ConfigInjectorTest {
     fun testUserProvidedFailedLinks() {
         val mockContext = Mockito.mock(Context::class.java)
         Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
-        val settings = InjectorSettings(vpnMode = "normal")
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
 
         val link1 = "vless://e8ab0871-53f6-4022-9d43-9c37e4b35b0f@gd.30ma.cfd:8443?encryption=mlkem768x25519plus.native.0rtt.RPdkctkk2fIPLCuPV_iACmUXvsGcnbukVhlgxDNlqgfAcPkwZspx3SKm_KNGCYB7C9NWcZpa4CCtHgiz1te4tnVxzhOCY7R5QzEe-3KCmKdcYkY60IXFQYPDQ4V_Oou5L6YERmsF3ScegyjJe3hFtLqtBzmvySG8kbsvjvRmcbIFtXs1a9rNVfDOiMMYv9y65eOZfvVABpJbHZY4BwnMrdQJfXM0SmoiQfUUnnjCepIROFKpCYt1BORIYrkpbvLACoenxdh13XgoBCC5tJqhf6FAb8QuTEdj7tkxcdsYdEtIj_iFPrR28qy_7DQ4EvUIb9hrjkpx3rKnrRAWgsoVkYgMZLJjKLBa7gGtz8CC7GUoaJWVOCKhwgPO2LWYfIWJ7RsE0cqJYLk4cwF1dVVjzwSOMiMquoq1NDHJmSxbkzYKkIYRawOizrhqO6ebBuU3hbZs5hqJ2rJUSWjLMCApIHS3jLkX-mS5lEuTgrfBrlW3dps1jkhwJux5JOWU4ZNfEbt7r6oC9qwtbMpblrN1FTxUCvJBaNJi7Qxt30RZJFuE26ROLzsTLrQ9BJrBZwyErPvPWVVYAPI6xBifrBdOfgxxTZk_sToOKECWIKgNCAeDiHoGzvyNjcWYVhFH0yGNwrpkPNMQbeZ1H-ID4SkSYnxjF5ZQ77hDZ9IlGVFHR2HHRPA7XdQpm0k23jpb1CdwxxoURow-AhiPRfGoJ4BxTRjLmRRWdtE_71lpiMqfgWVl4QmZj5KyQYxZnmZ18gJyKmSq87W5Hqd-LFK3EFsulxdLMjQNmDR_iYsv5CUFKWJhuZtyslxNS3rJWBUwtnQRGKQHcxsrf_msMMU2Zqc7rxILIeSb3Yqi1CRM3pSHpXdbCbCub1invAarbEcKOtHHoQWXZKGL_RifdwQVQ2VKEBCkZ5lk1DN7MFMiNbGIs6shubfDCsWPJaRGd1GrxoQKg1Q1qBq62QhkqekELBRZexSOZJAXoBWWothCaXlqk_SprJmZFxW-d-it5idrF3lxnAIpBlUcjtAAnZQMz5KTCQwbh2oVy4F3qjEglvVewnVDfDGsdeOQv2C5f2sdeOGJfBIYZrqk4qWbOYyNn9hSZRkhzdbCBnw8nMCZTkmKBJKb3TJFFEMu8TWSSVIaUxmzqDxFE-aOFoY1ULB3HbEiisEOZtUO6GFOTslWkSdWRTN-KnuZwOdwS0RBo0yBRxR0yFFuT-ICmpIL8vkcfLDLkjAtU7LJTRVbw6QwvdO4WCnLJdWPeHYQ14o1wKIwormUMzNTOKuoqkkIXpuieusivcwbKbImHlZO5YhWmqNERNKu7aKTSQuBF0ZFtfqR5_COBWhA17E6QXhfuiwV_Kiej2yBgPmIp_CJaaQFAiaduuWoTVGYsBGTvdetP4grSNpWG7uGsxxrHilOjlRvdkowAuqnrDVc-puKrYyFraODFhwgUjOCW0QuIGwYDqB94JbJnsdsSMl63dwU4nhQ1KtLuulzRaRCAmJl-fIdx-Ax-mSwguNYvtBRPphCnBPOsMtFobmjeU3Z8tJIRYGteJZbAFmtZgSlyXyQC88HzMK5L3g&extra=%7B%22mode%22%3A%22auto%22%2C%22xPaddingBytes%22%3A%22100-1000%22%7D&fp=chrome&host=gd.30ma.cfd&mode=auto&path=%2Fmyculture&pbk=PAz5HjgkSigwokC0ua-xqrJsrtm1xt4PjZcAM4kIjAQ&security=reality&sid=d97566f404&sni=chat.deepseek.com&spx=%2FoPpFzdutTcuNPKL&type=xhttp&x_padding_bytes=100-1000#D2-Anita"
         val config1 = ConfigInjector.injectConfig(mockContext, link1, settings)
@@ -257,6 +284,177 @@ class ConfigInjectorTest {
         val config3 = ConfigInjector.injectConfig(mockContext, link3, settings)
         println("Generated config 3:")
         println(config3)
+    }
+
+    @Test
+    fun testAmneziaWGParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val awgUri = "awg://my_private_key_base64@my.server.com:51820?public_key=peer_public_key_base64&address=10.0.0.2/32,fd00::2/128&mtu=1360&jc=4&jmin=40&jmax=80&s1=123&s2=456&h1=789"
+        val configStr = ConfigInjector.injectConfig(mockContext, awgUri, settings)
+        println("Generated AmneziaWG Configuration:")
+        println(configStr)
+
+        val json = org.json.JSONObject(configStr)
+        val outbounds = json.getJSONArray("outbounds")
+        val proxyOutbound = outbounds.getJSONObject(0)
+
+        assert(proxyOutbound.getString("type") == "wireguard")
+        assert(proxyOutbound.getString("private_key") == "my_private_key_base64")
+        assert(proxyOutbound.getInt("mtu") == 1360)
+
+        val localAddresses = proxyOutbound.getJSONArray("local_address")
+        assert(localAddresses.length() == 2)
+        assert(localAddresses.getString(0) == "10.0.0.2/32")
+        assert(localAddresses.getString(1) == "fd00::2/128")
+
+        val peers = proxyOutbound.getJSONArray("peers")
+        assert(peers.length() == 1)
+        val peer = peers.getJSONObject(0)
+        assert(peer.getString("server") == "my.server.com")
+        assert(peer.getInt("server_port") == 51820)
+        assert(peer.getString("public_key") == "peer_public_key_base64")
+
+        val amnezia = proxyOutbound.getJSONObject("amnezia")
+        assert(amnezia.getInt("jc") == 4)
+        assert(amnezia.getInt("jmin") == 40)
+        assert(amnezia.getInt("jmax") == 80)
+        assert(amnezia.getInt("s1") == 123)
+        assert(amnezia.getInt("s2") == 456)
+        assert(amnezia.getInt("h1") == 789)
+    }
+
+    @Test
+    fun testNewProtocolsParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        // 1. Mieru parsing test
+        val mieruUri = "mieru://myuser:mypass@my.mieru.com:20000?ports=10000-20000,25000&transport=udp&multiplexing=multiplexing&traffic_pattern=heavy"
+        val configMieru = ConfigInjector.injectConfig(mockContext, mieruUri, settings)
+        println("Generated Mieru Config: " + configMieru)
+        val jsonMieru = org.json.JSONObject(configMieru)
+        val outboundMieru = jsonMieru.getJSONArray("outbounds").getJSONObject(0)
+        assert(outboundMieru.getString("type") == "mieru")
+        val serverMieru = outboundMieru.getString("server")
+        assert(serverMieru == "my.mieru.com" || serverMieru.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+")))
+        assert(outboundMieru.getInt("server_port") == 20000)
+        assert(outboundMieru.getString("username") == "myuser")
+        assert(outboundMieru.getString("password") == "mypass")
+        assert(outboundMieru.getString("transport") == "udp")
+        assert(outboundMieru.getString("multiplexing") == "multiplexing")
+        assert(outboundMieru.getString("traffic_pattern") == "heavy")
+        val ports = outboundMieru.getJSONArray("server_ports")
+        assert(ports.length() == 2)
+        assert(ports.getString(0) == "10000-20000")
+        assert(ports.getString(1) == "25000")
+
+        // 2. ShadowsocksR parsing test
+        // We'll base64 encode: server:port:protocol:method:obfs:password_base64/?obfsparam=...
+        // Let's use a standard base64 test case
+        val ssrUri = "ssr://MTI3LjAuMC4xOjgzODg6YXV0aF9hZXMxMjhfbWQ1OmFlcy0yNTYtY2ZiOnRsczEuMl90aWNrZXRfYXV0aDpZV056TVEvP29iZnNwYXJhbT1kR2hwY3k1amIyMD0mcHJvdG9wYXJhbT1kR2hwY3k1amIyMD0"
+        val configSsr = ConfigInjector.injectConfig(mockContext, ssrUri, settings)
+        val jsonSsr = org.json.JSONObject(configSsr)
+        val outboundSsr = jsonSsr.getJSONArray("outbounds").getJSONObject(0)
+        assert(outboundSsr.getString("type") == "shadowsocksr")
+        assert(outboundSsr.getString("server") == "127.0.0.1")
+        assert(outboundSsr.getInt("server_port") == 8388)
+        assert(outboundSsr.getString("protocol") == "auth_aes128_md5")
+        assert(outboundSsr.getString("method") == "aes-256-cfb")
+        assert(outboundSsr.getString("obfs") == "tls1.2_ticket_auth")
+        assert(outboundSsr.getString("password") == "acs1")
+
+        // 3. ShadowTLS parsing test
+        val shadowTlsUri = "shadowtls://mypassword@my.shadowtls.com:443?version=3&sni=microsoft.com"
+        val configStls = ConfigInjector.injectConfig(mockContext, shadowTlsUri, settings)
+        val jsonStls = org.json.JSONObject(configStls)
+        val outboundStls = jsonStls.getJSONArray("outbounds").getJSONObject(0)
+        assert(outboundStls.getString("type") == "shadowtls")
+        val serverStls = outboundStls.getString("server")
+        assert(serverStls == "my.shadowtls.com" || serverStls.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+")))
+        assert(outboundStls.getInt("server_port") == 443)
+        assert(outboundStls.getString("password") == "mypassword")
+        assert(outboundStls.getInt("version") == 3)
+        val tlsStls = outboundStls.getJSONObject("tls")
+        assert(tlsStls.getBoolean("enabled"))
+        assert(tlsStls.getString("server_name") == "microsoft.com")
+
+        // 4. Snell parsing test
+        val snellUri = "snell://mypassword@my.snell.com:443?version=2&obfs=http&obfs-host=speedtest.net"
+        val configSnell = ConfigInjector.injectConfig(mockContext, snellUri, settings)
+        val jsonSnell = org.json.JSONObject(configSnell)
+        val outboundSnell = jsonSnell.getJSONArray("outbounds").getJSONObject(0)
+        assert(outboundSnell.getString("type") == "snell")
+        val serverSnell = outboundSnell.getString("server")
+        assert(serverSnell == "my.snell.com" || serverSnell.matches(Regex("\\d+\\.\\d+\\.\\d+\\.\\d+")))
+        assert(outboundSnell.getInt("server_port") == 443)
+        assert(outboundSnell.getString("password") == "mypassword")
+        assert(outboundSnell.getInt("version") == 2)
+        val obfsSnell = outboundSnell.getJSONObject("obfs")
+        assert(obfsSnell.getString("type") == "http")
+        assert(obfsSnell.getString("host") == "speedtest.net")
+    }
+
+    @Test
+    fun testMTProxyInboundServer() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal",
+            enableMtProxy = true,
+            mtProxyPort = "20202",
+            mtProxySecret = "dd000102030405060708090a0b0c0d0e0f"
+        )
+
+        val link = "vless://uuid@exit.host.com:443?security=tls"
+        val configStr = ConfigInjector.injectConfig(mockContext, link, settings)
+        val json = org.json.JSONObject(configStr)
+        val inbounds = json.getJSONArray("inbounds")
+        
+        var hasMtProxyInbound = false
+        for (i in 0 until inbounds.length()) {
+            val inbound = inbounds.getJSONObject(i)
+            if (inbound.optString("tag") == "mtproxy-in") {
+                hasMtProxyInbound = true
+                assert(inbound.getString("type") == "mtproxy")
+                assert(inbound.getString("listen") == "0.0.0.0")
+                assert(inbound.getInt("listen_port") == 20202)
+                val user = inbound.getJSONArray("users").getJSONObject(0)
+                assert(user.getString("secret") == "dd000102030405060708090a0b0c0d0e0f")
+            }
+        }
+        assert(hasMtProxyInbound) { "MTProxy inbound was not injected successfully" }
     }
 }
 

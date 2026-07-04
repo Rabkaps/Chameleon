@@ -60,6 +60,9 @@ class SettingsManager(private val context: Context) {
         val GLOBAL_CAMOUFLAGE_CUSTOM_IPS = stringPreferencesKey("global_camouflage_custom_ips")
         val GLOBAL_CAMOUFLAGE_TIMEOUT = stringPreferencesKey("global_camouflage_timeout")
         val ROOT_MODE = booleanPreferencesKey("root_mode")
+        val ENABLE_MTPROXY = booleanPreferencesKey("enable_mtproxy")
+        val MTPROXY_PORT = stringPreferencesKey("mtproxy_port")
+        val MTPROXY_SECRET = stringPreferencesKey("mtproxy_secret")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -111,7 +114,10 @@ class SettingsManager(private val context: Context) {
             globalCamouflageSni = "speedtest.net",
             globalCamouflageHost = "",
             globalCamouflageCustomIps = "",
-            globalCamouflageTimeout = "600"
+            globalCamouflageTimeout = "600",
+            enableMtProxy = false,
+            mtProxyPort = "19999",
+            mtProxySecret = "dd000102030405060708090a0b0c0d0e0f"
         )
     }
 
@@ -178,11 +184,17 @@ class SettingsManager(private val context: Context) {
             globalCamouflageHost = prefs[GLOBAL_CAMOUFLAGE_HOST] ?: "",
             globalCamouflageCustomIps = prefs[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] ?: "",
             globalCamouflageTimeout = prefs[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600",
-            rootMode = prefs[ROOT_MODE] ?: false
+            rootMode = prefs[ROOT_MODE] ?: false,
+            enableMtProxy = prefs[ENABLE_MTPROXY] ?: false,
+            mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
+            mtProxySecret = prefs[MTPROXY_SECRET] ?: "dd000102030405060708090a0b0c0d0e0f"
         )
     }.distinctUntilChanged()
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }.distinctUntilChanged()
+    val enableMtProxy: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MTPROXY] ?: false }.distinctUntilChanged()
+    val mtProxyPort: Flow<String> = context.dataStore.data.map { it[MTPROXY_PORT] ?: "19999" }.distinctUntilChanged()
+    val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "dd000102030405060708090a0b0c0d0e0f" }.distinctUntilChanged()
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://1.1.1.1/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
@@ -265,6 +277,9 @@ class SettingsManager(private val context: Context) {
     suspend fun setWarpPort(value: String) { context.dataStore.edit { it[WARP_PORT] = value } }
     suspend fun setShareVpnLan(value: Boolean) { context.dataStore.edit { it[SHARE_VPN_LAN] = value } }
     suspend fun setShareVpnPort(value: String) { context.dataStore.edit { it[SHARE_VPN_PORT] = value } }
+    suspend fun setEnableMtProxy(value: Boolean) { context.dataStore.edit { it[ENABLE_MTPROXY] = value } }
+    suspend fun setMtProxyPort(value: String) { context.dataStore.edit { it[MTPROXY_PORT] = value } }
+    suspend fun setMtProxySecret(value: String) { context.dataStore.edit { it[MTPROXY_SECRET] = value } }
 
     val globalCamouflageEnabled: Flow<Boolean> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_ENABLED] ?: false }.distinctUntilChanged()
     val globalCamouflagePreset: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_PRESET] ?: "cloudflare" }.distinctUntilChanged()
@@ -342,7 +357,10 @@ data class UserSettings(
     val globalCamouflageHost: String,
     val globalCamouflageCustomIps: String,
     val globalCamouflageTimeout: String,
-    val rootMode: Boolean
+    val rootMode: Boolean,
+    val enableMtProxy: Boolean,
+    val mtProxyPort: String,
+    val mtProxySecret: String
 )
 
 data class Subscription(
