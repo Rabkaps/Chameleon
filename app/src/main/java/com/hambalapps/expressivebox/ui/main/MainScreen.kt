@@ -170,6 +170,7 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val standardColorScheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val settingsManager = remember { SettingsManager(context) }
 
@@ -1450,8 +1451,9 @@ fun MainScreen(
                                                             DropdownMenu(
                                                                 expanded = menuExpanded,
                                                                 onDismissRequest = { menuExpanded = false },
-                                                                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                                                modifier = Modifier.background(standardColorScheme.surfaceContainerHigh)
                                                             ) {
+                                                                MaterialTheme(colorScheme = standardColorScheme) {
                                                                 DropdownMenuItem(
                                                                     text = {
                                                                         Text(
@@ -1608,6 +1610,7 @@ fun MainScreen(
                                                                         )
                                                                     }
                                                                 )
+                                                                }
                                                             }
                                                         }
                                                     } else {
@@ -1935,14 +1938,16 @@ fun MainScreen(
                                                             expanded = isGroupDropdownExpanded,
                                                             onDismissRequest = { isGroupDropdownExpanded = false }
                                                         ) {
-                                                            subGroups.forEach { group ->
-                                                                DropdownMenuItem(
-                                                                    text = { Text(group) },
-                                                                    onClick = {
-                                                                        selectedSubGroupFilter = group
-                                                                        isGroupDropdownExpanded = false
-                                                                    }
-                                                                )
+                                                            MaterialTheme(colorScheme = standardColorScheme) {
+                                                                subGroups.forEach { group ->
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(group) },
+                                                                        onClick = {
+                                                                            selectedSubGroupFilter = group
+                                                                            isGroupDropdownExpanded = false
+                                                                        }
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -1958,14 +1963,16 @@ fun MainScreen(
                                                             expanded = isCountryDropdownExpanded,
                                                             onDismissRequest = { isCountryDropdownExpanded = false }
                                                         ) {
-                                                            uniqueCountries.forEach { country ->
-                                                                DropdownMenuItem(
-                                                                    text = { Text(country) },
-                                                                    onClick = {
-                                                                        selectedCountryFilter = country
-                                                                        isCountryDropdownExpanded = false
-                                                                    }
-                                                                )
+                                                            MaterialTheme(colorScheme = standardColorScheme) {
+                                                                uniqueCountries.forEach { country ->
+                                                                    DropdownMenuItem(
+                                                                        text = { Text(country) },
+                                                                        onClick = {
+                                                                            selectedCountryFilter = country
+                                                                            isCountryDropdownExpanded = false
+                                                                        }
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                     }
