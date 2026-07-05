@@ -123,6 +123,7 @@ object ConfigInjector {
 
             // Sanitize invalid port fields in outbounds and inbounds
             sanitizePortFields(configJson)
+            sanitizeXhttpTransport(configJson)
 
             // 1. Pre-resolve proxy server domains to raw IPs to bypass DNS hijacking
             preResolveProxyServers(context, configJson, settings)
@@ -947,7 +948,7 @@ object ConfigInjector {
                 }
 
                 // TLS
-                val isTlsOrReality = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || ((port == 443 || port == 8443) && headerType != "http")
+                val isTlsOrReality = security != "none" && (security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || ((port == 443 || port == 8443) && headerType != "http"))
                 val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isTlsOrReality
                 val hasTls = isTlsOrReality && !isObfuscatedHttp
                 if (hasTls) {
@@ -1606,6 +1607,28 @@ object ConfigInjector {
         }
     }
 
+    private fun sanitizeXhttpTransport(config: JSONObject) {
+        val outbounds = config.optJSONArray("outbounds") ?: return
+        for (i in 0 until outbounds.length()) {
+            val outbound = outbounds.optJSONObject(i) ?: continue
+            val transport = outbound.optJSONObject("transport") ?: continue
+            if (transport.optString("type") == "xhttp") {
+                // Ensure x_padding_bytes is present and valid for sing-box-extended
+                if (!transport.has("x_padding_bytes") || transport.optString("x_padding_bytes").isEmpty()) {
+                    transport.put("x_padding_bytes", "100-1000")
+                }
+                
+                // Ensure download.x_padding_bytes is also present and valid if download block exists
+                val download = transport.optJSONObject("download")
+                if (download != null) {
+                    if (!download.has("x_padding_bytes") || download.optString("x_padding_bytes").isEmpty()) {
+                        download.put("x_padding_bytes", "100-1000")
+                    }
+                }
+            }
+        }
+    }
+
     private fun injectTransport(outbound: JSONObject, queryParams: Map<String, String>, defaultHost: String) {
         var type = queryParams["type"]
         val headerType = queryParams["headerType"] ?: queryParams["header_type"]
@@ -1614,7 +1637,7 @@ object ConfigInjector {
         val security = queryParams["security"]?.lowercase()
         val isReality = security == "reality"
         val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
-        if ((type == null || type == "tcp") && headerType == "http" && !hasTls) {
+        if ((type == null || type == "tcp") && headerType == "http") {
             type = "http"
         } else if (type == "h2") {
             type = "http"
@@ -1691,6 +1714,8 @@ object ConfigInjector {
                 }
                 val mode = queryParams["mode"] ?: "stream-one"
                 transport.put("mode", mode)
+                val paddingBytes = queryParams["x_padding_bytes"] ?: queryParams["padding"] ?: "100-1000"
+                transport.put("x_padding_bytes", paddingBytes)
                 
                 val extraStr = queryParams["extra"]
                 if (extraStr != null && extraStr.isNotEmpty()) {

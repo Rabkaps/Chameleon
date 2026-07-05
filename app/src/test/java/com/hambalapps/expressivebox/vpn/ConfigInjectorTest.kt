@@ -456,5 +456,110 @@ class ConfigInjectorTest {
         }
         assert(hasMtProxyInbound) { "MTProxy inbound was not injected successfully" }
     }
+
+    @Test
+    fun testXHttpPaddingSanitization() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        // 1. Check URI parsing
+        val xhttpUri = "vless://uuid@my.server.com:443?type=xhttp&path=/xhttp&security=tls"
+        val configStr = ConfigInjector.injectConfig(mockContext, xhttpUri, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        val transport = outbound.getJSONObject("transport")
+        assert(transport.getString("type") == "xhttp")
+        assert(transport.getString("x_padding_bytes") == "100-1000")
+
+        // 2. Check JSON profile sanitization
+        val rawJson = """
+            {
+                "outbounds": [
+                    {
+                        "type": "vless",
+                        "tag": "proxy",
+                        "server": "my.server.com",
+                        "server_port": 443,
+                        "uuid": "uuid",
+                        "transport": {
+                            "type": "xhttp",
+                            "path": "/xhttp"
+                        }
+                    }
+                ]
+            }
+        """.trimIndent()
+        val sanitizedStr = ConfigInjector.injectConfig(mockContext, rawJson, settings)
+        val jsonSanitized = org.json.JSONObject(sanitizedStr)
+        val outboundSanitized = jsonSanitized.getJSONArray("outbounds").getJSONObject(0)
+        val transportSanitized = outboundSanitized.getJSONObject("transport")
+        assert(transportSanitized.getString("type") == "xhttp")
+        assert(transportSanitized.getString("x_padding_bytes") == "100-1000")
+    }
+
+    @Test
+    fun testTcpHttpObfsWithTls() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val tcpHttpObfsUri = "vless://uuid@my.server.com:443?type=tcp&headerType=http&security=tls"
+        val configStr = ConfigInjector.injectConfig(mockContext, tcpHttpObfsUri, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        
+        // Should map to transport type "http" (HTTP obfuscation)
+        val transport = outbound.getJSONObject("transport")
+        assert(transport.getString("type") == "http")
+        
+        // Should also enable TLS
+        val tls = outbound.getJSONObject("tls")
+        assert(tls.getBoolean("enabled"))
+    }
+
+    @Test
+    fun testVlessSecurityNone() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        // Explicit security=none on port 443 must NOT enable TLS auto-detection
+        val link = "vless://uuid@my.server.com:443?security=none"
+        val configStr = ConfigInjector.injectConfig(mockContext, link, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        assert(!outbound.has("tls"))
+    }
 }
 
