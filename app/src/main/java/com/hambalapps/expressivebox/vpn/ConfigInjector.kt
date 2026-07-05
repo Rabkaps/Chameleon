@@ -105,7 +105,8 @@ object ConfigInjector {
                 trimmedProfile.startsWith("shadowtls://") ||
                 trimmedProfile.startsWith("snell://") ||
                 trimmedProfile.startsWith("client") ||
-                trimmedProfile.contains("dev tun")) {
+                trimmedProfile.contains("dev tun") ||
+                (trimmedProfile.contains("[Interface]") && trimmedProfile.contains("[Peer]"))) {
                 buildConfigFromUri(rawProfile, settings)
             } else {
                 // Return default empty configuration skeleton
@@ -908,7 +909,20 @@ object ConfigInjector {
             
             val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
             val schemeIdx = rest.indexOf("://")
-            if (schemeIdx < 0) return outbound
+            if (schemeIdx < 0) {
+                if (trimmed.contains("[Interface]") && trimmed.contains("[Peer]")) {
+                    return parseWireGuardConf(trimmed, defaultTag)
+                }
+                if (trimmed.startsWith("client") || trimmed.contains("dev tun")) {
+                    val outbound = JSONObject()
+                    outbound.put("tag", defaultTag)
+                    outbound.put("_original_link", trimmed)
+                    outbound.put("type", "openvpn")
+                    parseOpenVpnConfDetails(outbound, trimmed)
+                    return outbound
+                }
+                return outbound
+            }
             val scheme = rest.substring(0, schemeIdx).lowercase()
             
             val content = rest.substring(schemeIdx + 3)
@@ -1359,7 +1373,11 @@ object ConfigInjector {
                                  queryParams.containsKey("s2") || queryParams.containsKey("s3") || 
                                  queryParams.containsKey("s4") || queryParams.containsKey("h1") || 
                                  queryParams.containsKey("h2") || queryParams.containsKey("h3") || 
-                                 queryParams.containsKey("h4")
+                                 queryParams.containsKey("h4") || queryParams.containsKey("i1") ||
+                                 queryParams.containsKey("i2") || queryParams.containsKey("i3") ||
+                                 queryParams.containsKey("i4") || queryParams.containsKey("i5") ||
+                                 queryParams.containsKey("j1") || queryParams.containsKey("j2") ||
+                                 queryParams.containsKey("j3") || queryParams.containsKey("itime")
                 if (hasAmnezia) {
                     val amnezia = JSONObject().apply {
                         queryParams["jc"]?.toIntOrNull()?.let { put("jc", it) }
@@ -1369,113 +1387,27 @@ object ConfigInjector {
                         queryParams["s2"]?.toIntOrNull()?.let { put("s2", it) }
                         queryParams["s3"]?.toIntOrNull()?.let { put("s3", it) }
                         queryParams["s4"]?.toIntOrNull()?.let { put("s4", it) }
-                        queryParams["h1"]?.toIntOrNull()?.let { put("h1", it) }
-                        queryParams["h2"]?.toIntOrNull()?.let { put("h2", it) }
-                        queryParams["h3"]?.toIntOrNull()?.let { put("h3", it) }
-                        queryParams["h4"]?.toIntOrNull()?.let { put("h4", it) }
+                        queryParams["h1"]?.toLongOrNull()?.let { put("h1", it) }
+                        queryParams["h2"]?.toLongOrNull()?.let { put("h2", it) }
+                        queryParams["h3"]?.toLongOrNull()?.let { put("h3", it) }
+                        queryParams["h4"]?.toLongOrNull()?.let { put("h4", it) }
+                        queryParams["i1"]?.let { put("i1", it) }
+                        queryParams["i2"]?.let { put("i2", it) }
+                        queryParams["i3"]?.let { put("i3", it) }
+                        queryParams["i4"]?.let { put("i4", it) }
+                        queryParams["i5"]?.let { put("i5", it) }
+                        queryParams["j1"]?.let { put("j1", it) }
+                        queryParams["j2"]?.let { put("j2", it) }
+                        queryParams["j3"]?.let { put("j3", it) }
+                        queryParams["itime"]?.toLongOrNull()?.let { put("itime", it) }
                     }
                     outbound.put("amnezia", amnezia)
                 }
-            } else if (scheme == "openvpn" || scheme == "ovpn" || (!uriStr.contains("://") && (uriStr.trim().startsWith("client") || uriStr.trim().contains("dev tun")))) {
+            } else if (scheme == "openvpn" || scheme == "ovpn") {
                 outbound.put("type", "openvpn")
-                val configText = if (scheme == "openvpn" || scheme == "ovpn") {
-                    queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
-                } else {
-                    uriStr
-                }
+                val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
                 if (configText.isNotEmpty()) {
-                    val serversArray = JSONArray()
-                    var protoVal = "udp"
-                    var cipherVal = "AES-256-GCM"
-                    var authVal = "SHA512"
-                    var tlsCryptText = ""
-                    var tlsAuthText = ""
-                    var keyDir = 0
-                    
-                    fun extractTag(text: String, tag: String): String {
-                        val start = "<$tag>"
-                        val end = "</$tag>"
-                        val startIdx = text.indexOf(start)
-                        val endIdx = text.indexOf(end)
-                        if (startIdx >= 0 && endIdx > startIdx) {
-                            return text.substring(startIdx + start.length, endIdx).trim()
-                        }
-                        return ""
-                    }
-                    
-                    tlsCryptText = extractTag(configText, "tls-crypt")
-                    tlsAuthText = extractTag(configText, "tls-auth")
-                    val caText = extractTag(configText, "ca")
-                    val certText = extractTag(configText, "cert")
-                    val keyText = extractTag(configText, "key")
-                    
-                    configText.split("\n").forEach { line ->
-                        val trimmedLine = line.trim()
-                        if (trimmedLine.isEmpty() || trimmedLine.startsWith("#") || trimmedLine.startsWith(";")) return@forEach
-                        val tokens = trimmedLine.split(Regex("\\s+"))
-                        if (tokens.isEmpty()) return@forEach
-                        
-                        when (tokens[0].lowercase()) {
-                            "remote" -> {
-                                if (tokens.size >= 2) {
-                                    val sHost = tokens[1]
-                                    val sPort = if (tokens.size >= 3) tokens[2].toIntOrNull() ?: 1194 else 1194
-                                    val sObj = JSONObject().apply {
-                                        put("server", sHost)
-                                        put("server_port", sPort)
-                                    }
-                                    serversArray.put(sObj)
-                                }
-                            }
-                            "proto" -> {
-                                if (tokens.size >= 2) {
-                                    protoVal = tokens[1].lowercase()
-                                }
-                            }
-                            "cipher" -> {
-                                if (tokens.size >= 2) {
-                                    cipherVal = tokens[1]
-                                }
-                            }
-                            "auth" -> {
-                                if (tokens.size >= 2) {
-                                    authVal = tokens[1]
-                                }
-                            }
-                            "key-direction" -> {
-                                if (tokens.size >= 2) {
-                                    keyDir = tokens[1].toIntOrNull() ?: 0
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (serversArray.length() == 0 && host.isNotEmpty()) {
-                        serversArray.put(JSONObject().apply {
-                            put("server", host)
-                            put("server_port", port)
-                        })
-                    }
-                    outbound.put("servers", serversArray)
-                    outbound.put("proto", protoVal)
-                    outbound.put("cipher", cipherVal)
-                    outbound.put("auth", authVal)
-                    
-                    val tls = JSONObject().apply {
-                        put("enabled", true)
-                        if (caText.isNotEmpty()) put("certificate", caText)
-                        if (certText.isNotEmpty()) put("client_certificate", certText)
-                        if (keyText.isNotEmpty()) put("client_key", keyText)
-                    }
-                    outbound.put("tls", tls)
-                    
-                    if (tlsCryptText.isNotEmpty()) {
-                        outbound.put("tls_crypt", tlsCryptText)
-                    }
-                    if (tlsAuthText.isNotEmpty()) {
-                        outbound.put("tls_auth", tlsAuthText)
-                        outbound.put("key_direction", keyDir)
-                    }
+                    parseOpenVpnConfDetails(outbound, configText)
                 } else {
                     val serversArray = JSONArray().apply {
                         put(JSONObject().apply {
@@ -1566,6 +1498,293 @@ object ConfigInjector {
         }
 
         return outbound
+    }
+
+    private fun parseWireGuardConf(confText: String, defaultTag: String): JSONObject {
+        val outbound = JSONObject()
+        outbound.put("type", "wireguard")
+        outbound.put("tag", defaultTag)
+        outbound.put("_original_link", confText)
+
+        var privateKey = ""
+        var addressStr = "10.0.0.2/32"
+        var mtu = 1400
+        
+        var serverHost = ""
+        var serverPort = 51820
+        var publicKey = ""
+        var presharedKey = ""
+        var allowedIpsStr = "0.0.0.0/0"
+        var keepalive = 0
+        var reservedStr = ""
+
+        // AmneziaWG parameters
+        var jc: Int? = null
+        var jmin: Int? = null
+        var jmax: Int? = null
+        var s1: Int? = null
+        var s2: Int? = null
+        var s3: Int? = null
+        var s4: Int? = null
+        var h1: Long? = null
+        var h2: Long? = null
+        var h3: Long? = null
+        var h4: Long? = null
+        var i1: String? = null
+        var i2: String? = null
+        var i3: String? = null
+        var i4: String? = null
+        var i5: String? = null
+        var j1: String? = null
+        var j2: String? = null
+        var j3: String? = null
+        var itime: Long? = null
+
+        confText.split("\n").forEach { line ->
+            val trimmedLine = line.trim()
+            if (trimmedLine.isEmpty() || trimmedLine.startsWith("#") || trimmedLine.startsWith(";")) return@forEach
+            val parts = trimmedLine.split(Regex("="), 2)
+            if (parts.size < 2) return@forEach
+            val key = parts[0].trim().lowercase()
+            val value = parts[1].trim()
+
+            when (key) {
+                "privatekey" -> privateKey = value
+                "address" -> addressStr = value
+                "mtu" -> mtu = value.toIntOrNull() ?: 1400
+                "publickey" -> publicKey = value
+                "presharedkey" -> presharedKey = value
+                "allowedips" -> allowedIpsStr = value
+                "persistentkeepalive" -> keepalive = value.toIntOrNull() ?: 0
+                "reserved" -> reservedStr = value
+                "endpoint" -> {
+                    val colonIdx = value.lastIndexOf(":")
+                    if (colonIdx >= 0) {
+                        serverHost = value.substring(0, colonIdx)
+                        serverPort = value.substring(colonIdx + 1).toIntOrNull() ?: 51820
+                    } else {
+                        serverHost = value
+                    }
+                }
+                // AmneziaWG properties
+                "jc" -> jc = value.toIntOrNull()
+                "jmin" -> jmin = value.toIntOrNull()
+                "jmax" -> jmax = value.toIntOrNull()
+                "s1" -> s1 = value.toIntOrNull()
+                "s2" -> s2 = value.toIntOrNull()
+                "s3" -> s3 = value.toIntOrNull()
+                "s4" -> s4 = value.toIntOrNull()
+                "h1" -> h1 = value.toLongOrNull()
+                "h2" -> h2 = value.toLongOrNull()
+                "h3" -> h3 = value.toLongOrNull()
+                "h4" -> h4 = value.toLongOrNull()
+                "i1" -> i1 = value
+                "i2" -> i2 = value
+                "i3" -> i3 = value
+                "i4" -> i4 = value
+                "i5" -> i5 = value
+                "j1" -> j1 = value
+                "j2" -> j2 = value
+                "j3" -> j3 = value
+                "itime" -> itime = value.toLongOrNull()
+            }
+        }
+
+        outbound.put("private_key", privateKey)
+        outbound.put("mtu", mtu)
+
+        val addressArray = JSONArray()
+        addressStr.split(",").forEach { addr ->
+            val trimmedAddr = addr.trim()
+            if (trimmedAddr.isNotEmpty()) {
+                if (trimmedAddr.contains("/")) {
+                    addressArray.put(trimmedAddr)
+                } else {
+                    addressArray.put("$trimmedAddr/32")
+                }
+            }
+        }
+        outbound.put("local_address", addressArray)
+
+        val peer = JSONObject().apply {
+            put("server", serverHost)
+            put("server_port", serverPort)
+            put("public_key", publicKey)
+            if (presharedKey.isNotEmpty()) {
+                put("pre_shared_key", presharedKey)
+            }
+            val allowedIpsArray = JSONArray()
+            allowedIpsStr.split(",").forEach { ip ->
+                val trimmedIp = ip.trim()
+                if (trimmedIp.isNotEmpty()) {
+                    if (trimmedIp.contains("/")) {
+                        allowedIpsArray.put(trimmedIp)
+                    } else {
+                        allowedIpsArray.put("$trimmedIp/0")
+                    }
+                }
+            }
+            put("allowed_ips", allowedIpsArray)
+            if (keepalive > 0) {
+                put("persistent_keepalive_interval", keepalive)
+            }
+            if (reservedStr.isNotEmpty()) {
+                val reservedArray = JSONArray()
+                reservedStr.split(",").forEach { r ->
+                    r.trim().toIntOrNull()?.let { reservedArray.put(it) }
+                }
+                if (reservedArray.length() > 0) {
+                    put("reserved", reservedArray)
+                }
+            }
+        }
+        outbound.put("peers", JSONArray().apply { put(peer) })
+
+        val hasAmnezia = jc != null || jmin != null || jmax != null || s1 != null || s2 != null || s3 != null || s4 != null || h1 != null || h2 != null || h3 != null || h4 != null || i1 != null || i2 != null || i3 != null || i4 != null || i5 != null || j1 != null || j2 != null || j3 != null || itime != null
+        if (hasAmnezia) {
+            val amnezia = JSONObject().apply {
+                jc?.let { put("jc", it) }
+                jmin?.let { put("jmin", it) }
+                jmax?.let { put("jmax", it) }
+                s1?.let { put("s1", it) }
+                s2?.let { put("s2", it) }
+                s3?.let { put("s3", it) }
+                s4?.let { put("s4", it) }
+                h1?.let { put("h1", it) }
+                h2?.let { put("h2", it) }
+                h3?.let { put("h3", it) }
+                h4?.let { put("h4", it) }
+                i1?.let { put("i1", it) }
+                i2?.let { put("i2", it) }
+                i3?.let { put("i3", it) }
+                i4?.let { put("i4", it) }
+                i5?.let { put("i5", it) }
+                j1?.let { put("j1", it) }
+                j2?.let { put("j2", it) }
+                j3?.let { put("j3", it) }
+                itime?.let { put("itime", it) }
+            }
+            outbound.put("amnezia", amnezia)
+        }
+
+        return outbound
+    }
+
+    private fun parseOpenVpnConfDetails(outbound: JSONObject, configText: String) {
+        val serversArray = JSONArray()
+        var protoVal = "udp"
+        var cipherVal = "AES-256-GCM"
+        var authVal = "SHA512"
+        var tlsCryptText = ""
+        var tlsAuthText = ""
+        var keyDir = 0
+        var usernameVal = ""
+        var passwordVal = ""
+        var verifyX509NameVal = ""
+        var verifyX509NameModeVal = ""
+        
+        fun extractTag(text: String, tag: String): String {
+            val start = "<$tag>"
+            val end = "</$tag>"
+            val startIdx = text.indexOf(start)
+            val endIdx = text.indexOf(end)
+            if (startIdx >= 0 && endIdx > startIdx) {
+                return text.substring(startIdx + start.length, endIdx).trim()
+            }
+            return ""
+        }
+        
+        tlsCryptText = extractTag(configText, "tls-crypt")
+        tlsAuthText = extractTag(configText, "tls-auth")
+        val caText = extractTag(configText, "ca")
+        val certText = extractTag(configText, "cert")
+        val keyText = extractTag(configText, "key")
+        
+        configText.split("\n").forEach { line ->
+            val trimmedLine = line.trim()
+            if (trimmedLine.isEmpty()) return@forEach
+            if (trimmedLine.startsWith("#") || trimmedLine.startsWith(";")) {
+                if (trimmedLine.contains("EXT-USER:") || trimmedLine.contains("username:")) {
+                    usernameVal = trimmedLine.substringAfter(":").trim()
+                }
+                if (trimmedLine.contains("EXT-PASS:") || trimmedLine.contains("password:")) {
+                    passwordVal = trimmedLine.substringAfter(":").trim()
+                }
+                return@forEach
+            }
+            val tokens = trimmedLine.split(Regex("\\s+"))
+            if (tokens.isEmpty()) return@forEach
+            
+            when (tokens[0].lowercase()) {
+                "remote" -> {
+                    if (tokens.size >= 2) {
+                        val sHost = tokens[1]
+                        val sPort = if (tokens.size >= 3) tokens[2].toIntOrNull() ?: 1194 else 1194
+                        val sObj = JSONObject().apply {
+                            put("server", sHost)
+                            put("server_port", sPort)
+                        }
+                        serversArray.put(sObj)
+                    }
+                }
+                "proto" -> {
+                    if (tokens.size >= 2) {
+                        protoVal = tokens[1].lowercase()
+                    }
+                }
+                "cipher" -> {
+                    if (tokens.size >= 2) {
+                        cipherVal = tokens[1]
+                    }
+                }
+                "auth" -> {
+                    if (tokens.size >= 2) {
+                        authVal = tokens[1]
+                    }
+                }
+                "key-direction" -> {
+                    if (tokens.size >= 2) {
+                        keyDir = tokens[1].toIntOrNull() ?: 0
+                    }
+                }
+                "verify-x509-name" -> {
+                    if (tokens.size >= 2) {
+                        val name = tokens[1].replace("\"", "")
+                        val mode = if (tokens.size >= 3) tokens[2] else "name"
+                        verifyX509NameVal = name
+                        verifyX509NameModeVal = mode
+                    }
+                }
+            }
+        }
+        
+        outbound.put("servers", serversArray)
+        outbound.put("proto", protoVal)
+        outbound.put("cipher", cipherVal)
+        outbound.put("auth", authVal)
+        
+        if (usernameVal.isNotEmpty()) outbound.put("username", usernameVal)
+        if (passwordVal.isNotEmpty()) outbound.put("password", passwordVal)
+        
+        val tls = JSONObject().apply {
+            put("enabled", true)
+            if (caText.isNotEmpty()) put("ca", caText)
+            if (certText.isNotEmpty()) put("certificate", certText)
+            if (keyText.isNotEmpty()) put("key", keyText)
+            if (verifyX509NameVal.isNotEmpty()) {
+                put("verify_x509_name", verifyX509NameVal)
+                put("verify_x509_name_mode", verifyX509NameModeVal)
+            }
+        }
+        outbound.put("tls", tls)
+        
+        if (tlsCryptText.isNotEmpty()) {
+            outbound.put("tls_crypt", tlsCryptText)
+        }
+        if (tlsAuthText.isNotEmpty()) {
+            outbound.put("tls_auth", tlsAuthText)
+            outbound.put("key_direction", keyDir)
+        }
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {

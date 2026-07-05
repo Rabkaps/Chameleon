@@ -641,5 +641,143 @@ class ConfigInjectorTest {
         }
         assert(!hasTunInbound)
     }
+
+    @Test
+    fun testOpenVpnCertAndCredentialsParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val rawOvpn = """
+            client
+            dev tun
+            proto udp
+            remote my-ovpn-server.com 1194
+            cipher AES-128-CBC
+            auth SHA256
+            #EXT-USER: my_username
+            #EXT-PASS: my_password
+            <ca>
+            ---BEGIN CERTIFICATE---
+            CA_CONTENT
+            ---END CERTIFICATE---
+            </ca>
+            <cert>
+            ---BEGIN CERTIFICATE---
+            CLIENT_CERT_CONTENT
+            ---END CERTIFICATE---
+            </cert>
+            <key>
+            ---BEGIN PRIVATE KEY---
+            CLIENT_KEY_CONTENT
+            ---END PRIVATE KEY---
+            </key>
+        """.trimIndent()
+
+        val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        
+        assert(outbound.getString("type") == "openvpn")
+        assert(outbound.getString("proto") == "udp")
+        assert(outbound.getString("cipher") == "AES-128-CBC")
+        assert(outbound.getString("auth") == "SHA256")
+        assert(outbound.getString("username") == "my_username")
+        assert(outbound.getString("password") == "my_password")
+        
+        val tls = outbound.getJSONObject("tls")
+        assert(tls.getBoolean("enabled"))
+        assert(tls.getString("ca").contains("CA_CONTENT"))
+        assert(tls.getString("certificate").contains("CLIENT_CERT_CONTENT"))
+        assert(tls.getString("key").contains("CLIENT_KEY_CONTENT"))
+    }
+
+    @Test
+    fun testRawWireGuardConfParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val rawConf = """
+            [Interface]
+            PrivateKey = my_private_key
+            Address = 10.0.0.2/32, fd00::2/128
+            MTU = 1420
+            Jc = 4
+            Jmin = 40
+            Jmax = 70
+            S1 = 15
+            S2 = 25
+            H1 = 12345
+            H2 = 67890
+            H3 = 13579
+            H4 = 24680
+            itime = 9999
+
+            [Peer]
+            PublicKey = peer_public_key
+            PresharedKey = preshared_key
+            AllowedIPs = 0.0.0.0/0
+            Endpoint = 192.168.1.100:51820
+            PersistentKeepalive = 25
+            Reserved = 1, 2, 3
+        """.trimIndent()
+
+        val configStr = ConfigInjector.injectConfig(mockContext, rawConf, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        
+        assert(outbound.getString("type") == "wireguard")
+        assert(outbound.getString("private_key") == "my_private_key")
+        assert(outbound.getInt("mtu") == 1420)
+        
+        val localAddress = outbound.getJSONArray("local_address")
+        assert(localAddress.getString(0) == "10.0.0.2/32")
+        assert(localAddress.getString(1) == "fd00::2/128")
+        
+        val peer = outbound.getJSONArray("peers").getJSONObject(0)
+        assert(peer.getString("server") == "192.168.1.100")
+        assert(peer.getInt("server_port") == 51820)
+        assert(peer.getString("public_key") == "peer_public_key")
+        assert(peer.getString("pre_shared_key") == "preshared_key")
+        assert(peer.getInt("persistent_keepalive_interval") == 25)
+        
+        val reserved = peer.getJSONArray("reserved")
+        assert(reserved.getInt(0) == 1)
+        assert(reserved.getInt(1) == 2)
+        assert(reserved.getInt(2) == 3)
+
+        val amnezia = outbound.getJSONObject("amnezia")
+        assert(amnezia.getInt("jc") == 4)
+        assert(amnezia.getInt("jmin") == 40)
+        assert(amnezia.getInt("jmax") == 70)
+        assert(amnezia.getInt("s1") == 15)
+        assert(amnezia.getInt("s2") == 25)
+        assert(amnezia.getLong("h1") == 12345L)
+        assert(amnezia.getLong("h2") == 67890L)
+        assert(amnezia.getLong("h3") == 13579L)
+        assert(amnezia.getLong("h4") == 24680L)
+        assert(amnezia.getLong("itime") == 9999L)
+    }
 }
 
