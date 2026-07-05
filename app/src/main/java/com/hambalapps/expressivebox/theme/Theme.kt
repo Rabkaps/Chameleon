@@ -549,7 +549,7 @@ fun ExpressiveBoxTheme(
 
         // Material Expressive Color & Surface Strategy
         if (isDark) {
-            if (cardStyle == "vibrant") {
+            if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
                     background = Color.Black,
                     surface = Color.Black,
@@ -584,7 +584,7 @@ fun ExpressiveBoxTheme(
                 )
             }
         } else {
-            if (cardStyle == "vibrant") {
+            if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
                     background = tintColor(Color.White, baseScheme.primary, ratio = 0.16f),
                     surface = tintColor(Color.White, baseScheme.primary, ratio = 0.16f),

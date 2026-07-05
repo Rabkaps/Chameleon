@@ -567,14 +567,14 @@ fun MainScreen(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer) {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer, surfaceContainerHigh) {
         if (cardStyle == "solid") {
             SolidColor(primaryContainer)
-        } else {
+        } else if (cardStyle == "vibrant") {
             val colors = if (isDark) {
                 listOf(
-                    primaryColor.copy(alpha = 0.35f),
-                    secondaryColor.copy(alpha = 0.15f)
+                    primaryColor,
+                    secondaryColor.copy(alpha = 0.8f)
                 )
             } else {
                 listOf(
@@ -583,17 +583,30 @@ fun MainScreen(
                 )
             }
             Brush.linearGradient(colors = colors)
+        } else { // glass style
+            val colors = if (isDark) {
+                listOf(
+                    primaryColor.copy(alpha = 0.55f),
+                    secondaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    primaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, secondaryContainer, tertiaryContainer) {
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, secondaryContainer, tertiaryContainer, surfaceContainerHigh) {
         if (cardStyle == "solid") {
             SolidColor(secondaryContainer)
-        } else {
+        } else if (cardStyle == "vibrant") {
             val colors = if (isDark) {
                 listOf(
-                    secondaryColor.copy(alpha = 0.25f),
-                    tertiaryColor.copy(alpha = 0.1f)
+                    secondaryColor,
+                    tertiaryColor.copy(alpha = 0.8f)
                 )
             } else {
                 listOf(
@@ -602,22 +615,48 @@ fun MainScreen(
                 )
             }
             Brush.linearGradient(colors = colors)
+        } else { // glass style
+            val colors = if (isDark) {
+                listOf(
+                    secondaryColor.copy(alpha = 0.55f),
+                    tertiaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    secondaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, tertiaryContainer, primaryContainer) {
+    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, tertiaryContainer, primaryContainer, surfaceContainerHigh) {
         if (cardStyle == "solid") {
             SolidColor(tertiaryContainer)
-        } else {
+        } else if (cardStyle == "vibrant") {
             val colors = if (isDark) {
                 listOf(
-                    tertiaryColor.copy(alpha = 0.25f),
-                    primaryColor.copy(alpha = 0.1f)
+                    tertiaryColor,
+                    primaryColor.copy(alpha = 0.8f)
                 )
             } else {
                 listOf(
                     tertiaryContainer,
                     primaryContainer.copy(alpha = 0.7f)
+                )
+            }
+            Brush.linearGradient(colors = colors)
+        } else { // glass style
+            val colors = if (isDark) {
+                listOf(
+                    tertiaryColor.copy(alpha = 0.55f),
+                    primaryColor.copy(alpha = 0.28f)
+                )
+            } else {
+                listOf(
+                    tertiaryColor.copy(alpha = 0.18f),
+                    surfaceContainerHigh
                 )
             }
             Brush.linearGradient(colors = colors)
@@ -3940,6 +3979,7 @@ fun MainScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             listOf(
+                                                "glass" to R.string.style_glass,
                                                 "solid" to R.string.style_solid,
                                                 "vibrant" to R.string.style_vibrant
                                             ).forEach { (styleKey, stringId) ->
