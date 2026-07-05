@@ -527,6 +527,25 @@ fun ExpressiveBoxTheme(
 
     val colorScheme = remember(isDark, dynamicColor, specialTheme, cardStyle, wallpaperSeedColorState.value) {
         val isDynamic = specialTheme == "dynamic" && dynamicColor
+        val lightScheme = when {
+            isDynamic -> generateColorSchemeFromSeed(wallpaperSeedColorState.value, isDark = false)
+            else -> when (specialTheme) {
+                "lavender_dreams" -> LavenderLightColorScheme
+                "rose_gold" -> RoseGoldLightColorScheme
+                "cherry_blossom" -> CherryLightColorScheme
+                "midnight_blue" -> MidnightLightColorScheme
+                "forest_green" -> ForestLightColorScheme
+                "sunset_orange" -> SunsetLightColorScheme
+                "ocean_teal" -> TealLightColorScheme
+                "royal_amethyst" -> AmethystLightColorScheme
+                "nordic_slate" -> SlateLightColorScheme
+                else -> CherryLightColorScheme
+            }
+        }
+        val lightPrimary = lightScheme.primary
+        val lightSecondary = lightScheme.secondary
+        val lightTertiary = lightScheme.tertiary
+
         val baseScheme = when {
             isDynamic -> {
                 generateColorSchemeFromSeed(wallpaperSeedColorState.value, isDark)
@@ -553,23 +572,29 @@ fun ExpressiveBoxTheme(
                 baseScheme.copy(
                     background = Color.Black,
                     surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.35f),
+                    surfaceVariant = tintColor(Color.Black, lightPrimary, ratio = 0.35f),
                     surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.20f),
-                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.28f),
-                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.38f),
-                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.48f),
-                    primaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    surfaceContainerLow = tintColor(Color.Black, lightPrimary, ratio = 0.20f),
+                    surfaceContainer = tintColor(Color.Black, lightPrimary, ratio = 0.28f),
+                    surfaceContainerHigh = tintColor(Color.Black, lightPrimary, ratio = 0.38f),
+                    surfaceContainerHighest = tintColor(Color.Black, lightPrimary, ratio = 0.48f),
+                    primary = lightPrimary,
+                    onPrimary = Color.White,
+                    primaryContainer = tintColor(Color.Black, lightPrimary, ratio = 0.55f),
                     onPrimaryContainer = Color.White,
-                    secondaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    secondary = lightSecondary,
+                    onSecondary = Color.White,
+                    secondaryContainer = tintColor(Color.Black, lightSecondary, ratio = 0.55f),
                     onSecondaryContainer = Color.White,
-                    tertiaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    tertiary = lightTertiary,
+                    onTertiary = Color.White,
+                    tertiaryContainer = tintColor(Color.Black, lightTertiary, ratio = 0.55f),
                     onTertiaryContainer = Color.White,
-                    onSurface = tintColor(Color.White, baseScheme.primary, ratio = 0.90f),
-                    onSurfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.75f),
-                    onBackground = tintColor(Color.White, baseScheme.primary, ratio = 0.90f),
-                    outline = tintColor(Color.White, baseScheme.primary, ratio = 0.45f),
-                    outlineVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.70f)
+                    onSurface = Color.White,
+                    onSurfaceVariant = tintColor(Color.White, lightPrimary, ratio = 0.75f),
+                    onBackground = Color.White,
+                    outline = tintColor(Color.White, lightPrimary, ratio = 0.45f),
+                    outlineVariant = tintColor(Color.Black, lightPrimary, ratio = 0.70f)
                 )
             } else {
                 baseScheme.copy(

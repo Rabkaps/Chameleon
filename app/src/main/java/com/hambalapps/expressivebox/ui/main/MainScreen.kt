@@ -571,17 +571,10 @@ fun MainScreen(
         if (cardStyle == "solid") {
             SolidColor(primaryContainer)
         } else if (cardStyle == "vibrant") {
-            val colors = if (isDark) {
-                listOf(
-                    primaryColor,
-                    secondaryColor.copy(alpha = 0.8f)
-                )
-            } else {
-                listOf(
-                    primaryContainer,
-                    secondaryContainer.copy(alpha = 0.7f)
-                )
-            }
+            val colors = listOf(
+                primaryContainer,
+                secondaryContainer.copy(alpha = 0.7f)
+            )
             Brush.linearGradient(colors = colors)
         } else { // glass style
             val colors = if (isDark) {
@@ -603,17 +596,10 @@ fun MainScreen(
         if (cardStyle == "solid") {
             SolidColor(secondaryContainer)
         } else if (cardStyle == "vibrant") {
-            val colors = if (isDark) {
-                listOf(
-                    secondaryColor,
-                    tertiaryColor.copy(alpha = 0.8f)
-                )
-            } else {
-                listOf(
-                    secondaryContainer,
-                    tertiaryContainer.copy(alpha = 0.7f)
-                )
-            }
+            val colors = listOf(
+                secondaryContainer,
+                tertiaryContainer.copy(alpha = 0.7f)
+            )
             Brush.linearGradient(colors = colors)
         } else { // glass style
             val colors = if (isDark) {
@@ -635,17 +621,10 @@ fun MainScreen(
         if (cardStyle == "solid") {
             SolidColor(tertiaryContainer)
         } else if (cardStyle == "vibrant") {
-            val colors = if (isDark) {
-                listOf(
-                    tertiaryColor,
-                    primaryColor.copy(alpha = 0.8f)
-                )
-            } else {
-                listOf(
-                    tertiaryContainer,
-                    primaryContainer.copy(alpha = 0.7f)
-                )
-            }
+            val colors = listOf(
+                tertiaryContainer,
+                primaryContainer.copy(alpha = 0.7f)
+            )
             Brush.linearGradient(colors = colors)
         } else { // glass style
             val colors = if (isDark) {
@@ -2553,7 +2532,7 @@ fun MainScreen(
                                             .clip(RoundedCornerShape(28.dp))
                                             .clickable { showImportDialog = true }
                                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.35f else 0.15f)),
                                         shape = RoundedCornerShape(28.dp)
                                     ) {
                                         Column(
@@ -2601,7 +2580,7 @@ fun MainScreen(
                                                 editorMode = "form"
                                             }
                                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.15f)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.35f else 0.15f)),
                                         shape = RoundedCornerShape(28.dp)
                                     ) {
                                         Column(
