@@ -440,28 +440,28 @@ private fun generateColorSchemeFromSeed(seed: Color, isDark: Boolean): androidx.
     return if (isDark) {
         // Dark Mode Color Scheme
         darkColorScheme(
-            primary = colorFromHsl(hue, saturation.coerceAtMost(0.6f), 0.8f),
-            onPrimary = colorFromHsl(hue, saturation.coerceAtMost(0.4f), 0.2f),
-            primaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.5f), 0.3f),
-            onPrimaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.3f), 0.9f),
+            primary = colorFromHsl(hue, saturation.coerceIn(0.68f, 0.92f), 0.76f),
+            onPrimary = colorFromHsl(hue, saturation.coerceAtMost(0.4f), 0.15f),
+            primaryContainer = colorFromHsl(hue, saturation.coerceIn(0.60f, 0.85f), 0.35f),
+            onPrimaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.3f), 0.92f),
             
-            secondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.4f), 0.7f),
-            onSecondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.3f), 0.2f),
-            secondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.3f), 0.25f),
-            onSecondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.2f), 0.85f),
+            secondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceIn(0.55f, 0.80f), 0.72f),
+            onSecondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.3f), 0.15f),
+            secondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceIn(0.50f, 0.75f), 0.30f),
+            onSecondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.2f), 0.88f),
             
-            tertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.5f), 0.75f),
-            onTertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.4f), 0.2f),
-            tertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.4f), 0.25f),
-            onTertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.3f), 0.85f),
+            tertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceIn(0.60f, 0.85f), 0.74f),
+            onTertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.4f), 0.15f),
+            tertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceIn(0.50f, 0.80f), 0.30f),
+            onTertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.3f), 0.88f),
             
             background = Color.Black,
-            onBackground = Color(0xFFE6E1E5),
+            onBackground = Color(0xFFEAE5E9),
             surface = Color.Black,
-            onSurface = Color(0xFFE6E1E5),
-            surfaceVariant = colorFromHsl(hue, saturation.coerceAtMost(0.2f), 0.12f),
-            onSurfaceVariant = Color(0xFFCAC4D0),
-            outline = Color(0xFF938F99)
+            onSurface = Color(0xFFEAE5E9),
+            surfaceVariant = colorFromHsl(hue, saturation.coerceIn(0.35f, 0.60f), 0.16f),
+            onSurfaceVariant = colorFromHsl(hue, saturation.coerceIn(0.30f, 0.50f), 0.85f),
+            outline = Color(0xFF9E99A3)
         )
     } else {
         // Light Mode Color Scheme
@@ -559,17 +559,17 @@ fun ExpressiveBoxTheme(
                     surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.28f),
                     surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.38f),
                     surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.48f),
-                    primaryContainer = baseScheme.primary,
-                    onPrimaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.15f),
-                    secondaryContainer = baseScheme.primary,
-                    onSecondaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.15f),
-                    tertiaryContainer = baseScheme.primary,
-                    onTertiaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.15f),
+                    primaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    onPrimaryContainer = Color.White,
+                    secondaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    onSecondaryContainer = Color.White,
+                    tertiaryContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.55f),
+                    onTertiaryContainer = Color.White,
                     onSurface = tintColor(Color.White, baseScheme.primary, ratio = 0.90f),
                     onSurfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.75f),
                     onBackground = tintColor(Color.White, baseScheme.primary, ratio = 0.90f),
                     outline = tintColor(Color.White, baseScheme.primary, ratio = 0.45f),
-                    outlineVariant = baseScheme.primary
+                    outlineVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.70f)
                 )
             } else {
                 baseScheme.copy(

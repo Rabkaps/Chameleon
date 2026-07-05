@@ -912,7 +912,11 @@ fun MainScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clip(RoundedCornerShape(24.dp))
                             .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
+                        containerColor = androidx.compose.ui.graphics.lerp(
+                            MaterialTheme.colorScheme.surfaceContainer,
+                            MaterialTheme.colorScheme.error,
+                            0.08f
+                        ).copy(alpha = 0.95f),
                         tonalElevation = 8.dp
                     ) {
                         Row(
@@ -971,7 +975,11 @@ fun MainScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clip(RoundedCornerShape(24.dp))
                             .border(1.dp, cardBorderBrush, RoundedCornerShape(24.dp)),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.95f),
+                        containerColor = androidx.compose.ui.graphics.lerp(
+                            MaterialTheme.colorScheme.surfaceContainer,
+                            MaterialTheme.colorScheme.primary,
+                            0.08f
+                        ).copy(alpha = 0.95f),
                         tonalElevation = 8.dp
                     ) {
                         tabs.forEach { (tabId, label, icon) ->
@@ -2067,8 +2075,7 @@ fun MainScreen(
                                                         Text(
                                                             text = title, 
                                                             fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                                            color = if (selectedTab == index) MaterialTheme.colorScheme.primary
-                                                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                            color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                                             fontSize = 13.sp
                                                         ) 
                                                     }
@@ -2749,7 +2756,7 @@ fun MainScreen(
                                                     text = title, 
                                                     fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                                                     color = if (selectedTab == index) MaterialTheme.colorScheme.primary
-                                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                                     fontSize = 13.sp
                                                 ) 
                                             }
@@ -5095,7 +5102,7 @@ fun MainScreen(
                                     text = title,
                                     fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                                     color = if (selectedTab == index) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -5588,7 +5595,7 @@ fun ConnectionDashboard(
 
     val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
         if (cardStyle == "solid") {
-            SolidColor(surfaceContainerHigh)
+            SolidColor(primaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
                 primaryContainer,
@@ -5613,7 +5620,7 @@ fun ConnectionDashboard(
 
     val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, tertiaryContainer) {
         if (cardStyle == "solid") {
-            SolidColor(surfaceContainer)
+            SolidColor(secondaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
                 secondaryContainer,
@@ -5638,7 +5645,7 @@ fun ConnectionDashboard(
 
     val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
         if (cardStyle == "solid") {
-            SolidColor(surfaceContainerLow)
+            SolidColor(tertiaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
                 tertiaryContainer,
