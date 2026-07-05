@@ -117,7 +117,7 @@ class SettingsManager(private val context: Context) {
             globalCamouflageTimeout = "600",
             enableMtProxy = false,
             mtProxyPort = "19999",
-            mtProxySecret = "dd000102030405060708090a0b0c0d0e0f"
+            mtProxySecret = "ee000102030405060708090a0b0c0d0e0f"
         )
     }
 
@@ -187,14 +187,14 @@ class SettingsManager(private val context: Context) {
             rootMode = prefs[ROOT_MODE] ?: false,
             enableMtProxy = prefs[ENABLE_MTPROXY] ?: false,
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
-            mtProxySecret = prefs[MTPROXY_SECRET] ?: "dd000102030405060708090a0b0c0d0e0f"
+            mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f"
         )
     }.distinctUntilChanged()
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }.distinctUntilChanged()
     val enableMtProxy: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MTPROXY] ?: false }.distinctUntilChanged()
     val mtProxyPort: Flow<String> = context.dataStore.data.map { it[MTPROXY_PORT] ?: "19999" }.distinctUntilChanged()
-    val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "dd000102030405060708090a0b0c0d0e0f" }.distinctUntilChanged()
+    val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f" }.distinctUntilChanged()
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://1.1.1.1/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()

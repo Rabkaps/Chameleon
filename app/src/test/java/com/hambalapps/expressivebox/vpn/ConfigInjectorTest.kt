@@ -434,7 +434,7 @@ class ConfigInjectorTest {
             vpnMode = "normal",
             enableMtProxy = true,
             mtProxyPort = "20202",
-            mtProxySecret = "dd000102030405060708090a0b0c0d0e0f"
+            mtProxySecret = "ee000102030405060708090a0b0c0d0e0f"
         )
 
         val link = "vless://uuid@exit.host.com:443?security=tls"
@@ -451,7 +451,7 @@ class ConfigInjectorTest {
                 assert(inbound.getString("listen") == "0.0.0.0")
                 assert(inbound.getInt("listen_port") == 20202)
                 val user = inbound.getJSONArray("users").getJSONObject(0)
-                assert(user.getString("secret") == "dd000102030405060708090a0b0c0d0e0f")
+                assert(user.getString("secret") == "ee000102030405060708090a0b0c0d0e0f")
             }
         }
         assert(hasMtProxyInbound) { "MTProxy inbound was not injected successfully" }

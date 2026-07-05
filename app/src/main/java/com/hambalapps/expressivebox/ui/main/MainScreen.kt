@@ -6375,7 +6375,11 @@ fun ConnectionDashboard(
                                     value = secretText,
                                     onValueChange = {
                                         secretText = it
-                                        if (it.length == 34 && it.startsWith("dd")) {
+                                        val isLengthOk = it.length == 34 || it.length == 32
+                                        val startsWithValid = it.startsWith("dd", ignoreCase = true) || 
+                                                              it.startsWith("ee", ignoreCase = true) || 
+                                                              (it.length == 32 && !it.startsWith("dd", ignoreCase = true) && !it.startsWith("ee", ignoreCase = true))
+                                        if (isLengthOk && startsWithValid) {
                                             scope.launch {
                                                 settingsManager.setMtProxySecret(it)
                                                 if (state == "CONNECTED") {
@@ -6403,7 +6407,15 @@ fun ConnectionDashboard(
                             
                             Button(
                                 onClick = {
-                                    val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${mtProxySecret}"
+                                    val rawSecret = mtProxySecret.trim()
+                                    val normalizedSecret = if (rawSecret.startsWith("dd", ignoreCase = true)) {
+                                        "ee" + rawSecret.substring(2)
+                                    } else if (!rawSecret.startsWith("ee", ignoreCase = true)) {
+                                        "ee" + rawSecret
+                                    } else {
+                                        rawSecret
+                                    }
+                                    val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${normalizedSecret}"
                                     val sendIntent: Intent = Intent().apply {
                                         action = Intent.ACTION_SEND
                                         putExtra(Intent.EXTRA_TEXT, link)

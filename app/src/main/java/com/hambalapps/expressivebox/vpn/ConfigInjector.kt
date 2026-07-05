@@ -223,6 +223,16 @@ object ConfigInjector {
         
         if (settings.enableMtProxy) {
             val portVal = settings.mtProxyPort.toIntOrNull() ?: 19999
+            
+            val rawSecret = settings.mtProxySecret.trim()
+            val normalizedSecret = if (rawSecret.startsWith("dd", ignoreCase = true)) {
+                "ee" + rawSecret.substring(2)
+            } else if (!rawSecret.startsWith("ee", ignoreCase = true)) {
+                "ee" + rawSecret
+            } else {
+                rawSecret
+            }
+
             val mtProxyInbound = JSONObject().apply {
                 put("type", "mtproxy")
                 put("tag", "mtproxy-in")
@@ -230,7 +240,7 @@ object ConfigInjector {
                 put("listen_port", portVal)
                 
                 val user = JSONObject().apply {
-                    put("secret", settings.mtProxySecret)
+                    put("secret", normalizedSecret)
                 }
                 put("users", JSONArray().apply { put(user) })
             }
