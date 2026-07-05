@@ -28,6 +28,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     companion object {
         const val ACTION_START = "com.hambalapps.expressivebox.START"
+        const val ACTION_START_PROXY = "com.hambalapps.expressivebox.START_PROXY"
         const val ACTION_STOP = "com.hambalapps.expressivebox.STOP"
         private const val CHANNEL_ID = "vpn_service_channel_v2"
         private const val NOTIFICATION_ID = 101
@@ -93,12 +94,14 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
 
             if (logText.isNotEmpty()) {
+                _vpnState.value = "DISCONNECTED" // ensure correct state
                 _vpnLogs.value = logText
             }
         }
     }
 
     private var commandServer: CommandServer? = null
+    private var localProxyOnlyMode = false
     private var tunFd: ParcelFileDescriptor? = null
     private var tunFdInt: Int = -1
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -169,6 +172,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
         }
         if (action == ACTION_START) {
+            localProxyOnlyMode = false
             if (_vpnState.value == "CONNECTED") {
                 reloadVpnEngine()
             } else {
@@ -176,8 +180,25 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 startForegroundServiceNotification()
                 startVpnEngine()
             }
+        } else if (action == ACTION_START_PROXY) {
+            localProxyOnlyMode = true
+            if (_vpnState.value != "CONNECTED" && _vpnState.value != "CONNECTING") {
+                _vpnState.value = "DISCONNECTED"
+                startForegroundServiceNotification()
+                startVpnEngine()
+            }
         } else if (action == ACTION_STOP) {
-            stopVpnEngine()
+            val settingsManager = SettingsManager(applicationContext)
+            val enableMtProxyVal = kotlinx.coroutines.runBlocking { settingsManager.enableMtProxy.first() }
+            if (enableMtProxyVal) {
+                log("VPN stopped, but MTProxy is enabled. Switching to Local Proxy Mode...")
+                localProxyOnlyMode = true
+                _vpnState.value = "DISCONNECTED"
+                startForegroundServiceNotification()
+                reloadVpnEngine()
+            } else {
+                stopVpnEngine()
+            }
         }
         return START_NOT_STICKY
     }
@@ -192,11 +213,15 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             ProxyNameResolver.getProxyName(activeProfileVal, applicationContext)
         }
         
-        val contentText = when (state) {
-            "CONNECTED" -> getString(R.string.notif_connected, nodeName)
-            "CONNECTING" -> getString(R.string.notif_connecting, nodeName)
-            "DISCONNECTING" -> getString(R.string.notif_disconnecting)
-            else -> getString(R.string.notif_disconnected)
+        val contentText = if (localProxyOnlyMode) {
+            "Telegram Proxy server is running"
+        } else {
+            when (state) {
+                "CONNECTED" -> getString(R.string.notif_connected, nodeName)
+                "CONNECTING" -> getString(R.string.notif_connecting, nodeName)
+                "DISCONNECTING" -> getString(R.string.notif_disconnecting)
+                else -> getString(R.string.notif_disconnected)
+            }
         }
         
         val intent = Intent(applicationContext, MainActivity::class.java)
@@ -536,7 +561,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     rootMode = rootModeVal,
                     enableMtProxy = enableMtProxyVal,
                     mtProxyPort = mtProxyPortVal,
-                    mtProxySecret = mtProxySecretVal
+                    mtProxySecret = mtProxySecretVal,
+                    localProxyOnly = localProxyOnlyMode
                 )
 
                 // Inject our custom bypass-Iran rules, split DNS, and advanced parameters
@@ -591,7 +617,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 tunFd = null
                 commandServer?.startOrReloadService(configJson, overrideOptions)
 
-                if (!rootModeVal) {
+                if (!rootModeVal && !localProxyOnlyMode) {
                     // Wait up to 10 seconds for sing-box core to initialize the TUN interface
                     var waitCount = 0
                     while (tunFd == null && waitCount < 100) {
@@ -604,8 +630,13 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     }
                 }
 
-                _vpnState.value = "CONNECTED"
-                log("VPN Connected successfully.")
+                if (localProxyOnlyMode) {
+                    _vpnState.value = "DISCONNECTED"
+                    log("Local Proxy running successfully (VPN Tunnel is disabled).")
+                } else {
+                    _vpnState.value = "CONNECTED"
+                    log("VPN Connected successfully.")
+                }
                 if (rootModeVal) {
                     log("Root Mode is enabled. Configuring transparent proxy iptables rules...")
                     val portVal = shareVpnPortVal.toIntOrNull() ?: 10808

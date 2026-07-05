@@ -561,5 +561,85 @@ class ConfigInjectorTest {
         val outbound = json.getJSONArray("outbounds").getJSONObject(0)
         assert(!outbound.has("tls"))
     }
+
+    @Test
+    fun testVlessPqEncryption() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val link = "vless://uuid@my.server.com:443?security=tls&encryption=mlkem768x25519plus"
+        val configStr = ConfigInjector.injectConfig(mockContext, link, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound.getString("encryption") == "mlkem768x25519plus")
+    }
+
+    @Test
+    fun testRealityIgnoresHttpObfs() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        // Reality connection with type=tcp and headerType=http should IGNORE http obfuscation (no transport block)
+        val link = "vless://463e7702-e5e0-4ab4-a84c-392f4927ce77@5.160.77.201:47228?encryption=none&security=reality&type=tcp&headerType=http&path=%2Fassets&host=telewebion.ir&sni=telewebion.ir"
+        val configStr = ConfigInjector.injectConfig(mockContext, link, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        assert(!outbound.has("transport"))
+    }
+
+    @Test
+    fun testLocalProxyOnlyMode() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal",
+            localProxyOnly = true
+        )
+
+        val link = "vless://uuid@my.server.com:443?security=tls"
+        val configStr = ConfigInjector.injectConfig(mockContext, link, settings)
+        val json = org.json.JSONObject(configStr)
+        val inbounds = json.getJSONArray("inbounds")
+        
+        // Should NOT have the tun-in inbound
+        var hasTunInbound = false
+        for (i in 0 until inbounds.length()) {
+            val inbound = inbounds.getJSONObject(i)
+            if (inbound.optString("tag") == "tun-in") {
+                hasTunInbound = true
+            }
+        }
+        assert(!hasTunInbound)
+    }
 }
 

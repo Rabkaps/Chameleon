@@ -352,6 +352,28 @@ fun MainScreen(
         }
     }
 
+    // Auto-start MTProxy local service on launch if enabled and VPN is off
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val currentSettings = settingsManager.settings.first()
+            if (currentSettings.enableMtProxy) {
+                val state = VpnServiceWrapper.vpnState.value
+                if (state != "CONNECTED" && state != "CONNECTING") {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                            action = VpnServiceWrapper.ACTION_START_PROXY
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(intent)
+                        } else {
+                            context.startService(intent)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     var showImportDialog by remember { mutableStateOf(false) }
     var importText by remember { mutableStateOf("") }
     var showLogs by remember { mutableStateOf(false) }
@@ -6194,8 +6216,6 @@ fun ConnectionDashboard(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
         // Telegram Proxy Card
         Card(
             modifier = Modifier
@@ -6248,6 +6268,22 @@ fun ConnectionDashboard(
                                     settingsManager.setEnableMtProxy(checked)
                                     if (state == "CONNECTED") {
                                         startVpnService(context)
+                                    } else {
+                                        if (checked) {
+                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                action = VpnServiceWrapper.ACTION_START_PROXY
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                context.startForegroundService(intent)
+                                            } else {
+                                                context.startService(intent)
+                                            }
+                                        } else {
+                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                action = VpnServiceWrapper.ACTION_STOP
+                                            }
+                                            context.startService(intent)
+                                        }
                                     }
                                 }
                             }
@@ -6289,7 +6325,21 @@ fun ConnectionDashboard(
                                     onValueChange = {
                                         portText = it
                                         if (it.toIntOrNull() in 1024..65535) {
-                                            scope.launch { settingsManager.setMtProxyPort(it) }
+                                            scope.launch {
+                                                settingsManager.setMtProxyPort(it)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                } else {
+                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                        action = VpnServiceWrapper.ACTION_START_PROXY
+                                                    }
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                        context.startForegroundService(intent)
+                                                    } else {
+                                                        context.startService(intent)
+                                                    }
+                                                }
+                                            }
                                         }
                                     },
                                     singleLine = true,
@@ -6326,7 +6376,21 @@ fun ConnectionDashboard(
                                     onValueChange = {
                                         secretText = it
                                         if (it.length == 34 && it.startsWith("dd")) {
-                                            scope.launch { settingsManager.setMtProxySecret(it) }
+                                            scope.launch {
+                                                settingsManager.setMtProxySecret(it)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                } else {
+                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                        action = VpnServiceWrapper.ACTION_START_PROXY
+                                                    }
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                        context.startForegroundService(intent)
+                                                    } else {
+                                                        context.startService(intent)
+                                                    }
+                                                }
+                                            }
                                         }
                                     },
                                     singleLine = true,

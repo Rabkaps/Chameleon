@@ -43,7 +43,8 @@ data class InjectorSettings(
     val rootMode: Boolean = false,
     val enableMtProxy: Boolean = false,
     val mtProxyPort: String = "19999",
-    val mtProxySecret: String = "dd000102030405060708090a0b0c0d0e0f"
+    val mtProxySecret: String = "dd000102030405060708090a0b0c0d0e0f",
+    val localProxyOnly: Boolean = false
 )
 
 object ConfigInjector {
@@ -129,7 +130,9 @@ object ConfigInjector {
             preResolveProxyServers(context, configJson, settings)
 
             // 2. Inject or update inbounds (TUN interface & LAN Proxy Sharing)
-            injectTunInbound(configJson, settings)
+            if (!settings.localProxyOnly) {
+                injectTunInbound(configJson, settings)
+            }
             injectLocalProxyInbound(configJson, settings)
             injectMTProxyInbound(configJson, settings)
 
@@ -931,6 +934,11 @@ object ConfigInjector {
                 outbound.put("server_port", port)
                 outbound.put("packet_encoding", "xudp")
 
+                val encryption = queryParams["encryption"]
+                if (encryption != null && encryption.isNotEmpty()) {
+                    outbound.put("encryption", encryption)
+                }
+
                 val security = queryParams["security"]?.lowercase()
                 val isReality = security == "reality"
 
@@ -1637,7 +1645,7 @@ object ConfigInjector {
         val security = queryParams["security"]?.lowercase()
         val isReality = security == "reality"
         val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
-        if ((type == null || type == "tcp") && headerType == "http") {
+        if ((type == null || type == "tcp") && headerType == "http" && !isReality) {
             type = "http"
         } else if (type == "h2") {
             type = "http"
