@@ -64,6 +64,7 @@ import com.hambalapps.expressivebox.data.serializeProxyChains
 import com.hambalapps.expressivebox.data.deserializeCamouflageSettings
 import com.hambalapps.expressivebox.data.serializeCamouflageSettings
 import com.hambalapps.expressivebox.vpn.VpnServiceWrapper
+import com.hambalapps.expressivebox.vpn.ConfigInjector
 import com.hambalapps.expressivebox.vpn.measurePingDelay
 import com.hambalapps.expressivebox.vpn.getHostAndPortFromLink
 import com.hambalapps.expressivebox.vpn.tryBase64Decode
@@ -442,7 +443,13 @@ fun MainScreen(
 
     val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries, pingsMap) {
         val mapped = serverList.mapIndexedNotNull { originalIndex, serverLink ->
-            val type = serverLink.substringBefore("://").uppercase()
+            val rawType = serverLink.substringBefore("://").uppercase()
+            val type = when (rawType) {
+                "OVPN" -> "OPENVPN"
+                "AWG", "WIREGUARD" -> "AMNEZIAWG"
+                "HY2" -> "HYSTERIA2"
+                else -> rawType
+            }
             val matchesTab = when (selectedTab) {
                 0 -> true
                 1 -> type == "VLESS"
@@ -451,6 +458,8 @@ fun MainScreen(
                 4 -> type == "VMESS"
                 5 -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
                 6 -> type == "TUIC"
+                7 -> type == "OPENVPN"
+                8 -> type == "AMNEZIAWG"
                 else -> true
             }
             if (matchesTab) {
@@ -535,6 +544,22 @@ fun MainScreen(
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             startVpnService(context)
+        }
+    }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val content = inputStream?.bufferedReader()?.use { it.readText() }
+                if (!content.isNullOrEmpty()) {
+                    importText = content
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ExpressiveBox", "Failed to read chosen file: ${e.message}")
+            }
         }
     }
 
@@ -2046,7 +2071,7 @@ fun MainScreen(
                                             },
                                             divider = {}
                                         ) {
-                                            listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC").forEachIndexed { index, title ->
+                                            listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
                                                 Tab(
                                                     selected = selectedTab == index,
                                                     onClick = { selectedTab = index },
@@ -2097,6 +2122,8 @@ fun MainScreen(
                                                         "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.errorContainer
                                                         "TUIC" -> MaterialTheme.colorScheme.primaryContainer
                                                         "CHAIN" -> MaterialTheme.colorScheme.tertiaryContainer
+                                                        "OPENVPN", "OVPN" -> MaterialTheme.colorScheme.secondaryContainer
+                                                        "AMNEZIAWG", "AWG", "WIREGUARD" -> MaterialTheme.colorScheme.primaryContainer
                                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                                     }
                                                     val tagTextColor = when (type) {
@@ -2106,6 +2133,8 @@ fun MainScreen(
                                                         "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.onErrorContainer
                                                         "TUIC" -> MaterialTheme.colorScheme.onPrimaryContainer
                                                         "CHAIN" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                                        "OPENVPN", "OVPN" -> MaterialTheme.colorScheme.onSecondaryContainer
+                                                        "AMNEZIAWG", "AWG", "WIREGUARD" -> MaterialTheme.colorScheme.onPrimaryContainer
                                                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                                                     }
                                                     
@@ -2726,7 +2755,7 @@ fun MainScreen(
                                     },
                                     divider = {}
                                 ) {
-                                    listOf("All", "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC").forEachIndexed { index, title ->
+                                    listOf("All", "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
                                         Tab(
                                             selected = selectedTab == index,
                                             onClick = { selectedTab = index },
@@ -4032,7 +4061,12 @@ fun MainScreen(
             !trimmed.startsWith("vmess://") &&
             !trimmed.startsWith("hysteria2://") &&
             !trimmed.startsWith("hy2://") &&
-            !trimmed.startsWith("tuic://")
+            !trimmed.startsWith("tuic://") &&
+            !trimmed.startsWith("openvpn://") &&
+            !trimmed.startsWith("ovpn://") &&
+            !trimmed.startsWith("awg://") &&
+            !trimmed.startsWith("amneziawg://") &&
+            !trimmed.startsWith("wireguard://")
         }
 
         AlertDialog(
@@ -4076,11 +4110,22 @@ fun MainScreen(
                         onValueChange = { importText = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp),
+                            .height(140.dp),
                         shape = ExpressiveButtonShape,
-                        placeholder = { Text("vless://... or vmess://... or hysteria2://... or tuic://...") },
+                        placeholder = { Text("vless://, openvpn://, awg://, or raw .ovpn / .conf contents") },
                         enabled = !isImportFetching
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressiveButtonShape,
+                        enabled = !isImportFetching
+                    ) {
+                        Icon(imageVector = Icons.Default.UploadFile, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Choose .ovpn or .conf File")
+                    }
                     if (isImportingSubscription) {
                         Spacer(modifier = Modifier.height(8.dp))
                         val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
@@ -4138,12 +4183,21 @@ fun MainScreen(
                                         isImportFetching = false
                                     }
                                 } else {
+                                    val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
+                                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                                        "openvpn://vpn?config=$b64#OpenVPN_Imported"
+                                    } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
+                                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                                        "awg://vpn?config=$b64#AmneziaWG_Imported"
+                                    } else {
+                                        trimmedImport
+                                    }
                                     val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
-                                    val newLinkWithoutRemark = trimmedImport.substringBefore("#")
-                                    val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + trimmedImport
+                                    val newLinkWithoutRemark = finalLink.substringBefore("#")
+                                    val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
                                     settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                     settingsManager.setActiveSubId("manual")
-                                    settingsManager.setActiveProfile(trimmedImport)
+                                    settingsManager.setActiveProfile(finalLink)
                                     if (vpnState == "CONNECTED") {
                                         startVpnService(context)
                                     }
@@ -4917,8 +4971,24 @@ fun MainScreen(
 
     AnimatedVisibility(
         visible = isNodesExpanded,
-        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400, easing = FastOutSlowInEasing)) + fadeIn(),
-        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut()
+        enter = slideInVertically(
+            initialOffsetY = { it / 6 }, 
+            animationSpec = tween(500, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+        ) + scaleIn(
+            initialScale = 0.92f, 
+            animationSpec = tween(500, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+        ) + fadeIn(
+            animationSpec = tween(400, easing = androidx.compose.animation.core.LinearEasing)
+        ),
+        exit = slideOutVertically(
+            targetOffsetY = { it / 6 }, 
+            animationSpec = tween(400, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+        ) + scaleOut(
+            targetScale = 0.92f, 
+            animationSpec = tween(400, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+        ) + fadeOut(
+            animationSpec = tween(300, easing = androidx.compose.animation.core.LinearEasing)
+        )
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -5072,7 +5142,7 @@ fun MainScreen(
                     },
                     divider = {}
                 ) {
-                    listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC").forEachIndexed { index, title ->
+                    listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
@@ -5126,6 +5196,8 @@ fun MainScreen(
                                 "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.errorContainer
                                 "TUIC" -> MaterialTheme.colorScheme.primaryContainer
                                 "CHAIN" -> MaterialTheme.colorScheme.tertiaryContainer
+                                "OPENVPN", "OVPN" -> MaterialTheme.colorScheme.secondaryContainer
+                                "AMNEZIAWG", "AWG", "WIREGUARD" -> MaterialTheme.colorScheme.primaryContainer
                                 else -> MaterialTheme.colorScheme.surfaceVariant
                             }
                             val tagTextColor = when (type) {
@@ -5135,6 +5207,8 @@ fun MainScreen(
                                 "HYSTERIA", "HYSTERIA2", "HY2" -> MaterialTheme.colorScheme.onErrorContainer
                                 "TUIC" -> MaterialTheme.colorScheme.onPrimaryContainer
                                 "CHAIN" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                "OPENVPN", "OVPN" -> MaterialTheme.colorScheme.onSecondaryContainer
+                                "AMNEZIAWG", "AWG", "WIREGUARD" -> MaterialTheme.colorScheme.onPrimaryContainer
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
@@ -5374,29 +5448,36 @@ fun MainScreen(
 }
 
 fun getFlagEmoji(serverName: String, countryCode: String? = null): String {
-    if (!countryCode.isNullOrEmpty() && countryCode != "🌐") {
+    if (!countryCode.isNullOrEmpty() && countryCode != "🌐" && countryCode != "??") {
         return getFlagEmojiFromCountryCode(countryCode)
     }
     val name = serverName.lowercase()
+    
+    // Helper to check if a country code token is present in name (e.g. "de", "us", "ir")
+    fun hasCountryToken(code: String): Boolean {
+        val regex = Regex("(^|[^a-z])$code([^a-z]|$)", RegexOption.IGNORE_CASE)
+        return regex.containsMatchIn(name)
+    }
+
     return when {
-        name.contains("germany") || name.contains("de") || name.contains("frankfurt") -> "🇩🇪"
-        name.contains("spain") || name.contains("es") || name.contains("madrid") || name.contains("barcelona") -> "🇪🇸"
-        name.contains("japan") || name.contains("jp") || name.contains("tokyo") || name.contains("osaka") -> "🇯🇵"
-        name.contains("united states") || name.contains("us") || name.contains("new%20york") || name.contains("new york") || name.contains("chicago") || name.contains("los angeles") -> "🇺🇸"
-        name.contains("united kingdom") || name.contains("uk") || name.contains("london") -> "🇬🇧"
-        name.contains("france") || name.contains("fr") || name.contains("paris") -> "🇫🇷"
-        name.contains("netherlands") || name.contains("nl") || name.contains("amsterdam") -> "🇳🇱"
-        name.contains("singapore") || name.contains("sg") -> "🇸🇬"
-        name.contains("turkey") || name.contains("tr") || name.contains("istanbul") -> "🇹🇷"
-        name.contains("canada") || name.contains("ca") || name.contains("toronto") -> "🇨🇦"
-        name.contains("iran") || name.contains("ir") || name.contains("tehran") -> "🇮🇷"
-        name.contains("finland") || name.contains("fi") || name.contains("helsinki") -> "🇫🇮"
-        name.contains("sweden") || name.contains("se") || name.contains("stockholm") -> "🇸🇪"
-        name.contains("italy") || name.contains("it") || name.contains("milan") || name.contains("rome") -> "🇮🇹"
-        name.contains("switzerland") || name.contains("ch") || name.contains("zurich") -> "🇨🇭"
-        name.contains("uae") || name.contains("dubai") -> "🇦🇪"
+        name.contains("germany") || name.contains("frankfurt") || hasCountryToken("de") -> "🇩🇪"
+        name.contains("spain") || name.contains("madrid") || name.contains("barcelona") || hasCountryToken("es") -> "🇪🇸"
+        name.contains("japan") || name.contains("tokyo") || name.contains("osaka") || hasCountryToken("jp") -> "🇯🇵"
+        name.contains("united states") || name.contains("new%20york") || name.contains("new york") || name.contains("chicago") || name.contains("los angeles") || hasCountryToken("us") -> "🇺🇸"
+        name.contains("united kingdom") || name.contains("london") || hasCountryToken("uk") || hasCountryToken("gb") -> "🇬🇧"
+        name.contains("france") || name.contains("paris") || hasCountryToken("fr") -> "🇫🇷"
+        name.contains("netherlands") || name.contains("amsterdam") || hasCountryToken("nl") -> "🇳🇱"
+        name.contains("singapore") || hasCountryToken("sg") -> "🇸🇬"
+        name.contains("turkey") || name.contains("istanbul") || hasCountryToken("tr") -> "🇹🇷"
+        name.contains("canada") || name.contains("toronto") || hasCountryToken("ca") -> "🇨🇦"
+        name.contains("iran") || name.contains("tehran") || hasCountryToken("ir") -> "🇮🇷"
+        name.contains("finland") || name.contains("helsinki") || hasCountryToken("fi") -> "🇫🇮"
+        name.contains("sweden") || name.contains("stockholm") || hasCountryToken("se") -> "🇸🇪"
+        name.contains("italy") || name.contains("milan") || name.contains("rome") || hasCountryToken("it") -> "🇮🇹"
+        name.contains("switzerland") || name.contains("zurich") || hasCountryToken("ch") -> "🇨🇭"
+        name.contains("uae") || name.contains("dubai") || hasCountryToken("ae") -> "🇦🇪"
         name.contains("hong kong") || name.contains("hk") -> "🇭🇰"
-        name.contains("korea") || name.contains("kr") || name.contains("seoul") -> "🇰🇷"
+        name.contains("korea") || name.contains("seoul") || hasCountryToken("kr") -> "🇰🇷"
         else -> "🌐"
     }
 }
@@ -6415,14 +6496,7 @@ fun ConnectionDashboard(
                             
                             Button(
                                 onClick = {
-                                    val rawSecret = mtProxySecret.trim()
-                                    val normalizedSecret = if (rawSecret.startsWith("dd", ignoreCase = true)) {
-                                        "ee" + rawSecret.substring(2)
-                                    } else if (!rawSecret.startsWith("ee", ignoreCase = true)) {
-                                        "ee" + rawSecret
-                                    } else {
-                                        rawSecret
-                                    }
+                                    val normalizedSecret = ConfigInjector.normalizeMtProxySecret(mtProxySecret)
                                     val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${normalizedSecret}"
                                     val sendIntent: Intent = Intent().apply {
                                         action = Intent.ACTION_SEND
@@ -7729,12 +7803,26 @@ object IpCountryResolver {
             return cached
         }
 
-        var cc = fetchCountryCodeFromFreeIpApi(trimmed)
+        // Try to resolve host domain to IP address
+        val ipToResolve = try {
+            val address = java.net.InetAddress.getByName(trimmed)
+            address.hostAddress ?: trimmed
+        } catch (e: Exception) {
+            trimmed
+        }
+
+        // Check if the resolved IP is local/private
+        if (ipToResolve.startsWith("127.") || ipToResolve.startsWith("10.") || 
+            ipToResolve.startsWith("192.168.") || ipToResolve.startsWith("172.")) {
+            return "🌐"
+        }
+
+        var cc = fetchCountryCodeFromFreeIpApi(ipToResolve)
         if (cc.isEmpty() || cc == "🌐") {
-            cc = fetchCountryCodeFromCountryIs(trimmed)
+            cc = fetchCountryCodeFromCountryIs(ipToResolve)
         }
         if (cc.isEmpty() || cc == "🌐") {
-            cc = fetchCountryCodeFromIpWhoIs(trimmed)
+            cc = fetchCountryCodeFromIpWhoIs(ipToResolve)
         }
 
         if (cc.isNotEmpty() && cc != "🌐") {

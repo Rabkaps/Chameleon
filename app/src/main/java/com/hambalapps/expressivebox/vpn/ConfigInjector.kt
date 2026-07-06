@@ -43,7 +43,7 @@ data class InjectorSettings(
     val rootMode: Boolean = false,
     val enableMtProxy: Boolean = false,
     val mtProxyPort: String = "19999",
-    val mtProxySecret: String = "dd000102030405060708090a0b0c0d0e0f",
+    val mtProxySecret: String = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
     val localProxyOnly: Boolean = false
 )
 
@@ -224,14 +224,7 @@ object ConfigInjector {
         if (settings.enableMtProxy) {
             val portVal = settings.mtProxyPort.toIntOrNull() ?: 19999
             
-            val rawSecret = settings.mtProxySecret.trim()
-            val normalizedSecret = if (rawSecret.startsWith("dd", ignoreCase = true)) {
-                "ee" + rawSecret.substring(2)
-            } else if (!rawSecret.startsWith("ee", ignoreCase = true)) {
-                "ee" + rawSecret
-            } else {
-                rawSecret
-            }
+            val normalizedSecret = normalizeMtProxySecret(settings.mtProxySecret)
 
             val mtProxyInbound = JSONObject().apply {
                 put("type", "mtproxy")
@@ -247,6 +240,22 @@ object ConfigInjector {
             newInbounds.put(mtProxyInbound)
         }
         config.put("inbounds", newInbounds)
+    }
+
+    fun normalizeMtProxySecret(secret: String): String {
+        val trimmed = secret.trim()
+        val baseSecret = if (trimmed.startsWith("dd", ignoreCase = true)) {
+            "ee" + trimmed.substring(2)
+        } else if (!trimmed.startsWith("ee", ignoreCase = true)) {
+            "ee" + trimmed
+        } else {
+            trimmed
+        }
+        return if (baseSecret.startsWith("ee", ignoreCase = true) && baseSecret.length == 34) {
+            baseSecret + "7370656564746573742e6e6574"
+        } else {
+            baseSecret
+        }
     }
 
     private fun getSystemDnsServers(context: Context): List<String> {
@@ -1323,95 +1332,103 @@ object ConfigInjector {
                     outbound.put("heartbeat", hbStr)
                 }
             } else if (scheme == "wireguard" || scheme == "awg") {
-                outbound.put("type", "wireguard")
-                outbound.put("private_key", userInfo)
-                outbound.put("mtu", queryParams["mtu"]?.toIntOrNull() ?: 1400)
-                
-                val addressStr = queryParams["address"] ?: queryParams["ip"] ?: "10.0.0.2/32"
-                val addressArray = JSONArray()
-                addressStr.split(",").forEach { addr ->
-                    val trimmedAddr = addr.trim()
-                    if (trimmedAddr.isNotEmpty()) {
-                        if (trimmedAddr.contains("/")) {
-                            addressArray.put(trimmedAddr)
-                        } else {
-                            addressArray.put("$trimmedAddr/32")
-                        }
+                val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
+                if (configText.isNotEmpty()) {
+                    val wgOutbound = parseWireGuardConf(configText, defaultTag)
+                    wgOutbound.keys().forEach { key ->
+                        outbound.put(key, wgOutbound.get(key))
                     }
-                }
-                outbound.put("local_address", addressArray)
-
-                val peer = JSONObject().apply {
-                    put("server", host)
-                    put("server_port", port)
-                    put("public_key", queryParams["public_key"] ?: queryParams["pk"] ?: "")
-                    queryParams["preshared_key"]?.let { put("pre_shared_key", it) }
-                    queryParams["psk"]?.let { put("pre_shared_key", it) }
+                } else {
+                    outbound.put("type", "wireguard")
+                    outbound.put("private_key", userInfo)
+                    outbound.put("mtu", queryParams["mtu"]?.toIntOrNull() ?: 1400)
                     
-                    val allowedIps = queryParams["allowed_ips"] ?: "0.0.0.0/0"
-                    val allowedIpsArray = JSONArray()
-                    allowedIps.split(",").forEach { ip ->
-                        val trimmedIp = ip.trim()
-                        if (trimmedIp.isNotEmpty()) {
-                            if (trimmedIp.contains("/")) {
-                                allowedIpsArray.put(trimmedIp)
+                    val addressStr = queryParams["address"] ?: queryParams["ip"] ?: "10.0.0.2/32"
+                    val addressArray = JSONArray()
+                    addressStr.split(",").forEach { addr ->
+                        val trimmedAddr = addr.trim()
+                        if (trimmedAddr.isNotEmpty()) {
+                            if (trimmedAddr.contains("/")) {
+                                addressArray.put(trimmedAddr)
                             } else {
-                                allowedIpsArray.put("$trimmedIp/0")
+                                addressArray.put("$trimmedAddr/32")
                             }
                         }
                     }
-                    put("allowed_ips", allowedIpsArray)
-                    
-                    val keepalive = queryParams["keepalive"] ?: queryParams["persistent_keepalive"]
-                    keepalive?.toIntOrNull()?.let { put("persistent_keepalive_interval", it) }
-                    
-                    val reserved = queryParams["reserved"]
-                    if (reserved != null && reserved.isNotEmpty()) {
-                        val reservedArray = JSONArray()
-                        reserved.split(",").forEach { r ->
-                            r.trim().toIntOrNull()?.let { reservedArray.put(it) }
-                        }
-                        if (reservedArray.length() > 0) {
-                            put("reserved", reservedArray)
-                        }
-                    }
-                }
-                outbound.put("peers", JSONArray().apply { put(peer) })
+                    outbound.put("local_address", addressArray)
 
-                val hasAmnezia = queryParams.containsKey("jc") || queryParams.containsKey("jmin") || 
-                                 queryParams.containsKey("jmax") || queryParams.containsKey("s1") || 
-                                 queryParams.containsKey("s2") || queryParams.containsKey("s3") || 
-                                 queryParams.containsKey("s4") || queryParams.containsKey("h1") || 
-                                 queryParams.containsKey("h2") || queryParams.containsKey("h3") || 
-                                 queryParams.containsKey("h4") || queryParams.containsKey("i1") ||
-                                 queryParams.containsKey("i2") || queryParams.containsKey("i3") ||
-                                 queryParams.containsKey("i4") || queryParams.containsKey("i5") ||
-                                 queryParams.containsKey("j1") || queryParams.containsKey("j2") ||
-                                 queryParams.containsKey("j3") || queryParams.containsKey("itime")
-                if (hasAmnezia) {
-                    val amnezia = JSONObject().apply {
-                        queryParams["jc"]?.toIntOrNull()?.let { put("jc", it) }
-                        queryParams["jmin"]?.toIntOrNull()?.let { put("jmin", it) }
-                        queryParams["jmax"]?.toIntOrNull()?.let { put("jmax", it) }
-                        queryParams["s1"]?.toIntOrNull()?.let { put("s1", it) }
-                        queryParams["s2"]?.toIntOrNull()?.let { put("s2", it) }
-                        queryParams["s3"]?.toIntOrNull()?.let { put("s3", it) }
-                        queryParams["s4"]?.toIntOrNull()?.let { put("s4", it) }
-                        queryParams["h1"]?.toLongOrNull()?.let { put("h1", it) }
-                        queryParams["h2"]?.toLongOrNull()?.let { put("h2", it) }
-                        queryParams["h3"]?.toLongOrNull()?.let { put("h3", it) }
-                        queryParams["h4"]?.toLongOrNull()?.let { put("h4", it) }
-                        queryParams["i1"]?.let { put("i1", it) }
-                        queryParams["i2"]?.let { put("i2", it) }
-                        queryParams["i3"]?.let { put("i3", it) }
-                        queryParams["i4"]?.let { put("i4", it) }
-                        queryParams["i5"]?.let { put("i5", it) }
-                        queryParams["j1"]?.let { put("j1", it) }
-                        queryParams["j2"]?.let { put("j2", it) }
-                        queryParams["j3"]?.let { put("j3", it) }
-                        queryParams["itime"]?.toLongOrNull()?.let { put("itime", it) }
+                    val peer = JSONObject().apply {
+                        put("server", host)
+                        put("server_port", port)
+                        put("public_key", queryParams["public_key"] ?: queryParams["pk"] ?: "")
+                        queryParams["preshared_key"]?.let { put("pre_shared_key", it) }
+                        queryParams["psk"]?.let { put("pre_shared_key", it) }
+                        
+                        val allowedIps = queryParams["allowed_ips"] ?: "0.0.0.0/0"
+                        val allowedIpsArray = JSONArray()
+                        allowedIps.split(",").forEach { ip ->
+                            val trimmedIp = ip.trim()
+                            if (trimmedIp.isNotEmpty()) {
+                                if (trimmedIp.contains("/")) {
+                                    allowedIpsArray.put(trimmedIp)
+                                } else {
+                                    allowedIpsArray.put("$trimmedIp/0")
+                                }
+                            }
+                        }
+                        put("allowed_ips", allowedIpsArray)
+                        
+                        val keepalive = queryParams["keepalive"] ?: queryParams["persistent_keepalive"]
+                        keepalive?.toIntOrNull()?.let { put("persistent_keepalive_interval", it) }
+                        
+                        val reserved = queryParams["reserved"]
+                        if (reserved != null && reserved.isNotEmpty()) {
+                            val reservedArray = JSONArray()
+                            reserved.split(",").forEach { r ->
+                                r.trim().toIntOrNull()?.let { reservedArray.put(it) }
+                            }
+                            if (reservedArray.length() > 0) {
+                                put("reserved", reservedArray)
+                            }
+                        }
                     }
-                    outbound.put("amnezia", amnezia)
+                    outbound.put("peers", JSONArray().apply { put(peer) })
+
+                    val hasAmnezia = queryParams.containsKey("jc") || queryParams.containsKey("jmin") || 
+                                     queryParams.containsKey("jmax") || queryParams.containsKey("s1") || 
+                                     queryParams.containsKey("s2") || queryParams.containsKey("s3") || 
+                                     queryParams.containsKey("s4") || queryParams.containsKey("h1") || 
+                                     queryParams.containsKey("h2") || queryParams.containsKey("h3") || 
+                                     queryParams.containsKey("h4") || queryParams.containsKey("i1") ||
+                                     queryParams.containsKey("i2") || queryParams.containsKey("i3") ||
+                                     queryParams.containsKey("i4") || queryParams.containsKey("i5") ||
+                                     queryParams.containsKey("j1") || queryParams.containsKey("j2") ||
+                                     queryParams.containsKey("j3") || queryParams.containsKey("itime")
+                    if (hasAmnezia) {
+                        val amnezia = JSONObject().apply {
+                            queryParams["jc"]?.toIntOrNull()?.let { put("jc", it) }
+                            queryParams["jmin"]?.toIntOrNull()?.let { put("jmin", it) }
+                            queryParams["jmax"]?.toIntOrNull()?.let { put("jmax", it) }
+                            queryParams["s1"]?.toIntOrNull()?.let { put("s1", it) }
+                            queryParams["s2"]?.toIntOrNull()?.let { put("s2", it) }
+                            queryParams["s3"]?.toIntOrNull()?.let { put("s3", it) }
+                            queryParams["s4"]?.toIntOrNull()?.let { put("s4", it) }
+                            queryParams["h1"]?.toLongOrNull()?.let { put("h1", it) }
+                            queryParams["h2"]?.toLongOrNull()?.let { put("h2", it) }
+                            queryParams["h3"]?.toLongOrNull()?.let { put("h3", it) }
+                            queryParams["h4"]?.toLongOrNull()?.let { put("h4", it) }
+                            queryParams["i1"]?.let { put("i1", it) }
+                            queryParams["i2"]?.let { put("i2", it) }
+                            queryParams["i3"]?.let { put("i3", it) }
+                            queryParams["i4"]?.let { put("i4", it) }
+                            queryParams["i5"]?.let { put("i5", it) }
+                            queryParams["j1"]?.let { put("j1", it) }
+                            queryParams["j2"]?.let { put("j2", it) }
+                            queryParams["j3"]?.let { put("j3", it) }
+                            queryParams["itime"]?.toLongOrNull()?.let { put("itime", it) }
+                        }
+                        outbound.put("amnezia", amnezia)
+                    }
                 }
             } else if (scheme == "openvpn" || scheme == "ovpn") {
                 outbound.put("type", "openvpn")

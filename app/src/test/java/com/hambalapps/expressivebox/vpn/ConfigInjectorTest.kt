@@ -420,6 +420,11 @@ class ConfigInjectorTest {
 
     @Test
     fun testMTProxyInboundServer() {
+        // Test direct helper method
+        assert(ConfigInjector.normalizeMtProxySecret("dd000102030405060708090a0b0c0d0e0f") == "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574")
+        assert(ConfigInjector.normalizeMtProxySecret("000102030405060708090a0b0c0d0e0f") == "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574")
+        assert(ConfigInjector.normalizeMtProxySecret("ee000102030405060708090a0b0c0d0e0f676f6f676c652e636f6d") == "ee000102030405060708090a0b0c0d0e0f676f6f676c652e636f6d")
+
         val mockContext = Mockito.mock(Context::class.java)
         Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
         val settings = InjectorSettings(
@@ -434,7 +439,7 @@ class ConfigInjectorTest {
             vpnMode = "normal",
             enableMtProxy = true,
             mtProxyPort = "20202",
-            mtProxySecret = "ee000102030405060708090a0b0c0d0e0f"
+            mtProxySecret = "dd000102030405060708090a0b0c0d0e0f"
         )
 
         val link = "vless://uuid@exit.host.com:443?security=tls"
@@ -451,7 +456,7 @@ class ConfigInjectorTest {
                 assert(inbound.getString("listen") == "0.0.0.0")
                 assert(inbound.getInt("listen_port") == 20202)
                 val user = inbound.getJSONArray("users").getJSONObject(0)
-                assert(user.getString("secret") == "ee000102030405060708090a0b0c0d0e0f")
+                assert(user.getString("secret") == "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574")
             }
         }
         assert(hasMtProxyInbound) { "MTProxy inbound was not injected successfully" }
@@ -778,6 +783,44 @@ class ConfigInjectorTest {
         assert(amnezia.getLong("h3") == 13579L)
         assert(amnezia.getLong("h4") == 24680L)
         assert(amnezia.getLong("itime") == 9999L)
+    }
+
+    @Test
+    fun testBase64ConfigUriParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        // 1. Test OpenVPN base64 config URI
+        val rawOvpn = "client\ndev tun\nproto udp\nremote 192.168.1.1 1194"
+        val ovpnB64 = java.util.Base64.getEncoder().encodeToString(rawOvpn.toByteArray())
+        val ovpnUri = "openvpn://vpn?config=$ovpnB64#TestOpenVPN"
+
+        val configStr1 = ConfigInjector.injectConfig(mockContext, ovpnUri, settings)
+        val json1 = org.json.JSONObject(configStr1)
+        val outbound1 = json1.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound1.getString("type") == "openvpn")
+
+        // 2. Test AmneziaWG base64 config URI
+        val rawWg = "[Interface]\nPrivateKey = my_private_key\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = peer_public_key\nEndpoint = 192.168.1.100:51820"
+        val wgB64 = java.util.Base64.getEncoder().encodeToString(rawWg.toByteArray())
+        val wgUri = "awg://vpn?config=$wgB64#TestAmneziaWG"
+
+        val configStr2 = ConfigInjector.injectConfig(mockContext, wgUri, settings)
+        val json2 = org.json.JSONObject(configStr2)
+        val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound2.getString("type") == "wireguard")
+        assert(outbound2.getString("private_key") == "my_private_key")
     }
 }
 
