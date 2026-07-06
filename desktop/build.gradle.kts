@@ -31,10 +31,10 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "com.hambalapps.expressivebox.desktop.MainKt"
+        mainClass = "com.hambalapps.chameleon.desktop.MainKt"
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
-            packageName = "ExpressiveBox"
+            packageName = "Chameleon"
             packageVersion = "1.5.0"
             
             windows {

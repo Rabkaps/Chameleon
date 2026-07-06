@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ExpressiveBox</string>
+    <string name="app_name">Chameleon</string>
     <string name="tab_home">Home</string>
     <string name="tab_servers">Servers</string>
     <string name="tab_logs">Logs</string>

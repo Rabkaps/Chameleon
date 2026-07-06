@@ -1,6 +1,6 @@
-# Proguard rules for ExpressiveBox
--keep class com.hambalapps.expressivebox.vpn.** { *; }
--keep class com.hambalapps.expressivebox.data.** { *; }
+# Proguard rules for Chameleon
+-keep class com.hambalapps.chameleon.vpn.** { *; }
+-keep class com.hambalapps.chameleon.data.** { *; }
 -keep class libbox.** { *; }
 -keep class go.** { *; }
 

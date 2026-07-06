@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.ExpressiveBox" parent="Theme.Material3.DayNight.NoActionBar" />
+    <style name="Theme.Chameleon" parent="Theme.Material3.DayNight.NoActionBar" />
 
-    <style name="Theme.ExpressiveBox.Dialog" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.Chameleon.Dialog" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowContentOverlay">@null</item>

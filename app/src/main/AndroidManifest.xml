@@ -18,7 +18,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:windowSoftInputMode="adjustResize"
-        android:theme="@style/Theme.ExpressiveBox">
+        android:theme="@style/Theme.Chameleon">
 
         <meta-data
             android:name="com.samsung.android.support.ongoing_activity"
@@ -34,7 +34,7 @@
 
         <activity
             android:name=".ui.main.NodesPopupActivity"
-            android:theme="@style/Theme.ExpressiveBox.Dialog"
+            android:theme="@style/Theme.Chameleon.Dialog"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleInstance"
@@ -56,7 +56,7 @@
         <service
             android:name=".vpn.VpnQuickSettingsTileService"
             android:icon="@drawable/ic_vpn_tile"
-            android:label="ExpressiveBox VPN"
+            android:label="Chameleon VPN"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:exported="true">
             <intent-filter>
@@ -68,19 +68,19 @@
             android:name=".vpn.NotificationActionReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.hambalapps.expressivebox.vpn.ACTION_PREV_NODE" />
-                <action android:name="com.hambalapps.expressivebox.vpn.ACTION_NEXT_NODE" />
+                <action android:name="com.hambalapps.chameleon.vpn.ACTION_PREV_NODE" />
+                <action android:name="com.hambalapps.chameleon.vpn.ACTION_NEXT_NODE" />
             </intent-filter>
         </receiver>
 
         <receiver
             android:name=".widget.VPNWidgetProvider"
-            android:label="ExpressiveBox Switch"
+            android:label="Chameleon Switch"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.hambalapps.expressivebox.widget.ACTION_TOGGLE" />
-                <action android:name="com.hambalapps.expressivebox.widget.ACTION_STATE_CHANGED" />
+                <action android:name="com.hambalapps.chameleon.widget.ACTION_TOGGLE" />
+                <action android:name="com.hambalapps.chameleon.widget.ACTION_STATE_CHANGED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

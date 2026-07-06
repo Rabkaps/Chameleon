@@ -9,10 +9,10 @@ configurations.all {
 }
 
 android {
-    namespace = "com.hambalapps.expressivebox"
+    namespace = "com.hambalapps.chameleon"
     compileSdk = 37
     defaultConfig {
-        applicationId = "com.hambalapps.expressivebox"
+        applicationId = "com.hambalapps.chameleon"
         minSdk = 23
         targetSdk = 36
         versionCode = 183
@@ -55,9 +55,9 @@ android {
             val releaseKeystore = file("release.keystore")
             if (releaseKeystore.exists()) {
                 storeFile = releaseKeystore
-                storePassword = "expressivebox"
+                storePassword = "chameleon"
                 keyAlias = "expressivekey"
-                keyPassword = "expressivebox"
+                keyPassword = "chameleon"
             } else {
                 // Fallback to debug keystore on CI/GitHub actions if release key is missing
                 storeFile = file("debug.keystore")

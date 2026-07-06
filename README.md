@@ -1,9 +1,9 @@
-# ExpressiveBox
+# Chameleon
 
-ExpressiveBox is a modern, high-performance VPN client for Android built entirely with **Jetpack Compose** and **Material Design 3**. It offers secure routing, modular connection profiles, and deep integration with the Android system's native VPN frameworks.
+Chameleon is a modern, high-performance VPN client for Android built entirely with **Jetpack Compose** and **Material Design 3**. It offers secure routing, modular connection profiles, and deep integration with the Android system's native VPN frameworks.
 
 > [!NOTE]
-> **Project Status**: ExpressiveBox is currently in its **active testing stage**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS).
+> **Project Status**: Chameleon is currently in its **active testing stage**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS).
 > 
 > * **Full Persian (Farsi) translation and RTL support** is natively integrated across all screens, dialogs, settings, and connection details.
 
@@ -68,8 +68,8 @@ ExpressiveBox is a modern, high-performance VPN client for Android built entirel
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Rabkaps/ExpressiveBox.git
-   cd ExpressiveBox
+   git clone https://github.com/Rabkaps/Chameleon.git
+   cd Chameleon
    ```
 
 2. Build the debug APK for the **Standard** flavor:
@@ -86,7 +86,7 @@ ExpressiveBox is a modern, high-performance VPN client for Android built entirel
 
 When installing the built APK directly on a device, Google Play Protect may show a warning stating the app is blocked or from an unrecognized developer.
 
-* **Why this appears**: ExpressiveBox utilizes the sensitive Android `VpnService` API. Because self-built/debug APKs are signed with a local developer signature instead of a Google Play Store registered signature, Google Play Protect flags the app as unrecognized.
+* **Why this appears**: Chameleon utilizes the sensitive Android `VpnService` API. Because self-built/debug APKs are signed with a local developer signature instead of a Google Play Store registered signature, Google Play Protect flags the app as unrecognized.
 * **How to proceed**:
   1. In the warning popup, tap **"More details"**.
   2. Select **"Install anyway"** to complete the installation.

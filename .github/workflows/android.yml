@@ -41,26 +41,26 @@ jobs:
 
     - name: Rename APKs for Release
       run: |
-        cp app/build/outputs/apk/standard/release/app-standard-universal-release.apk ExpressiveBox-standard-universal.apk
-        cp app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release.apk ExpressiveBox-standard-arm64-v8a.apk
-        cp app/build/outputs/apk/standard/release/app-standard-armeabi-v7a-release.apk ExpressiveBox-standard-armeabi-v7a.apk
-        cp app/build/outputs/apk/standard/release/app-standard-x86-release.apk ExpressiveBox-standard-x86.apk
-        cp app/build/outputs/apk/standard/release/app-standard-x86_64-release.apk ExpressiveBox-standard-x86_64.apk
+        cp app/build/outputs/apk/standard/release/app-standard-universal-release.apk Chameleon-standard-universal.apk
+        cp app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release.apk Chameleon-standard-arm64-v8a.apk
+        cp app/build/outputs/apk/standard/release/app-standard-armeabi-v7a-release.apk Chameleon-standard-armeabi-v7a.apk
+        cp app/build/outputs/apk/standard/release/app-standard-x86-release.apk Chameleon-standard-x86.apk
+        cp app/build/outputs/apk/standard/release/app-standard-x86_64-release.apk Chameleon-standard-x86_64.apk
 
-    - name: Upload ExpressiveBox Standard APK Artifacts
+    - name: Upload Chameleon Standard APK Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ExpressiveBox-standard-apks
+        name: Chameleon-standard-apks
         path: |
-          ExpressiveBox-standard-*.apk
+          Chameleon-standard-*.apk
 
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          ExpressiveBox-standard-*.apk
-        name: ExpressiveBox ${{ github.ref_name }}
+          Chameleon-standard-*.apk
+        name: Chameleon ${{ github.ref_name }}
         body_path: .github/release_notes.md
         draft: false
         prerelease: false

@@ -1,7 +1,7 @@
-Lcom/hambalapps/expressivebox/MainActivity;
-Lcom/hambalapps/expressivebox/NavigationKt;
-Lcom/hambalapps/expressivebox/ui/main/MainScreenKt;
-Lcom/hambalapps/expressivebox/ui/main/MainScreenViewModel;
-Lcom/hambalapps/expressivebox/data/SettingsManager;
-Lcom/hambalapps/expressivebox/theme/ThemeKt;
-Lcom/hambalapps/expressivebox/vpn/VpnServiceWrapper;
+Lcom/hambalapps/chameleon/MainActivity;
+Lcom/hambalapps/chameleon/NavigationKt;
+Lcom/hambalapps/chameleon/ui/main/MainScreenKt;
+Lcom/hambalapps/chameleon/ui/main/MainScreenViewModel;
+Lcom/hambalapps/chameleon/data/SettingsManager;
+Lcom/hambalapps/chameleon/theme/ThemeKt;
+Lcom/hambalapps/chameleon/vpn/VpnServiceWrapper;

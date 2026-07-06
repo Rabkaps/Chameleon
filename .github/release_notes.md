@@ -16,7 +16,7 @@ This release introduces the Material Expressive Bento Grid UI redesign, along wi
 
 ---
 
-### ExpressiveBox Release Installation Note
+### Chameleon Release Installation Note
 
 When installing this APK, Google Play Protect may display a warning such as **"Blocked by Play Protect"** or **"Unrecognized Developer"**. 
 
