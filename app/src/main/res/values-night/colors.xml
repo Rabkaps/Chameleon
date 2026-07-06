@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_background">#191C23</color>
+    <color name="widget_text_primary">#E9ECEF</color>
+    <color name="widget_text_secondary">#ADB5BD</color>
+    <color name="widget_badge_background">#2A2D35</color>
+    <color name="widget_toggle_disconnected">#6C757D</color>
+    <color name="widget_toggle_connected">#00B4D8</color>
+    <color name="widget_toggle_connecting">#F77F00</color>
+    <color name="ic_launcher_background">#191C23</color>
+</resources>

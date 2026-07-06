@@ -121,7 +121,7 @@
     <string name="tcp_multiplexing">TCP Multiplexing</string>
     <string name="tcp_multiplexing_desc">Aggregate TCP streams</string>
     <string name="select_style">Select your favorite style</string>
-    <string name="app_desc">A professional, material design security client featuring ultra-low latency background service, native M3 expressive widgets, and custom rule-based routing.</string>
+    <string name="app_desc">A secure and high-performance VPN client featuring advanced routing rules, beautiful dynamic themes, and a fast, low-latency connection engine.</string>
     <string name="secure_network_engine">Secure Network Engine</string>
     <string name="import_config_link">Import Config Link</string>
     <string name="paste_config_link">Paste config link or scan QR code:</string>
@@ -140,8 +140,8 @@
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="custom_provider">Custom Provider</string>
-    <string name="app_name_standard">Expressive Box Standard</string>
-    <string name="app_name_special">Expressive Box Special Edition</string>
+    <string name="app_name_standard">Chameleon Standard</string>
+    <string name="app_name_special">Chameleon Special Edition</string>
     <string name="open_settings_drawer">Open Settings Drawer</string>
     <string name="show_logs">Show Logs</string>
     <string name="active_label">Active</string>
@@ -170,8 +170,8 @@
     <string name="style_title">Card Style</string>
     <string name="style_desc">Choose between glass or flat solid design</string>
     <string name="style_glass">Glassmorphic</string>
-    <string name="style_solid">Solid Expressive</string>
-    <string name="style_vibrant">Vibrant Solid</string>
+    <string name="style_solid">Solid Chameleon</string>
+    <string name="style_vibrant">Vibrant Chameleon</string>
     <string name="show_logs_tab">Show Logs Tab</string>
     <string name="show_logs_tab_desc">Display engine logs tab in bottom navigation bar</string>
     <string name="vpn_mode_title">VPN Mode</string>

@@ -1959,7 +1959,14 @@ fun MainScreen(
                                                         androidx.compose.material3.FilterChip(
                                                             selected = selectedSubGroupFilter != "All Groups",
                                                             onClick = { isGroupDropdownExpanded = true },
-                                                            label = { Text(if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter) }
+                                                            label = { 
+                                                                Text(
+                                                                    text = if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter,
+                                                                    maxLines = 1,
+                                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                                )
+                                                            },
+                                                            modifier = Modifier.widthIn(max = 130.dp)
                                                         )
                                                         DropdownMenu(
                                                             expanded = isGroupDropdownExpanded,
@@ -1984,7 +1991,14 @@ fun MainScreen(
                                                         androidx.compose.material3.FilterChip(
                                                             selected = selectedCountryFilter != "All Countries",
                                                             onClick = { isCountryDropdownExpanded = true },
-                                                            label = { Text(if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter) }
+                                                            label = { 
+                                                                Text(
+                                                                    text = if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter,
+                                                                    maxLines = 1,
+                                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                                )
+                                                            },
+                                                            modifier = Modifier.widthIn(max = 130.dp)
                                                         )
                                                         DropdownMenu(
                                                             expanded = isCountryDropdownExpanded,
@@ -2650,7 +2664,14 @@ fun MainScreen(
                                         androidx.compose.material3.FilterChip(
                                             selected = selectedSubGroupFilter != "All Groups",
                                             onClick = { isGroupDropdownExpanded = true },
-                                            label = { Text(if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter) }
+                                            label = { 
+                                                Text(
+                                                    text = if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                            },
+                                            modifier = Modifier.widthIn(max = 130.dp)
                                         )
                                         DropdownMenu(
                                             expanded = isGroupDropdownExpanded,
@@ -2673,7 +2694,14 @@ fun MainScreen(
                                         androidx.compose.material3.FilterChip(
                                             selected = selectedCountryFilter != "All Countries",
                                             onClick = { isCountryDropdownExpanded = true },
-                                            label = { Text(if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter) }
+                                            label = { 
+                                                Text(
+                                                    text = if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter,
+                                                    maxLines = 1,
+                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                )
+                                            },
+                                            modifier = Modifier.widthIn(max = 130.dp)
                                         )
                                         DropdownMenu(
                                             expanded = isCountryDropdownExpanded,

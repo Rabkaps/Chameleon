@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -464,27 +465,11 @@ fun Sidebar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 32.dp, top = 8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(ExpressiveButtonShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    MaterialTheme.colorScheme.primary,
-                                    MaterialTheme.colorScheme.secondary
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.VpnLock,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Image(
+                    painter = painterResource("icon.png"),
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = DesktopStrings.get("app_name", isFarsi),
@@ -1193,71 +1178,34 @@ fun AddConfigScreen(settings: UserSettings, settingsManager: SettingsManager) {
                                 if (subUrlInput.trim().isNotEmpty() && subNameInput.trim().isNotEmpty()) {
                                     isFetching = true
                                     fetchError = null
-                                    scope.launch(Dispatchers.IO) {
+                                    scope.launch {
                                         try {
-                                            val url = URL(subUrlInput)
-                                            val conn = url.openConnection() as java.net.HttpURLConnection
-                                            conn.connectTimeout = 15000
-                                            conn.readTimeout = 15000
-                                            conn.requestMethod = "GET"
-                                            conn.setRequestProperty("User-Agent", "sing-box/1.9.0")
-                                            conn.connect()
-                                            
-                                            if (conn.responseCode != 200) {
-                                                throw java.io.IOException("HTTP error ${conn.responseCode}")
-                                            }
-                                            
-                                            val text = conn.inputStream.bufferedReader().use { it.readText() }
-                                            
-                                            // Handle base64 decryption (standard & URL-safe variants)
-                                            val decodedText = try {
-                                                val trimmed = text.trim().replace("\r", "").replace("\n", "").replace(" ", "")
-                                                val decodedBytes = try {
-                                                    java.util.Base64.getDecoder().decode(trimmed)
-                                                } catch (e: Exception) {
-                                                    java.util.Base64.getUrlDecoder().decode(trimmed)
-                                                }
-                                                String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8)
-                                            } catch (e: Exception) {
-                                                tryBase64Decode(text) ?: text
-                                            }
-                                            
-                                            val servers = decodedText.lines()
-                                                .map { it.trim() }
-                                                .filter {
-                                                    it.startsWith("vless://") || it.startsWith("trojan://") || it.startsWith("ss://") ||
-                                                    it.startsWith("vmess://") || it.startsWith("hysteria2://") || it.startsWith("hy2://") ||
-                                                    it.startsWith("tuic://")
-                                                }
-                                            
-                                            if (servers.isNotEmpty()) {
-                                                withContext(Dispatchers.Main) {
-                                                    val currentSubs = settings.deserializedSubscriptions.toMutableList()
-                                                    // Filter out local presets
-                                                    val userSubs = currentSubs.filter { !it.url.startsWith("local://") }.toMutableList()
-                                                    val subId = System.currentTimeMillis().toString()
-                                                    userSubs.add(Subscription(
-                                                        id = subId,
-                                                        name = subNameInput,
-                                                        url = subUrlInput,
-                                                        servers = servers.joinToString("\n")
-                                                    ))
-                                                    settingsManager.setSubscriptionList(serializeSubscriptions(userSubs))
-                                                    settingsManager.setActiveSubId(subId)
-                                                    
-                                                    // Auto select first server
-                                                    settingsManager.setActiveProfile(servers[0])
+                                            val result = fetchSubscription(subUrlInput.trim())
+                                            if (result.servers.isNotEmpty()) {
+                                                val currentSubs = settings.deserializedSubscriptions.toMutableList()
+                                                val userSubs = currentSubs.filter { !it.url.startsWith("local://") }.toMutableList()
+                                                val subId = System.currentTimeMillis().toString()
+                                                userSubs.add(Subscription(
+                                                    id = subId,
+                                                    name = subNameInput.trim(),
+                                                    url = subUrlInput.trim(),
+                                                    servers = result.servers.joinToString("\n"),
+                                                    upload = result.upload,
+                                                    download = result.download,
+                                                    total = result.total,
+                                                    expire = result.expire
+                                                ))
+                                                settingsManager.setSubscriptionList(serializeSubscriptions(userSubs))
+                                                settingsManager.setActiveSubId(subId)
+                                                settingsManager.setActiveProfile(result.servers[0])
 
-                                                    subNameInput = ""
-                                                    subUrlInput = ""
-                                                    isFetching = false
-                                                    activeTab = 0
-                                                }
+                                                subNameInput = ""
+                                                subUrlInput = ""
+                                                isFetching = false
+                                                activeTab = 0
                                             } else {
-                                                withContext(Dispatchers.Main) {
-                                                    fetchError = "No servers found in subscription response."
-                                                    isFetching = false
-                                                }
+                                                fetchError = "No servers found in subscription response."
+                                                isFetching = false
                                             }
                                         } catch (e: Exception) {
                                             withContext(Dispatchers.Main) {
@@ -2306,7 +2254,7 @@ fun SubscriptionManagerScreen(
                                                 subUrlInput = ""
                                                 fetchError = null
                                             } else {
-                                                fetchError = if (isFarsi) "پیکربندی معتبری یافت نشد." else "No valid configurations found."
+                                                fetchError = result.fetchError ?: (if (isFarsi) "پیکربندی معتبری یافت نشد." else "No valid configurations found.")
                                             }
                                         } catch (e: Exception) {
                                             fetchError = e.message ?: (if (isFarsi) "خطا در برقراری ارتباط" else "Fetch failed")
@@ -2340,7 +2288,8 @@ private data class FetchResult(
     val upload: Long? = null,
     val download: Long? = null,
     val total: Long? = null,
-    val expire: Long? = null
+    val expire: Long? = null,
+    val fetchError: String? = null
 )
 
 private data class SubscriptionUserInfo(
@@ -2372,60 +2321,177 @@ private fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
     return SubscriptionUserInfo(upload, download, total, expire)
 }
 
-private suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
+private data class CurlResult(val body: String, val headers: Map<String, List<String>>)
+
+private fun fetchWithSystemCurl(urlStr: String): CurlResult? {
     try {
-        val url = java.net.URL(urlStr)
-        val connection = url.openConnection() as java.net.HttpURLConnection
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
-        connection.connect()
-        val responseCode = connection.responseCode
-        if (responseCode == 200) {
-            val rawData = connection.inputStream.bufferedReader().use { it.readText() }
-            
-            // Handle base64 decryption (standard & URL-safe variants)
-            val decodedText = try {
-                val trimmed = rawData.trim().replace("\r", "").replace("\n", "").replace(" ", "")
-                val decodedBytes = try {
-                    java.util.Base64.getDecoder().decode(trimmed)
-                } catch (e: Exception) {
-                    java.util.Base64.getUrlDecoder().decode(trimmed)
+        val process = ProcessBuilder(
+            "curl",
+            "-i",
+            "-s",
+            "-L",
+            "-A", "sing-box/1.10.0",
+            "--connect-timeout", "15",
+            urlStr
+        ).start()
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
+        if (process.exitValue() == 0 && text.trim().isNotEmpty()) {
+            val responses = text.split(Regex("(?m)^HTTP/\\d+\\.\\d+\\s+\\d+"))
+            val lastResponse = responses.lastOrNull() ?: text
+            val parts = lastResponse.split(Regex("(\\r?\\n){2}"), 2)
+            if (parts.size == 2) {
+                val headerLines = parts[0].split("\n").map { it.trim() }
+                val body = parts[1]
+                val headers = mutableMapOf<String, List<String>>()
+                headerLines.forEach { line ->
+                    val colonIdx = line.indexOf(":")
+                    if (colonIdx > 0) {
+                        val key = line.substring(0, colonIdx).trim().lowercase()
+                        val value = line.substring(colonIdx + 1).trim()
+                        headers[key] = listOf(value)
+                    }
                 }
-                String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8)
-            } catch (e: Exception) {
-                tryBase64Decode(rawData) ?: rawData
+                return CurlResult(body, headers)
+            } else {
+                return CurlResult(text, emptyMap())
             }
+        }
+    } catch (e: Exception) {
+        try {
+            val process = ProcessBuilder(
+                "powershell",
+                "-Command",
+                "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (Invoke-WebRequest -Uri '$urlStr' -UserAgent 'sing-box/1.10.0' -UseBasicParsing).Content"
+            ).start()
+            val text = process.inputStream.bufferedReader().use { it.readText() }
+            process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
+            if (process.exitValue() == 0 && text.trim().isNotEmpty()) {
+                return CurlResult(text, emptyMap())
+            }
+        } catch (ex: Exception) {
+            // Ignore
+        }
+    }
+    return null
+}
+
+private suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
+    var rawBody: String? = null
+    var headersMap: Map<String, List<String>>? = null
+    var isHtmlResponse = false
+    var htmlPreview = ""
+    
+    // 1. Try Java HttpURLConnection first
+    var connection: java.net.HttpURLConnection? = null
+    try {
+        var currentUrl = urlStr.trim()
+        var redirectCount = 0
+        var responseCode = 0
+        
+        while (redirectCount < 5) {
+            val url = java.net.URL(currentUrl)
+            connection = url.openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 15000
+            connection.instanceFollowRedirects = true
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("User-Agent", "sing-box/1.10.0")
+            connection.connect()
             
-            val servers = decodedText.split("\n")
-                .map { it.trim() }
-                .filter {
-                    it.startsWith("vless://") || it.startsWith("trojan://") || it.startsWith("ss://") ||
-                    it.startsWith("vmess://") || it.startsWith("hysteria2://") || it.startsWith("hy2://") ||
-                    it.startsWith("tuic://")
+            responseCode = connection.responseCode
+            if (responseCode == 301 || responseCode == 302 || responseCode == 303 || responseCode == 307 || responseCode == 308) {
+                val newUrl = connection.getHeaderField("Location")
+                if (newUrl != null && newUrl.isNotEmpty()) {
+                    currentUrl = newUrl
+                    redirectCount++
+                    continue
                 }
-                
-            var userInfoHeader: String? = null
-            for ((key, values) in connection.headerFields) {
+            }
+            break
+        }
+        
+        if (responseCode == 200) {
+            val rawData = connection!!.inputStream.bufferedReader().use { it.readText() }
+            val trimmed = rawData.trim()
+            if (trimmed.lowercase().startsWith("<!doctype html") || trimmed.lowercase().startsWith("<html") || trimmed.lowercase().contains("<head>")) {
+                isHtmlResponse = true
+                htmlPreview = if (trimmed.length > 150) trimmed.take(150) + "..." else trimmed
+            } else {
+                rawBody = rawData
+                headersMap = connection.headerFields
+            }
+        }
+    } catch (e: Exception) {
+        // Fail over silently
+    } finally {
+        connection?.disconnect()
+    }
+    
+    // 2. If Java fetch failed, was blocked (HTML), or threw an exception, fall back to curl
+    if (rawBody == null || isHtmlResponse) {
+        val curlResult = fetchWithSystemCurl(urlStr)
+        if (curlResult != null) {
+            val trimmed = curlResult.body.trim()
+            if (!(trimmed.lowercase().startsWith("<!doctype html") || trimmed.lowercase().startsWith("<html") || trimmed.lowercase().contains("<head>"))) {
+                rawBody = curlResult.body
+                headersMap = curlResult.headers
+                isHtmlResponse = false // Reset since curl got actual configs!
+            } else {
+                isHtmlResponse = true
+                htmlPreview = if (trimmed.length > 150) trimmed.take(150) + "..." else trimmed
+            }
+        }
+    }
+    
+    // 3. Process the raw body if we successfully obtained it
+    if (rawBody != null && !isHtmlResponse) {
+        val trimmed = rawBody.trim()
+        val decodedText = try {
+            val cleanB64 = trimmed.replace("\r", "").replace("\n", "").replace(" ", "")
+            val decodedBytes = try {
+                java.util.Base64.getDecoder().decode(cleanB64)
+            } catch (e: Exception) {
+                java.util.Base64.getUrlDecoder().decode(cleanB64)
+            }
+            String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8)
+        } catch (e: Exception) {
+            tryBase64Decode(rawBody) ?: rawBody
+        }
+        
+        val servers = decodedText.split("\n")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            
+        var userInfoHeader: String? = null
+        if (headersMap != null) {
+            for ((key, values) in headersMap) {
                 if (key != null && (key.equals("subscription-userinfo", ignoreCase = true) || key.equals("x-user-info", ignoreCase = true))) {
                     userInfoHeader = values.firstOrNull()
                     break
                 }
             }
-            val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
+        }
+        val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
+        FetchResult(
+            servers = servers,
+            upload = parsedInfo?.upload,
+            download = parsedInfo?.download,
+            total = parsedInfo?.total,
+            expire = parsedInfo?.expire
+        )
+    } else {
+        if (isHtmlResponse) {
             FetchResult(
-                servers = servers,
-                upload = parsedInfo?.upload,
-                download = parsedInfo?.download,
-                total = parsedInfo?.total,
-                expire = parsedInfo?.expire
+                servers = emptyList(),
+                fetchError = "Server returned HTML instead of configs: ${htmlPreview.replace("\n", " ").trim()}"
             )
         } else {
-            FetchResult(emptyList())
+            FetchResult(
+                servers = emptyList(),
+                fetchError = "Failed to retrieve subscription configs. Check connection or URL."
+            )
         }
-    } catch (e: Exception) {
-        FetchResult(emptyList())
     }
 }
 

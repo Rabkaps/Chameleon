@@ -34,7 +34,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="UNPROTECTED"
-                    android:textColor="?attr/colorOutline"
+                    android:textColor="@color/widget_text_secondary"
                     android:textSize="18sp"
                     android:maxLines="1"
                     android:ellipsize="end"
@@ -75,7 +75,7 @@
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:src="@drawable/ic_node"
-                android:tint="?attr/colorOnSurfaceVariant" />
+                android:tint="@color/widget_text_secondary" />
 
             <TextView
                 android:id="@+id/widget_node_name"
@@ -83,7 +83,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
                 android:text="No active node selected"
-                android:textColor="?attr/colorOnSurface"
+                android:textColor="@color/widget_text_primary"
                 android:textSize="12sp"
                 android:maxLines="1"
                 android:ellipsize="end" />
