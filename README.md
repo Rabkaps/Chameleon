@@ -1,58 +1,63 @@
 # Chameleon
 
-Chameleon is a modern, high-performance VPN client for Android built entirely with **Jetpack Compose** and **Material Design 3**. It offers secure routing, modular connection profiles, and deep integration with the Android system's native VPN frameworks.
+[![Platform Support](https://img.shields.io/badge/Platform-Android%20%7C%20JVM%20Desktop-blue.svg)](#technical-specifications)
+[![Core Engine](https://img.shields.io/badge/Core-sing--box%20%28JNI%29-green.svg)](https://github.com/SagerNet/sing-box)
+[![UI Toolkit](https://img.shields.io/badge/UI-Jetpack%20Compose-orange.svg)](#-material-3-expressive-ui)
+[![License](https://img.shields.io/badge/License-GPL%20v3-red.svg)](LICENSE)
 
-> [!NOTE]
-> **Project Status**: Chameleon is currently in its **active testing stage**. It supports standard subscription/profile parsing, custom DNS rules, split tunneling, and core connectivity using modern secure protocols (VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS).
-> 
-> * **Full Persian (Farsi) translation and RTL support** is natively integrated across all screens, dialogs, settings, and connection details.
+Chameleon is a secure, high-performance, and visually expressive VPN client for Android and Desktop. Built from the ground up utilizing **Jetpack Compose** and **Material Design 3**, Chameleon pairs premium, dynamic aesthetics with robust, multi-protocol routing capabilities powered by the native `sing-box` connection engine.
 
 ---
 
-## Key Features
+## Architecture Overview
 
-### 🌟 Material 3 Expressive UI & Aesthetics
-* **Asymmetric Corner Design**: Implements the Material 3 Expressive (MD3E) styling guide using dynamic asymmetric rounded shapes (`ExpressiveCardShape`, `ExpressiveButtonShape`, `ExpressiveChipShape`) for all cards, dialogs, buttons, text fields, and list items.
-* **Animated Wavy Indicators**: Features a custom-rendered `CircularWavyProgressIndicator` that animates smoothly during connection/disconnection states.
-* **Interactive Wave Visualizer**: Includes a real-time `Canvas`-based wave visualizer that flows dynamically when the VPN connection is active.
-* **Real-Time Bandwidth Speed Graph**: Embedded visual rolling speed graph plotting download and upload speed history using a smooth cubic-bezier wave canvas.
-* **Tactile Press-Scale Effects**: Custom physics-based scale-press feedback on all interactive components for a premium feel.
+Chameleon is structured to provide consistent routing logic across mobile and desktop interfaces by packaging the `sing-box` core engine natively.
 
-### ⛓️ Visual Multi-Hop Chains (Proxy Cascading)
-* **Double-Hop Relaying**: Connect to the internet through a chain of two proxy servers (Device ➔ Relay Server ➔ Exit Destination ➔ Internet).
-* **Native Detour Integration**: Configured utilizing sing-box's native outbound `"detour"` parameters (routing the exit outbound `"proxy"` through the relay outbound `"relay-out"`).
-* **Visual Chain Builder**: Create and edit chains visually using a custom Compose dropdown interface with circular-routing prevention.
+```mermaid
+graph TD
+    A[User Interface: Compose Multiplatform] -->|UI Actions| B[State Management & DataStore Preferences]
+    B -->|Configuration Pipeline| C[Config Injector & Routing Rules]
+    C -->|JNI Callback Bindings| D[Native sing-box core Engine]
+    D -->|Virtual TUN Interface| E[System VPN Service]
+    E -->|Cascaded Routing / Camouflage| F[Proxy Exit Destination]
+```
 
-### 🕵️ Stealth Camouflage (Domain Fronting & Clean IP Scanner)
-* **Masquerading & Fronting**: Bypasses SNI-based deep-packet inspection (DPI) by replacing target IP addresses with clean CDN endpoints and masquerading the SNI name under whitelisted domains.
-* **Clean IP Scanner**: Uses an asynchronous parallel TCP connect prober (`CdnIpScanner`) with active socket validation to discover the fastest unblocked CDN edge IPs in real-time.
-* **Presets & Custom Profiles**: Built-in presets for Cloudflare (SNI: `speedtest.net`) and Cloudfront (SNI: `aws.amazon.com`) networks, alongside custom Host header rewrites.
+---
 
-### 🔌 Sharing & Multi-Protocol Configuration
-* **Local Proxy Sharing (LAN Server)**: Share the active VPN tunnel with other local network clients (smart TVs, consoles, PCs) via an HTTP/Socks5 combined JNI inbound proxy listener on a customizable port.
-* **Extended Protocol Support**: Full routing capabilities for VLESS, Trojan, Shadowsocks, SOCKS5, HTTP, and HTTPS (with TLS/SNI injection).
-* **Manual Node Creator & Form Editor**: Create nodes from scratch or edit existing ones using a comprehensive form editor or a raw config editor.
-* **QR Code Scanner**: Fast configuration import by scanning QR codes using the device camera (powered by CameraX and ML Kit).
+## Key Capabilities
 
-### ⚡ Advanced Routing Options
-* **Automated Iran Routing**: Built-in rules for automatic identification of domestic Iranian domains and IP ranges (`geoip-ir`/`geosite-ir`), routing them directly (bypassing the VPN) to guarantee optimal speeds.
-* **Bypass LAN**: Toggle option to bypass local area network traffic (private subnets like `192.168.x.x`, `10.x.x.x`), keeping local printer/router connections direct.
+### 🎨 Material 3 Expressive UI & Micro-Animations
+* **Asymmetric Corner Design**: Implements fluid, organic rounded shapes (`ExpressiveCardShape`, `ExpressiveButtonShape`) for dashboard components and overlays, adhering to modern Material 3 design directives.
+* **GPU-Accelerated Visualizations**: Features a real-time, canvas-based wave visualizer and custom-rendered progress indicators (`CircularWavyProgressIndicator`) running on the GPU drawing phase to eliminate CPU overhead.
+* **Live Bandwidth Speeds**: Embedded rolling speed graph plotting download and upload speed history on a smooth cubic-bezier wave canvas.
+* **Dynamic Color Accent Sync**: Layouts dynamically adapt their color scheme to match system Monet themes (Material You) or custom selected accent palettes.
 
-### 🔄 Subscriptions & Updates
-* **Scheduled Auto-Updates**: Auto-update subscription lists silently on app startup, daily, or weekly, with manual pull-to-refresh buttons.
-* **Smart Active Profile Selection**: Automatically switches to the first available backup node of a subscription if the current active server is modified or deleted during an update.
+### ⛓️ Multi-Hop Cascading Proxy Chains
+* **Visual Chain Builder**: Create and edit proxy chains visually via a dynamic composition builder with circular-routing prevention.
+* **Double-Hop Relaying**: Encrypt and route your traffic through a chain of two proxy servers (Device ➔ Relay Server ➔ Exit Destination ➔ Internet).
+* **Native Outbound Routing**: Configured utilizing sing-box's native outbound `"detour"` parameters for zero overhead.
 
+### 🕵️ Stealth Camouflage (Domain Fronting & IP Scanner)
+* **Masquerading & SNI Fronting**: Bypasses SNI-based deep-packet inspection (DPI) by wrapping traffic under whitelisted domains and replacing target IP addresses with clean CDN endpoints.
+* **Parallel Clean IP Scanner**: Employs an asynchronous, concurrent TCP prober (`CdnIpScanner`) with active socket validation to discover the fastest unblocked CDN edge IPs in real-time.
+* **Presets & Custom Headers**: Built-in presets for major cloud providers alongside customizable Host header rewrites.
+
+### ⚡ Smart Routing & DNS Protection
+* **Bypass LAN Traffic**: Optional bypass for local area networks (e.g., `192.168.x.x`, `10.x.x.x`), keeping local printer and router connections direct.
+* **Automated Direct Routing**: Built-in rules for automatic identification of domestic IP ranges and domains, routing them directly for maximum local speeds.
+* **DNS Hijacking Mitigation**: Parallel secure DNS pre-resolver injecting validated IPs directly into connection configurations to bypass carrier DNS poisoning.
 
 ---
 
 ## Technical Specifications
 
-* **Minimum SDK**: Android 7.0 (API Level 24)
-* **Target SDK**: Android 16 (API Level 36)
-* **Compile SDK**: Android 16 (API Level 37)
-* **Supported ABI / Architecture**: `arm64-v8a` (64-bit ARM devices only for early testing stage)
-* **UI Toolkit**: Jetpack Compose (Material 3 Expressive)
-* **Language Toolchain**: Kotlin 2.x, Java 17
+| Parameter | Android App | Desktop App |
+|:---|:---|:---|
+| **OS Requirement** | Android 7.0+ (API Level 24+) | JVM Desktop (Windows / macOS / Linux) |
+| **Target SDK** | Android 16 (API Level 36) | Java Runtime 17+ |
+| **Language Toolchain** | Kotlin 2.x, Java 17 | Kotlin 2.x, Java 17 |
+| **UI Toolkit** | Jetpack Compose | Compose for Desktop |
+| **Connection Engine** | sing-box JNI Wrapper | native sing-box JNI binary |
 
 ---
 
@@ -62,38 +67,32 @@ Chameleon is a modern, high-performance VPN client for Android built entirely wi
 
 * Android Studio (Ladybug or newer)
 * Android SDK (API 34+)
-* JDK 17
+* JDK 17+
+* Gradle 8.x+
 
-### Building the Project
+### Building and Installation
 
-1. Clone the repository:
+1. **Clone the Repository**:
    ```bash
    git clone https://github.com/Rabkaps/Chameleon.git
    cd Chameleon
    ```
 
-2. Build the debug APK for the **Standard** flavor:
+2. **Assemble Debug Build**:
    ```bash
-   ./gradlew assembleStandardDebug
+   ./gradlew assembleDebug
    ```
 
-3. Install the application on a connected device:
+3. **Install on Connected Device**:
    ```bash
    ./gradlew installStandardDebug
    ```
 
-### ⚠️ Installation & Google Play Protect Warning
+### ⚠️ Development Installation Warnings
 
-When installing the built APK directly on a device, Google Play Protect may show a warning stating the app is blocked or from an unrecognized developer.
+Because Chameleon requests sensitive permissions (such as native Android `VpnService` tunnels) to route device traffic, self-signed/debug builds will trigger Google Play Protect warnings:
 
-* **Why this appears**: Chameleon utilizes the sensitive Android `VpnService` API. Because self-built/debug APKs are signed with a local developer signature instead of a Google Play Store registered signature, Google Play Protect flags the app as unrecognized.
+* **Why it occurs**: Local builds are signed with a generic, automatically-generated debug keystore rather than a registered Play Store signature.
 * **How to proceed**:
-  1. In the warning popup, tap **"More details"**.
-  2. Select **"Install anyway"** to complete the installation.
-  3. (Optional for development) To disable these popups entirely, open the **Google Play Store**, tap your profile icon -> **Play Protect** -> **Settings (gear icon)**, and toggle off **"Scan apps with Play Protect"**.
-
----
-
-## Development and Contributions
-
-We follow the standard Git branching model. Please submit all feature additions or bug fixes via Pull Requests. Make sure to run static analysis and unit tests before committing changes.
+  1. In the Play Protect popup, tap **"More details"**.
+  2. Click **"Install anyway"** to complete the installation.
