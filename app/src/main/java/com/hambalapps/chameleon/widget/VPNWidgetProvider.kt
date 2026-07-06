@@ -168,11 +168,13 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     else -> "UNPROTECTED"
                 }
 
-                val colorPrimary = androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_connected)
-                val colorSecondary = androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_connecting)
-                val colorOutline = androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_disconnected)
-                val textPrimary = androidx.core.content.ContextCompat.getColor(context, R.color.widget_text_primary)
-                val textSecondary = androidx.core.content.ContextCompat.getColor(context, R.color.widget_text_secondary)
+                val colorPrimary = resolveCustomThemeColor(context, "colorPrimary", androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_connected))
+                val colorSecondary = resolveCustomThemeColor(context, "colorSecondary", androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_connecting))
+                val colorOutline = resolveCustomThemeColor(context, "colorOutline", androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_disconnected))
+                val textPrimary = resolveCustomThemeColor(context, "onSurface", androidx.core.content.ContextCompat.getColor(context, R.color.widget_text_primary))
+                val textSecondary = resolveCustomThemeColor(context, "onSurfaceVariant", androidx.core.content.ContextCompat.getColor(context, R.color.widget_text_secondary))
+                val colorSurface = resolveCustomThemeColor(context, "colorSurface", androidx.core.content.ContextCompat.getColor(context, R.color.widget_background))
+                val colorSurfaceVariant = resolveCustomThemeColor(context, "colorSurfaceVariant", colorSurface)
 
                 val statusColor = when (lastVpnState) {
                     "CONNECTED" -> colorPrimary
@@ -240,8 +242,15 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsSmall.setTextViewText(R.id.widget_node_name, if (lastVpnState == "CONNECTED") nodeName else "Tap to secure")
                     viewsSmall.setTextColor(R.id.widget_node_name, textSecondary)
                     viewsSmall.setInt(R.id.widget_container, "setBackgroundResource", bgPillDrawable)
+                    setViewBackgroundTint(viewsSmall, R.id.widget_container, colorSurface)
                     
                     viewsSmall.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
+                    val toggleBgColor = when (lastVpnState) {
+                        "CONNECTED" -> colorPrimary
+                        "CONNECTING" -> colorSecondary
+                        else -> colorSurfaceVariant
+                    }
+                    setViewBackgroundTint(viewsSmall, R.id.widget_button_toggle, toggleBgColor)
                     viewsSmall.setInt(R.id.widget_button_icon, "setColorFilter", iconTintColor)
                     viewsSmall.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsSmall.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -252,8 +261,11 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsMedium.setTextViewText(R.id.widget_node_name, nodeName)
                     viewsMedium.setTextColor(R.id.widget_node_name, textSecondary)
                     viewsMedium.setInt(R.id.widget_container, "setBackgroundResource", bgDrawable)
+                    setViewBackgroundTint(viewsMedium, R.id.widget_container, colorSurface)
+                    setViewBackgroundTint(viewsMedium, R.id.widget_node_badge, colorSurfaceVariant)
                     
                     viewsMedium.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
+                    setViewBackgroundTint(viewsMedium, R.id.widget_button_toggle, toggleBgColor)
                     viewsMedium.setInt(R.id.widget_button_toggle, "setColorFilter", iconTintColor)
                     viewsMedium.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsMedium.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -264,8 +276,11 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     viewsLarge.setTextViewText(R.id.widget_node_name, nodeName)
                     viewsLarge.setTextColor(R.id.widget_node_name, textSecondary)
                     viewsLarge.setInt(R.id.widget_container, "setBackgroundResource", bgDrawable)
+                    setViewBackgroundTint(viewsLarge, R.id.widget_container, colorSurface)
+                    setViewBackgroundTint(viewsLarge, R.id.widget_node_badge, colorSurfaceVariant)
                     
                     viewsLarge.setInt(R.id.widget_button_toggle, "setBackgroundResource", toggleBgDrawable)
+                    setViewBackgroundTint(viewsLarge, R.id.widget_button_toggle, toggleBgColor)
                     viewsLarge.setInt(R.id.widget_button_toggle, "setColorFilter", iconTintColor)
                     viewsLarge.setOnClickPendingIntent(R.id.widget_button_toggle, piToggle)
                     viewsLarge.setOnClickPendingIntent(R.id.widget_container, piMain)
@@ -286,9 +301,11 @@ class VPNWidgetProvider : AppWidgetProvider() {
 
                         if (currentVpnMode == mName) {
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_button_background_connected)
-                            viewsLarge.setTextColor(btnId, android.graphics.Color.WHITE)
+                            setViewBackgroundTint(viewsLarge, btnId, colorPrimary)
+                            viewsLarge.setTextColor(btnId, resolveCustomThemeColor(context, "onPrimary", android.graphics.Color.WHITE))
                         } else {
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
+                            setViewBackgroundTint(viewsLarge, btnId, colorSurfaceVariant)
                             viewsLarge.setTextColor(btnId, textPrimary)
                         }
                     }
@@ -311,14 +328,17 @@ class VPNWidgetProvider : AppWidgetProvider() {
 
                             if (activeProfile == serverLink) {
                                 viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_button_background_connected)
-                                viewsLarge.setTextColor(btnId, android.graphics.Color.WHITE)
+                                setViewBackgroundTint(viewsLarge, btnId, colorPrimary)
+                                viewsLarge.setTextColor(btnId, resolveCustomThemeColor(context, "onPrimary", android.graphics.Color.WHITE))
                             } else {
                                 viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
+                                setViewBackgroundTint(viewsLarge, btnId, colorSurfaceVariant)
                                 viewsLarge.setTextColor(btnId, textPrimary)
                             }
                         } else {
                             viewsLarge.setTextViewText(btnId, "Empty")
                             viewsLarge.setInt(btnId, "setBackgroundResource", R.drawable.widget_node_badge_background)
+                            setViewBackgroundTint(viewsLarge, btnId, colorSurfaceVariant)
                             viewsLarge.setTextColor(btnId, textSecondary)
                             viewsLarge.setOnClickPendingIntent(btnId, null)
                         }

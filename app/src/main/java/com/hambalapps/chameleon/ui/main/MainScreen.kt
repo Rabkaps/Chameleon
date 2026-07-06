@@ -940,6 +940,29 @@ fun MainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val allFilteredManuals = remember(filteredServerList, manualServersStr) {
+                                    filteredServerList.filter { item ->
+                                        manualServersStr.split("\n").map { it.trim() }.contains(item.link.trim())
+                                    }.map { it.link }.toSet()
+                                }
+                                val isAllSelected = selectedNodes.containsAll(allFilteredManuals) && allFilteredManuals.isNotEmpty()
+                                TextButton(
+                                    onClick = {
+                                        if (isAllSelected) {
+                                            val nextSelection = selectedNodes - allFilteredManuals
+                                            selectedNodes = nextSelection
+                                            if (nextSelection.isEmpty()) {
+                                                isMultiSelectMode = false
+                                            }
+                                        } else {
+                                            selectedNodes = selectedNodes + allFilteredManuals
+                                        }
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Text(if (isAllSelected) "Deselect All" else "Select All")
+                                }
+
                                 TextButton(
                                     onClick = {
                                         isMultiSelectMode = false
@@ -2381,7 +2404,8 @@ fun MainScreen(
                                                                 IconButton(
                                                                     onClick = {
                                                                         scope.launch {
-                                                                            val updatedManualList = serverList.filter { it != serverLink }
+                                                                            val currentManual = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                                                            val updatedManualList = currentManual.filter { it != serverLink }
                                                                             val updatedManualStr = updatedManualList.joinToString("\n")
                                                                             settingsManager.setManualServers(updatedManualStr)
 
@@ -2765,6 +2789,24 @@ fun MainScreen(
                                             )
                                         }
                                     }
+
+                                    Spacer(modifier = Modifier.width(4.dp))
+
+                                    FilledIconButton(
+                                        onClick = { isNodesExpanded = true },
+                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = CircleShape
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Fullscreen,
+                                            contentDescription = "Expand Card",
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
 
                                 // Protocols tab row
@@ -3014,7 +3056,7 @@ fun MainScreen(
                                                                         onClick = {
                                                                             menuExpanded = false
                                                                             scope.launch {
-                                                                                val currentManual = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                                                                val currentManual = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                                                                 val updatedManualList = currentManual.filter { it != serverLink }
                                                                                 settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                                                                 
@@ -4220,7 +4262,7 @@ fun MainScreen(
                                     } else {
                                         trimmedImport
                                     }
-                                    val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                    val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                     val newLinkWithoutRemark = finalLink.substringBefore("#")
                                     val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
                                     settingsManager.setManualServers(updatedManualList.joinToString("\n"))
@@ -4409,14 +4451,14 @@ fun MainScreen(
                         val finalLink = "chain://$chainId#${java.net.URLEncoder.encode(name, "UTF-8")}"
                         
                         if (isNewChain) {
-                            val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                            val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                             val newLinkWithoutRemark = finalLink.substringBefore("#")
                             val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                             settingsManager.setActiveSubId("manual")
                             settingsManager.setActiveProfile(finalLink)
                         } else {
-                            val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                            val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                             val updatedManualList = currentManualList.map {
                                 if (it == link) finalLink else it
                             }
@@ -4910,14 +4952,14 @@ fun MainScreen(
                             if (finalLink.isNotEmpty()) {
                                 scope.launch {
                                     if (isNewNode) {
-                                        val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val newLinkWithoutRemark = finalLink.substringBefore("#")
                                         val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
                                         settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
                                     } else {
-                                        val currentManualList = manualServersStr.split("\n").filter { it.isNotEmpty() }
+                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val updatedManualList = currentManualList.map {
                                             if (it == originalLink) finalLink else it
                                         }
@@ -5430,7 +5472,8 @@ fun MainScreen(
                                         IconButton(
                                             onClick = {
                                                 scope.launch {
-                                                    val updatedManualList = serverList.filter { it != serverLink }
+                                                    val currentManual = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                                    val updatedManualList = currentManual.filter { it != serverLink }
                                                     val updatedManualStr = updatedManualList.joinToString("\n")
                                                     settingsManager.setManualServers(updatedManualStr)
 

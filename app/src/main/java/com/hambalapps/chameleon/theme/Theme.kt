@@ -506,7 +506,7 @@ fun ChameleonTheme(
     val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
     val specialTheme = settingsManager.specialTheme.collectAsState(initial = defaultThemeKey).value
     val themeMode = settingsManager.themeMode.collectAsState(initial = "system").value
-    val cardStyle = settingsManager.cardStyle.collectAsState(initial = "glass").value
+    val cardStyle = settingsManager.cardStyle.collectAsState(initial = "vibrant").value
 
     val isDark = when (themeMode) {
         "light" -> false
