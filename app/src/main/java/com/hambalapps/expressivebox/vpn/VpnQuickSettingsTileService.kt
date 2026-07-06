@@ -94,6 +94,7 @@ class VpnQuickSettingsTileService : TileService() {
     private fun stopVpnService() {
         val intent = Intent(this, VpnServiceWrapper::class.java).apply {
             action = VpnServiceWrapper.ACTION_STOP
+            putExtra("force_stop", true)
         }
         startService(intent)
     }

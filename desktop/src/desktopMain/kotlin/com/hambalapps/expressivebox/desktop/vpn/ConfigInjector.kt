@@ -203,7 +203,8 @@ object ConfigInjector {
         servers.put(directServer)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably
-        val bootstrapDnsAddr = "8.8.8.8"
+        // Prefer the first system DNS server, fallback to 8.8.8.8 if none available
+        val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "8.8.8.8"
         val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
         servers.put(bootstrapServer)
 
@@ -324,18 +325,23 @@ object ConfigInjector {
         val directIps = mutableListOf<String>()
 
         val systemDnsList = getSystemDnsServers()
-        var directDnsAddr = "178.22.122.100"
+        
+        // Add all active system DNS server IPs to bypass proxy (direct)
         for (dnsIp in systemDnsList) {
-            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
-                directDnsAddr = dnsIp
-                break
+            if (dnsIp.isNotEmpty() && isIpAddress(dnsIp)) {
+                directIps.add(dnsIp)
             }
         }
-        if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
-            directIps.add(directDnsAddr)
+        
+        // Ensure default fallback direct DNS address is added
+        val defaultDirectDns = "178.22.122.100"
+        if (!directIps.contains(defaultDirectDns)) {
+            directIps.add(defaultDirectDns)
         }
-        val bootstrapDnsAddr = "8.8.8.8"
-        if (bootstrapDnsAddr.isNotEmpty() && isIpAddress(bootstrapDnsAddr)) {
+        
+        // Dynamic bootstrap DNS address matching the one in injectDns
+        val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "8.8.8.8"
+        if (!directIps.contains(bootstrapDnsAddr) && isIpAddress(bootstrapDnsAddr)) {
             directIps.add(bootstrapDnsAddr)
         }
 

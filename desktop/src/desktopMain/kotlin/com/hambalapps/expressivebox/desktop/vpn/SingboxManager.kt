@@ -58,6 +58,50 @@ object SingboxManager {
         }
     }
 
+    private fun downloadWintunIfNeeded() {
+        val wintunFile = File(workingDir, "wintun.dll")
+        if (wintunFile.exists()) return
+
+        log("wintun.dll is missing. Downloading TUN driver...")
+        try {
+            val url = URL("https://www.wintun.net/builds/wintun-0.14.1.zip")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+
+            if (conn.responseCode == 200) {
+                val arch = System.getProperty("os.arch").lowercase()
+                val archDir = when {
+                    arch.contains("amd64") || arch.contains("x86_64") -> "amd64"
+                    arch.contains("arm") || arch.contains("aarch64") -> "arm64"
+                    arch.contains("x86") || arch.contains("i386") -> "x86"
+                    else -> "amd64" // Fallback to amd64
+                }
+                val targetEntry = "wintun/bin/$archDir/wintun.dll"
+                log("Extracting $targetEntry for architecture: $arch")
+
+                java.util.zip.ZipInputStream(conn.inputStream).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        if (entry.name == targetEntry) {
+                            Files.copy(zis, wintunFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                            log("TUN driver (wintun.dll) installed successfully.")
+                            break
+                        }
+                        entry = zis.nextEntry
+                    }
+                }
+            } else {
+                log("Failed to download TUN driver. HTTP code: ${conn.responseCode}")
+            }
+            conn.disconnect()
+        } catch (e: Exception) {
+            log("Failed to download TUN driver: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
     suspend fun start(rawProfile: String, settingsManager: SettingsManager): Boolean {
         if (_vpnState.value == "CONNECTED" || _vpnState.value == "CONNECTING") {
             stop()
@@ -68,11 +112,15 @@ object SingboxManager {
         
         try {
             // Check for admin privileges if TUN is enabled
-            if (settingsManager.currentSettings.enableTun && !isRunningAsAdmin()) {
-                log("CRITICAL ERROR: TUN Mode is enabled but ExpressiveBox is not running as Administrator!")
-                log("Please restart the app as Administrator (Right click -> Run as Administrator), or disable TUN Mode in Settings.")
-                stop()
-                return false
+            if (settingsManager.currentSettings.enableTun) {
+                if (!isRunningAsAdmin()) {
+                    log("CRITICAL ERROR: TUN Mode is enabled but ExpressiveBox is not running as Administrator!")
+                    log("Please restart the app as Administrator (Right click -> Run as Administrator), or disable TUN Mode in Settings.")
+                    stop()
+                    return false
+                }
+                // Ensure wintun.dll is present
+                downloadWintunIfNeeded()
             }
 
             // 1. Generate Config
@@ -171,12 +219,21 @@ object SingboxManager {
         statsJob = null
         _trafficStats.value = Pair(0L, 0L)
 
-        // Kill Process
-        process?.let {
-            it.destroy()
-            try {
-                it.destroyForcibly()
-            } catch (e: Exception) {}
+        // Kill Process cleanly to allow routing table/DNS restoration
+        process?.let { proc ->
+            proc.destroy()
+            runBlocking {
+                withTimeoutOrNull(2000) {
+                    while (proc.isAlive) {
+                        delay(100)
+                    }
+                }
+            }
+            if (proc.isAlive) {
+                try {
+                    proc.destroyForcibly()
+                } catch (e: Exception) {}
+            }
         }
         process = null
         

@@ -1,12 +1,14 @@
 package com.hambalapps.expressivebox.desktop.vpn
 
+import java.io.File
+
 object SystemProxy {
     private const val REG_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
 
     fun enable(host: String, port: Int): Boolean {
         return try {
-            // Setup mixed proxy format for Windows
-            val serverValue = "http=$host:$port;https=$host:$port;socks=$host:$port"
+            // Setup mixed proxy format for Windows (HTTP and HTTPS)
+            val serverValue = "http=$host:$port;https=$host:$port"
             
             runCommand("reg", "add", REG_KEY, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
             runCommand("reg", "add", REG_KEY, "/v", "ProxyServer", "/t", "REG_SZ", "/d", serverValue, "/f")
@@ -41,7 +43,14 @@ object SystemProxy {
             ${'$'}type::InternetSetOption(0, 39, 0, 0)
             ${'$'}type::InternetSetOption(0, 37, 0, 0)
         """.trimIndent()
-        runCommand("powershell", "-WindowStyle", "Hidden", "-Command", script)
+        try {
+            val tempFile = File.createTempFile("refresh_proxy", ".ps1")
+            tempFile.writeText(script)
+            runCommand("powershell", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", tempFile.absolutePath)
+            tempFile.delete()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun runCommand(vararg args: String) {

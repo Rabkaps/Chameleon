@@ -6370,6 +6370,7 @@ fun ConnectionDashboard(
                                         } else {
                                             val intent = Intent(context, VpnServiceWrapper::class.java).apply {
                                                 action = VpnServiceWrapper.ACTION_STOP
+                                                putExtra("force_stop", true)
                                             }
                                             context.startService(intent)
                                         }

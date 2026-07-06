@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity() {
       activityScope.launch {
         val stopIntent = Intent(context, VpnServiceWrapper::class.java).apply {
           this.action = VpnServiceWrapper.ACTION_STOP
+          putExtra("force_stop", true)
         }
         context.startService(stopIntent)
         Toast.makeText(context, "VPN Disconnected", Toast.LENGTH_SHORT).show()

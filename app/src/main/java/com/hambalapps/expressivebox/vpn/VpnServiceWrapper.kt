@@ -189,7 +189,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
         } else if (action == ACTION_STOP) {
             val settingsManager = SettingsManager(applicationContext)
-            val enableMtProxyVal = kotlinx.coroutines.runBlocking { settingsManager.enableMtProxy.first() }
+            val forceStop = intent?.getBooleanExtra("force_stop", false) ?: false
+            val enableMtProxyVal = if (forceStop) false else kotlinx.coroutines.runBlocking { settingsManager.enableMtProxy.first() }
             if (enableMtProxyVal) {
                 log("VPN stopped, but MTProxy is enabled. Switching to Local Proxy Mode...")
                 localProxyOnlyMode = true
@@ -268,6 +269,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         // Disconnect Intent
         val stopIntent = Intent(applicationContext, VpnServiceWrapper::class.java).apply {
             action = ACTION_STOP
+            putExtra("force_stop", true)
         }
         val stopPendingIntent = PendingIntent.getService(
             applicationContext,
@@ -689,6 +691,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 // Teardown core service
                 try {
                     commandServer?.closeService()
+                    delay(200)
                 } catch (e: Exception) {
                     log("Error closing service during reconnect: ${e.message}")
                 }
@@ -742,6 +745,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 log("Stopping core service...")
                 try {
                     commandServer?.closeService()
+                    delay(200)
                 } catch (e: Exception) {
                     log("Error closing service: ${e.message}")
                 }
@@ -810,6 +814,29 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             runRootCommands(commands)
         }
         super.onDestroy()
+        
+        // Ensure core service and command server are closed
+        try {
+            commandServer?.closeService()
+        } catch (e: Exception) {}
+        try {
+            commandServer?.close()
+        } catch (e: Exception) {}
+        commandServer = null
+
+        // Ensure TUN descriptor is closed
+        try {
+            tunFd?.close()
+        } catch (e: Exception) {}
+        tunFd = null
+
+        if (tunFdInt != -1) {
+            try {
+                ParcelFileDescriptor.adoptFd(tunFdInt).close()
+            } catch (e: Exception) {}
+            tunFdInt = -1
+        }
+
         stopLogReader()
         val manager = getSystemService(NotificationManager::class.java)
         manager?.cancel(NOTIFICATION_ID)
