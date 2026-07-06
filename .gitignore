@@ -32,4 +32,13 @@ app/warp_response.json
 .kotlin/
 /desktop/build/
 
+# Agent customizations
+/.agents/
+
+# Codebase knowledge graph outputs
+/graphify-out/
+
+# Library backups
+/app/libs/*-backup.aar
+
 
