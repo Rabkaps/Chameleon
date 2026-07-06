@@ -40,6 +40,7 @@ compose.desktop {
             windows {
                 menu = true
                 shortcut = true
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
             }
         }
     }

@@ -108,6 +108,7 @@ fun VibrantCardContent(
 object DesktopStrings {
     private val fa = mapOf(
         "app_name" to "Chameleon",
+        "sub_manager" to "مدیریت اشتراک",
         "connected" to "متصل شد",
         "connecting" to "در حال اتصال...",
         "disconnected" to "قطع شد",
@@ -167,6 +168,7 @@ object DesktopStrings {
 
     private val en = mapOf(
         "app_name" to "Chameleon",
+        "sub_manager" to "Subscriptions",
         "connected" to "Connected",
         "connecting" to "Connecting...",
         "disconnected" to "Disconnected",
@@ -415,6 +417,13 @@ fun MainScreen() {
                             activeCardBackgroundBrush = activeCardBackgroundBrush,
                             cardBorderBrush = cardBorderBrush
                         )
+                        "subscriptions" -> SubscriptionManagerScreen(
+                            settings = settings,
+                            settingsManager = settingsManager,
+                            primaryCardBrush = primaryCardBrush,
+                            secondaryCardBrush = secondaryCardBrush,
+                            cardBorderBrush = cardBorderBrush
+                        )
                         "profiles" -> ProfilesScreen(settings, settingsManager)
                         "add_config" -> AddConfigScreen(settings, settingsManager)
                         "logs" -> LogsScreen(settings)
@@ -489,6 +498,7 @@ fun Sidebar(
             // Navigation Items
             val navItems = listOf(
                 Triple("dashboard", Icons.Filled.Dashboard, "dashboard"),
+                Triple("subscriptions", Icons.Filled.RssFeed, "sub_manager"),
                 Triple("profiles", Icons.Filled.List, "profiles"),
                 Triple("add_config", Icons.Filled.Add, "add_config"),
                 Triple("logs", Icons.Filled.Terminal, "logs"),
@@ -1897,6 +1907,541 @@ private fun formatSpeed(bytes: Long): String {
     } else {
         String.format("%.1f KB/s", kb)
     }
+}
+
+@Composable
+fun SubscriptionManagerScreen(
+    settings: UserSettings,
+    settingsManager: SettingsManager,
+    primaryCardBrush: Brush,
+    secondaryCardBrush: Brush,
+    cardBorderBrush: Brush
+) {
+    val isFarsi = settings.isFarsi
+    val scope = rememberCoroutineScope()
+    val subscriptions = settings.deserializedSubscriptions
+    val activeSubId = settings.activeSubId
+    
+    // States for adding sub
+    var subNameInput by remember { mutableStateOf("") }
+    var subUrlInput by remember { mutableStateOf("") }
+    var isFetching by remember { mutableStateOf(false) }
+    var fetchError by remember { mutableStateOf<String?>(null) }
+    
+    // Map of refreshing state for each sub
+    val refreshingSubs = remember { mutableStateMapOf<String, Boolean>() }
+    
+    // Auto-connect set
+    val autoConnectSubs = settings.autoConnectSubs
+
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Left Column: List of Subscriptions
+        Column(
+            modifier = Modifier
+                .weight(1.2f)
+                .fillMaxHeight()
+        ) {
+            Text(
+                text = DesktopStrings.get("sub_manager", isFarsi),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (subscriptions.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                        .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isFarsi) "هیچ اشتراکی اضافه نشده است." else "No subscriptions added yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(subscriptions) { sub ->
+                        val isActive = sub.id == activeSubId
+                        val isRefreshing = refreshingSubs[sub.id] ?: false
+                        val isAutoConnectEnabled = autoConnectSubs.contains(sub.id)
+                        val isLocalSub = sub.url.startsWith("local://")
+                        
+                        Card(
+                            shape = ExpressiveCardShape,
+                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    brush = if (isActive) primaryCardBrush else secondaryCardBrush,
+                                    shape = ExpressiveCardShape
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    brush = if (isActive) SolidColor(MaterialTheme.colorScheme.primary) else cardBorderBrush,
+                                    shape = ExpressiveCardShape
+                                )
+                                .clickable {
+                                    scope.launch {
+                                        settingsManager.setActiveSubId(sub.id)
+                                        val servers = sub.servers.split("\n").filter { it.isNotEmpty() }
+                                        if (servers.isNotEmpty()) {
+                                            settingsManager.setActiveProfile(servers[0])
+                                        }
+                                    }
+                                }
+                        ) {
+                            VibrantCardContent(settings.cardStyle) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Active Status indicator
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isActive) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isActive) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = "Active",
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Filled.RssFeed,
+                                                contentDescription = "Sub",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    
+                                    // Info & Traffic Stats
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = sub.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        
+                                        val domain = try {
+                                            java.net.URI(sub.url).host ?: sub.url
+                                        } catch (e: Exception) {
+                                            sub.url
+                                        }
+                                        Text(
+                                            text = domain,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        
+                                        // Traffic Bar (If total is present)
+                                        if (sub.total != null && sub.total > 0) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            val up = sub.upload ?: 0L
+                                            val down = sub.download ?: 0L
+                                            val used = up + down
+                                            val total = sub.total
+                                            val pct = (used.toDouble() / total.toDouble()).coerceIn(0.0, 1.0)
+                                            
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                LinearProgressIndicator(
+                                                    progress = pct.toFloat(),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(6.dp)
+                                                        .clip(CircleShape),
+                                                    color = if (pct > 0.9) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                                Text(
+                                                    text = "${(pct * 100).toInt()}%",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "${formatBytes(used)} / ${formatBytes(total)}" + 
+                                                    if (sub.expire != null && sub.expire > 0) " • Exp: ${formatExpiry(sub.expire)}" else "",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else if (sub.expire != null && sub.expire > 0) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Expires: ${formatExpiry(sub.expire)}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    
+                                    // Control actions
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Auto Connect toggle
+                                        IconButton(
+                                            onClick = {
+                                                settingsManager.toggleAutoConnectSub(sub.id)
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Bolt,
+                                                contentDescription = "Auto Connect",
+                                                tint = if (isAutoConnectEnabled) MaterialTheme.colorScheme.primary 
+                                                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                            )
+                                        }
+                                        
+                                        // Manual Refresh
+                                        if (!isLocalSub) {
+                                            IconButton(
+                                                onClick = {
+                                                    scope.launch {
+                                                        refreshingSubs[sub.id] = true
+                                                        try {
+                                                            val result = fetchSubscription(sub.url)
+                                                            if (result.servers.isNotEmpty()) {
+                                                                val updatedList = subscriptions.map {
+                                                                    if (it.id == sub.id) {
+                                                                        it.copy(
+                                                                            servers = result.servers.joinToString("\n"),
+                                                                            upload = result.upload,
+                                                                            download = result.download,
+                                                                            total = result.total,
+                                                                            expire = result.expire
+                                                                        )
+                                                                    } else {
+                                                                        it
+                                                                    }
+                                                                }
+                                                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            e.printStackTrace()
+                                                        } finally {
+                                                            refreshingSubs[sub.id] = false
+                                                        }
+                                                    }
+                                                },
+                                                enabled = !isRefreshing
+                                            ) {
+                                                if (isRefreshing) {
+                                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Refresh,
+                                                        contentDescription = "Refresh",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Delete
+                                        IconButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    val updatedList = subscriptions.filter { it.id != sub.id }
+                                                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
+                                                    if (isActive) {
+                                                        val nextActive = updatedList.firstOrNull()
+                                                        if (nextActive != null) {
+                                                            settingsManager.setActiveSubId(nextActive.id)
+                                                            val nextServers = nextActive.servers.split("\n").filter { it.isNotEmpty() }
+                                                            if (nextServers.isNotEmpty()) {
+                                                                    settingsManager.setActiveProfile(nextServers[0])
+                                                            }
+                                                        } else {
+                                                            settingsManager.setActiveSubId("")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Delete,
+                                                contentDescription = "Delete",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Right Column: Add Subscription Card
+        Column(
+            modifier = Modifier
+                .weight(0.8f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Top
+        ) {
+            Text(
+                text = if (isFarsi) "افزودن اشتراک" else "Add Subscription",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Card(
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
+            ) {
+                VibrantCardContent(settings.cardStyle) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = subNameInput,
+                            onValueChange = { subNameInput = it },
+                            label = { Text(text = DesktopStrings.get("sub_name", isFarsi)) },
+                            placeholder = { Text(text = if (isFarsi) "مثال: اشتراک پرمیوم من" else "e.g. My Premium VPN") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ExpressiveButtonShape,
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = subUrlInput,
+                            onValueChange = { subUrlInput = it },
+                            label = { Text(text = DesktopStrings.get("sub_url", isFarsi)) },
+                            placeholder = { Text(text = "https://example.com/sub") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ExpressiveButtonShape,
+                            singleLine = true
+                        )
+
+                        if (fetchError != null) {
+                            Text(
+                                text = fetchError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                if (subUrlInput.trim().isNotEmpty()) {
+                                    isFetching = true
+                                    fetchError = null
+                                    scope.launch {
+                                        try {
+                                            val result = fetchSubscription(subUrlInput.trim())
+                                            if (result.servers.isNotEmpty()) {
+                                                val domain = try {
+                                                    java.net.URI(subUrlInput).host ?: (if (isFarsi) "پرووایدر سفارشی" else "Custom Provider")
+                                                } catch (e: Exception) {
+                                                    if (isFarsi) "پرووایدر سفارشی" else "Custom Provider"
+                                                }
+                                                val name = if (subNameInput.trim().isNotEmpty()) subNameInput.trim() else domain
+                                                val newSub = Subscription(
+                                                    id = java.util.UUID.randomUUID().toString(),
+                                                    name = name,
+                                                    url = subUrlInput.trim(),
+                                                    servers = result.servers.joinToString("\n"),
+                                                    upload = result.upload,
+                                                    download = result.download,
+                                                    total = result.total,
+                                                    expire = result.expire
+                                                )
+                                                val updatedList = subscriptions.filter { !it.url.startsWith("local://") } + newSub
+                                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
+                                                settingsManager.setActiveSubId(newSub.id)
+                                                
+                                                // Auto select first server
+                                                settingsManager.setActiveProfile(result.servers[0])
+                                                
+                                                // Clear form
+                                                subNameInput = ""
+                                                subUrlInput = ""
+                                                fetchError = null
+                                            } else {
+                                                fetchError = if (isFarsi) "پیکربندی معتبری یافت نشد." else "No valid configurations found."
+                                            }
+                                        } catch (e: Exception) {
+                                            fetchError = e.message ?: (if (isFarsi) "خطا در برقراری ارتباط" else "Fetch failed")
+                                        } finally {
+                                            isFetching = false
+                                        }
+                                    }
+                                }
+                            },
+                            shape = ExpressiveButtonShape,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isFetching && subUrlInput.trim().isNotEmpty()
+                        ) {
+                            if (isFetching) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            } else {
+                                Icon(imageVector = Icons.Filled.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = DesktopStrings.get("sub_import_btn", isFarsi))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class FetchResult(
+    val servers: List<String>,
+    val upload: Long? = null,
+    val download: Long? = null,
+    val total: Long? = null,
+    val expire: Long? = null
+)
+
+private data class SubscriptionUserInfo(
+    val upload: Long?,
+    val download: Long?,
+    val total: Long?,
+    val expire: Long?
+)
+
+private fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
+    if (header == null) return null
+    var upload: Long? = null
+    var download: Long? = null
+    var total: Long? = null
+    var expire: Long? = null
+    header.split(Regex("[;,]")).forEach { part ->
+        val pair = if (part.contains("=")) part.split("=") else part.split(":")
+        if (pair.size == 2) {
+            val key = pair[0].trim().lowercase()
+            val value = pair[1].trim().toLongOrNull()
+            when (key) {
+                "upload" -> upload = value
+                "download" -> download = value
+                "total" -> total = value
+                "expire" -> expire = value
+            }
+        }
+    }
+    return SubscriptionUserInfo(upload, download, total, expire)
+}
+
+private suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
+    try {
+        val url = java.net.URL(urlStr)
+        val connection = url.openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 15000
+        connection.readTimeout = 15000
+        connection.requestMethod = "GET"
+        connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
+        connection.connect()
+        val responseCode = connection.responseCode
+        if (responseCode == 200) {
+            val rawData = connection.inputStream.bufferedReader().use { it.readText() }
+            
+            // Handle base64 decryption (standard & URL-safe variants)
+            val decodedText = try {
+                val trimmed = rawData.trim().replace("\r", "").replace("\n", "").replace(" ", "")
+                val decodedBytes = try {
+                    java.util.Base64.getDecoder().decode(trimmed)
+                } catch (e: Exception) {
+                    java.util.Base64.getUrlDecoder().decode(trimmed)
+                }
+                String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8)
+            } catch (e: Exception) {
+                tryBase64Decode(rawData) ?: rawData
+            }
+            
+            val servers = decodedText.split("\n")
+                .map { it.trim() }
+                .filter {
+                    it.startsWith("vless://") || it.startsWith("trojan://") || it.startsWith("ss://") ||
+                    it.startsWith("vmess://") || it.startsWith("hysteria2://") || it.startsWith("hy2://") ||
+                    it.startsWith("tuic://")
+                }
+                
+            var userInfoHeader: String? = null
+            for ((key, values) in connection.headerFields) {
+                if (key != null && (key.equals("subscription-userinfo", ignoreCase = true) || key.equals("x-user-info", ignoreCase = true))) {
+                    userInfoHeader = values.firstOrNull()
+                    break
+                }
+            }
+            val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
+            FetchResult(
+                servers = servers,
+                upload = parsedInfo?.upload,
+                download = parsedInfo?.download,
+                total = parsedInfo?.total,
+                expire = parsedInfo?.expire
+            )
+        } else {
+            FetchResult(emptyList())
+        }
+    } catch (e: Exception) {
+        FetchResult(emptyList())
+    }
+}
+
+fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+    return String.format(java.util.Locale.US, "%.2f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
+fun formatExpiry(expirySecs: Long): String {
+    if (expirySecs <= 0) return ""
+    val ms = expirySecs * 1000L
+    val date = java.util.Date(ms)
+    val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+    return format.format(date)
 }
 
 fun getProxyName(link: String): String {

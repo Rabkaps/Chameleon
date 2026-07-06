@@ -4,6 +4,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import com.hambalapps.chameleon.theme.ChameleonTheme
 import com.hambalapps.chameleon.desktop.ui.MainScreen
 
@@ -15,7 +16,8 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
-        title = "Chameleon Desktop"
+        title = "Chameleon",
+        icon = painterResource("icon.png")
     ) {
         ChameleonTheme {
             MainScreen()

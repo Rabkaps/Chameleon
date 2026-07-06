@@ -55,9 +55,9 @@ android {
             val releaseKeystore = file("release.keystore")
             if (releaseKeystore.exists()) {
                 storeFile = releaseKeystore
-                storePassword = "chameleon"
+                storePassword = "expressivebox"
                 keyAlias = "expressivekey"
-                keyPassword = "chameleon"
+                keyPassword = "expressivebox"
             } else {
                 // Fallback to debug keystore on CI/GitHub actions if release key is missing
                 storeFile = file("debug.keystore")

@@ -12,7 +12,11 @@ data class Subscription(
     val id: String,
     val name: String,
     val url: String,
-    val servers: String
+    val servers: String,
+    val upload: Long? = null,
+    val download: Long? = null,
+    val total: Long? = null,
+    val expire: Long? = null
 )
 
 @Serializable
@@ -73,7 +77,11 @@ fun deserializeSubscriptions(data: String): List<Subscription> {
                 id = fields[0],
                 name = fields[1],
                 url = fields[2],
-                servers = fields[3]
+                servers = fields[3],
+                upload = if (fields.size > 4 && fields[4].isNotEmpty()) fields[4].toLongOrNull() else null,
+                download = if (fields.size > 5 && fields[5].isNotEmpty()) fields[5].toLongOrNull() else null,
+                total = if (fields.size > 6 && fields[6].isNotEmpty()) fields[6].toLongOrNull() else null,
+                expire = if (fields.size > 7 && fields[7].isNotEmpty()) fields[7].toLongOrNull() else null
             )
         } else null
     }
@@ -84,7 +92,11 @@ fun serializeSubscriptions(subs: List<Subscription>): String {
         val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
         val safeUrl = sub.url.replace("\u001e", "").replace("\u001f", "")
         val safeServers = sub.servers.replace("\u001e", "").replace("\u001f", "")
-        "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers"
+        val uploadStr = sub.upload?.toString() ?: ""
+        val downloadStr = sub.download?.toString() ?: ""
+        val totalStr = sub.total?.toString() ?: ""
+        val expireStr = sub.expire?.toString() ?: ""
+        "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers\u001f$uploadStr\u001f$downloadStr\u001f$totalStr\u001f$expireStr"
     }
 }
 
