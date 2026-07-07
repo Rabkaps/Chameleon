@@ -19,13 +19,14 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/widget_background_pill"
-        android:paddingHorizontal="16dp">
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp">
 
         <!-- Circular Action Toggle Button on the Left (styled exactly like Samsung's Optimise widget) -->
         <FrameLayout
             android:id="@+id/widget_button_toggle"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="@drawable/widget_button_background"
             android:clickable="true"
             android:focusable="true"
@@ -33,8 +34,8 @@
 
             <ImageView
                 android:id="@+id/widget_button_icon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_power"
                 android:scaleType="fitCenter" />
@@ -42,10 +43,11 @@
 
         <!-- Status and Node Text Column on the Right -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="14dp">
+            android:layout_marginStart="8dp">
 
             <TextView
                 android:id="@+id/widget_status"
@@ -53,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:text="UNPROTECTED"
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="16sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:maxLines="1"
                 android:ellipsize="end" />
@@ -64,7 +66,7 @@
                 android:layout_height="wrap_content"
                 android:text="Tap to secure"
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="11sp"
+                android:textSize="9sp"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:layout_marginTop="1dp" />

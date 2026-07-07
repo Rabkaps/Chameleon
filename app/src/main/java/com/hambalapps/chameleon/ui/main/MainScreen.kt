@@ -99,9 +99,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.selection.SelectionContainer
 
 // Expressive shapes defining Material 3 Expressive aesthetics
-private val ExpressiveCardShape = RoundedCornerShape(24.dp)
-private val ExpressiveButtonShape = RoundedCornerShape(16.dp)
-private val ExpressiveChipShape = RoundedCornerShape(12.dp)
+val ExpressiveCardShape = RoundedCornerShape(24.dp)
+val ExpressiveButtonShape = RoundedCornerShape(16.dp)
+val ExpressiveChipShape = RoundedCornerShape(12.dp)
 
 private fun compositeColor(foreground: Color, background: Color): Color {
     val alpha = foreground.alpha
@@ -2680,132 +2680,143 @@ fun MainScreen(
                                 // Horizontal Filters Row & Speed Test Button
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Group filter chip
-                                    Box {
-                                        androidx.compose.material3.FilterChip(
-                                            selected = selectedSubGroupFilter != "All Groups",
-                                            onClick = { isGroupDropdownExpanded = true },
-                                            label = { 
-                                                Text(
-                                                    text = if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter,
-                                                    maxLines = 1,
-                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                )
-                                            },
-                                            modifier = Modifier.widthIn(max = 130.dp)
-                                        )
-                                        DropdownMenu(
-                                            expanded = isGroupDropdownExpanded,
-                                            onDismissRequest = { isGroupDropdownExpanded = false }
-                                        ) {
-                                            subGroups.forEach { group ->
-                                                DropdownMenuItem(
-                                                    text = { Text(group) },
-                                                    onClick = {
-                                                        selectedSubGroupFilter = group
-                                                        isGroupDropdownExpanded = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Country filter chip
-                                    Box {
-                                        androidx.compose.material3.FilterChip(
-                                            selected = selectedCountryFilter != "All Countries",
-                                            onClick = { isCountryDropdownExpanded = true },
-                                            label = { 
-                                                Text(
-                                                    text = if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter,
-                                                    maxLines = 1,
-                                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                )
-                                            },
-                                            modifier = Modifier.widthIn(max = 130.dp)
-                                        )
-                                        DropdownMenu(
-                                            expanded = isCountryDropdownExpanded,
-                                            onDismissRequest = { isCountryDropdownExpanded = false }
-                                        ) {
-                                            uniqueCountries.forEach { country ->
-                                                DropdownMenuItem(
-                                                    text = { Text(country) },
-                                                    onClick = {
-                                                        selectedCountryFilter = country
-                                                        isCountryDropdownExpanded = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.weight(1f))
-
-                                    // Ping/Speed test button
-                                    FilledIconButton(
-                                        onClick = {
-                                            if (!isTestingPings) {
-                                                scope.launch {
-                                                    isTestingPings = true
-                                                    val jobs = serverList.map { link ->
-                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                             val hostPort = getHostAndPortFromLink(link)
-                                                             val ping = if (hostPort != null) {
-                                                                 measurePingDelay(hostPort.first, hostPort.second)
-                                                             } else {
-                                                                 -1
-                                                             }
-                                                             link to ping
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Group filter chip
+                                        Box {
+                                            androidx.compose.material3.FilterChip(
+                                                selected = selectedSubGroupFilter != "All Groups",
+                                                onClick = { isGroupDropdownExpanded = true },
+                                                label = { 
+                                                    Text(
+                                                        text = if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter,
+                                                        maxLines = 1,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                    )
+                                                },
+                                                modifier = Modifier.widthIn(max = 130.dp)
+                                            )
+                                            DropdownMenu(
+                                                expanded = isGroupDropdownExpanded,
+                                                onDismissRequest = { isGroupDropdownExpanded = false }
+                                            ) {
+                                                subGroups.forEach { group ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(group) },
+                                                        onClick = {
+                                                            selectedSubGroupFilter = group
+                                                            isGroupDropdownExpanded = false
                                                         }
-                                                    }
-                                                    val results = jobs.awaitAll()
-                                                    pingsMap = pingsMap + results.toMap()
-                                                    isTestingPings = false
+                                                    )
                                                 }
                                             }
-                                        },
-                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        shape = CircleShape,
-                                        enabled = !isTestingPings
-                                    ) {
-                                        if (isTestingPings) {
-                                            LoadingIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        }
+
+                                        // Country filter chip
+                                        Box {
+                                            androidx.compose.material3.FilterChip(
+                                                selected = selectedCountryFilter != "All Countries",
+                                                onClick = { isCountryDropdownExpanded = true },
+                                                label = { 
+                                                    Text(
+                                                        text = if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter,
+                                                        maxLines = 1,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                    )
+                                                },
+                                                modifier = Modifier.widthIn(max = 130.dp)
                                             )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Speed,
-                                                contentDescription = stringResource(R.string.test_pings),
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                            DropdownMenu(
+                                                expanded = isCountryDropdownExpanded,
+                                                onDismissRequest = { isCountryDropdownExpanded = false }
+                                            ) {
+                                                uniqueCountries.forEach { country ->
+                                                    DropdownMenuItem(
+                                                        text = { Text(country) },
+                                                        onClick = {
+                                                            selectedCountryFilter = country
+                                                            isCountryDropdownExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
 
-                                    FilledIconButton(
-                                        onClick = { isNodesExpanded = true },
-                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        shape = CircleShape
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Fullscreen,
-                                            contentDescription = "Expand Card",
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                        // Ping/Speed test button
+                                        FilledIconButton(
+                                            onClick = {
+                                                if (!isTestingPings) {
+                                                    scope.launch {
+                                                        isTestingPings = true
+                                                        val jobs = serverList.map { link ->
+                                                            scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                                val hostPort = getHostAndPortFromLink(link)
+                                                                val ping = if (hostPort != null) {
+                                                                    measurePingDelay(hostPort.first, hostPort.second)
+                                                                } else {
+                                                                    -1
+                                                                }
+                                                                link to ping
+                                                            }
+                                                        }
+                                                        val results = jobs.awaitAll()
+                                                        pingsMap = pingsMap + results.toMap()
+                                                        isTestingPings = false
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                            ),
+                                            shape = CircleShape,
+                                            enabled = !isTestingPings
+                                        ) {
+                                            if (isTestingPings) {
+                                                LoadingIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.Speed,
+                                                    contentDescription = stringResource(R.string.test_pings),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+
+                                        FilledIconButton(
+                                            onClick = { isNodesExpanded = true },
+                                            modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                            colors = IconButtonDefaults.filledIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                            ),
+                                            shape = CircleShape
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Fullscreen,
+                                                contentDescription = "Expand Card",
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
 
@@ -5060,182 +5071,280 @@ fun MainScreen(
             animationSpec = tween(300, easing = androidx.compose.animation.core.LinearEasing)
         )
     ) {
-        Surface(
+        androidx.compose.material3.Scaffold(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-            ) {
-                Row(
+            topBar = {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .background(MaterialTheme.colorScheme.background)
+                        .statusBarsPadding()
                 ) {
-                    IconButton(
-                        onClick = { isNodesExpanded = false },
-                        modifier = Modifier.pressScaleEffect()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.available_nodes),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    IconButton(
-                        onClick = {
-                            isSearchVisible = !isSearchVisible
-                            if (!isSearchVisible) searchQuery = ""
-                        },
-                        modifier = Modifier.pressScaleEffect()
-                    ) {
-                        Icon(
-                            imageVector = if (isSearchVisible) Icons.Default.SearchOff else Icons.Default.Search,
-                            contentDescription = stringResource(R.string.search),
-                            tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            if (!isTestingPings) {
-                                scope.launch {
-                                    isTestingPings = true
-                                    val jobs = serverList.map { link ->
-                                        scope.async(Dispatchers.IO) {
-                                            val hostPort = getHostAndPortFromLink(link)
-                                            val ping = if (hostPort != null) {
-                                                measurePingDelay(hostPort.first, hostPort.second)
-                                            } else {
-                                                -1
-                                            }
-                                            link to ping
-                                        }
-                                    }
-                                    val results = jobs.awaitAll()
-                                    pingsMap = pingsMap + results.toMap()
-                                    isTestingPings = false
-                                }
-                            }
-                        },
-                        enabled = !isTestingPings,
-                        modifier = Modifier.pressScaleEffect()
-                    ) {
-                        if (isTestingPings) {
-                            LoadingIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
+                        IconButton(
+                            onClick = { 
+                                isNodesExpanded = false 
+                                isMultiSelectMode = false
+                                selectedNodes = emptySet()
+                            },
+                            modifier = Modifier.pressScaleEffect()
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Speed,
-                                contentDescription = stringResource(R.string.test_pings),
-                                tint = MaterialTheme.colorScheme.primary
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                    }
-                }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.available_nodes),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
 
-                AnimatedVisibility(
-                    visible = isSearchVisible,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Column {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text(stringResource(R.string.search_placeholder)) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            shape = ExpressiveButtonShape,
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
+                        IconButton(
+                            onClick = {
+                                isSearchVisible = !isSearchVisible
+                                if (!isSearchVisible) searchQuery = ""
+                            },
+                            modifier = Modifier.pressScaleEffect()
+                        ) {
+                            Icon(
+                                imageVector = if (isSearchVisible) Icons.Default.SearchOff else Icons.Default.Search,
+                                contentDescription = stringResource(R.string.search),
+                                tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                if (!isTestingPings) {
+                                    scope.launch {
+                                        isTestingPings = true
+                                        val jobs = serverList.map { link ->
+                                            scope.async(Dispatchers.IO) {
+                                                val hostPort = getHostAndPortFromLink(link)
+                                                val ping = if (hostPort != null) {
+                                                    measurePingDelay(hostPort.first, hostPort.second)
+                                                } else {
+                                                    -1
+                                                }
+                                                link to ping
+                                            }
+                                        }
+                                        val results = jobs.awaitAll()
+                                        pingsMap = pingsMap + results.toMap()
+                                        isTestingPings = false
                                     }
                                 }
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                if (subscriptions.size > 1) {
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(subscriptions) { sub ->
-                            val isSelected = activeSubId == sub.id
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = {
-                                    scope.launch {
-                                        settingsManager.setActiveSubId(sub.id)
-                                    }
-                                },
-                                label = { Text(sub.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                shape = ExpressiveChipShape
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
-                    edgePadding = 16.dp,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    indicator = { tabPositions ->
-                        if (selectedTab < tabPositions.size) {
-                            TabRowDefaults.SecondaryIndicator(
-                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    },
-                    divider = {}
-                ) {
-                    listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selectedTab == index) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                    fontSize = 14.sp
+                            },
+                            enabled = !isTestingPings,
+                            modifier = Modifier.pressScaleEffect()
+                        ) {
+                            if (isTestingPings) {
+                                LoadingIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = stringResource(R.string.test_pings),
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
-                        )
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = isSearchVisible,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                shape = ExpressiveButtonShape,
+                                singleLine = true,
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    if (subscriptions.size > 1) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(subscriptions) { sub ->
+                                val isSelected = activeSubId == sub.id
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsManager.setActiveSubId(sub.id)
+                                        }
+                                    },
+                                    label = { Text(sub.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    shape = ExpressiveChipShape
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedTab,
+                        edgePadding = 16.dp,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        indicator = { tabPositions ->
+                            if (selectedTab < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
+                        divider = {}
+                    ) {
+                        listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = {
+                                    Text(
+                                        text = title,
+                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selectedTab == index) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            },
+            bottomBar = {
+                if (isMultiSelectMode) {
+                    NavigationBar(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                        containerColor = androidx.compose.ui.graphics.lerp(
+                            MaterialTheme.colorScheme.surfaceContainer,
+                            MaterialTheme.colorScheme.error,
+                            0.08f
+                        ).copy(alpha = 0.95f),
+                        tonalElevation = 8.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${selectedNodes.size} selected",
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val allFilteredManuals = remember(filteredServerList, manualServersStr) {
+                                    filteredServerList.filter { item ->
+                                        manualServersStr.split("\n").map { it.trim() }.contains(item.link.trim())
+                                    }.map { it.link }.toSet()
+                                }
+                                val isAllSelected = selectedNodes.containsAll(allFilteredManuals) && allFilteredManuals.isNotEmpty()
+                                TextButton(
+                                    onClick = {
+                                        if (isAllSelected) {
+                                            val nextSelection = selectedNodes - allFilteredManuals
+                                            selectedNodes = nextSelection
+                                            if (nextSelection.isEmpty()) {
+                                                isMultiSelectMode = false
+                                            }
+                                        } else {
+                                            selectedNodes = selectedNodes + allFilteredManuals
+                                        }
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Text(if (isAllSelected) "Deselect All" else "Select All")
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Text(stringResource(R.string.cancel))
+                                }
+                                Button(
+                                    onClick = {
+                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                        val newManualList = currentManualList.filter { !selectedNodes.contains(it) }
+                                        scope.launch {
+                                            settingsManager.setManualServers(newManualList.joinToString("\n"))
+                                        }
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ),
+                                    shape = ExpressiveButtonShape,
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Delete")
+                                }
+                            }
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
                 if (filteredServerList.isEmpty()) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
+                            .fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -5247,8 +5356,7 @@ fun MainScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
+                            .fillMaxSize()
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -5282,6 +5390,10 @@ fun MainScreen(
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
+                            val isManualNode = remember(manualServersStr, serverLink) {
+                                manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .animateItem()
@@ -5296,33 +5408,76 @@ fun MainScreen(
                                         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else Color.Transparent,
                                         shape = ExpressiveButtonShape
                                     )
-                                    .clickable {
-                                        scope.launch {
-                                            settingsManager.setActiveProfile(serverLink)
-                                            if (vpnState == "CONNECTED") {
-                                                startVpnService(context)
+                                    .combinedClickable(
+                                        onClick = {
+                                            if (isMultiSelectMode) {
+                                                if (isManualNode) {
+                                                    selectedNodes = if (selectedNodes.contains(serverLink)) {
+                                                        selectedNodes - serverLink
+                                                    } else {
+                                                        selectedNodes + serverLink
+                                                    }
+                                                    if (selectedNodes.isEmpty()) {
+                                                        isMultiSelectMode = false
+                                                    }
+                                                } else {
+                                                    android.widget.Toast.makeText(context, "Only custom/manual nodes can be selected for batch deletion", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                scope.launch {
+                                                    settingsManager.setActiveProfile(serverLink)
+                                                    if (vpnState == "CONNECTED") {
+                                                        startVpnService(context)
+                                                    }
+                                                }
+                                            }
+                                        },
+
+                                        onLongClick = {
+                                            if (isManualNode) {
+                                                if (!isMultiSelectMode) {
+                                                    isMultiSelectMode = true
+                                                    selectedNodes = setOf(serverLink)
+                                                }
                                             }
                                         }
-                                    }
+                                    )
                                     .padding(horizontal = 12.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
-                                        contentDescription = null,
-                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
+                                if (isMultiSelectMode && isManualNode) {
+                                    Checkbox(
+                                        checked = selectedNodes.contains(serverLink),
+                                        onCheckedChange = { checked ->
+                                            selectedNodes = if (checked) {
+                                                selectedNodes + serverLink
+                                            } else {
+                                                selectedNodes - serverLink
+                                            }
+                                            if (selectedNodes.isEmpty()) {
+                                                isMultiSelectMode = false
+                                            }
+                                        },
+                                        modifier = Modifier.padding(end = 4.dp)
                                     )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.surfaceVariant
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
+                                            contentDescription = null,
+                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -5348,134 +5503,59 @@ fun MainScreen(
                                                 color = tagTextColor,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1,
-                                                softWrap = false
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
-
-                                        Spacer(modifier = Modifier.width(6.dp))
-
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(ExpressiveChipShape)
-                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
-                                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                                        ) {
-                                            Text(
-                                                text = transport,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        val ping = pingsMap[serverLink]
-                                        if (ping != null) {
-                                            val isTimeout = ping < 0
-                                            val pingColor = when {
-                                                isTimeout -> Color(0xFFF44336)
-                                                ping < 60 -> Color(0xFF4CAF50)
-                                                ping < 120 -> Color(0xFFFFB300)
-                                                else -> Color(0xFFF44336)
+                                        if (!transport.isNullOrEmpty()) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(ExpressiveChipShape)
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                            ) {
+                                                Text(
+                                                    text = transport.uppercase(),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
                                             }
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(6.dp)
-                                                    .clip(CircleShape)
-                                                    .background(pingColor)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = if (isTimeout) "Timeout" else "${ping} ms",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = pingColor,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
-                                        } else {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(6.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = stringResource(R.string.untested),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                softWrap = false
-                                            )
                                         }
                                     }
                                 }
-
+                                
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    IconButton(
-                                        onClick = {
-                                            val sendIntent = Intent().apply {
-                                                action = Intent.ACTION_SEND
-                                                putExtra(Intent.EXTRA_TEXT, serverLink)
-                                                this.type = "text/plain"
-                                            }
-                                            val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_config))
-                                            context.startActivity(shareIntent)
-                                        },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Share,
-                                            contentDescription = stringResource(R.string.share_config),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    IconButton(
-                                        onClick = {
-                                            qrCodeToShare = Pair(name, serverLink)
-                                        },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.QrCode,
-                                            contentDescription = "QR Share",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    if (activeSubId == "manual") {
-                                        IconButton(
-                                            onClick = {
-                                                editingNodeLink = serverLink
-                                                editLinkInput = serverLink
-                                            },
-                                            modifier = Modifier.size(36.dp)
+                                    val ping = pingsMap[serverLink]
+                                    val isTimeout = ping != null && ping < 0
+                                    if (ping != null) {
+                                        val pingColor = if (isTimeout) Color.Red else if (ping < 150) Color.Green else Color.Yellow
+                                        Box(
+                                            modifier = Modifier
+                                                .background(pingColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = stringResource(R.string.edit_config),
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
+                                            Text(
+                                                text = if (isTimeout) "Timeout" else "${ping}ms",
+                                                color = pingColor,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
+                                    }
 
+                                    if (isManualNode && !isMultiSelectMode) {
                                         IconButton(
                                             onClick = {
                                                 scope.launch {
-                                                    val currentManual = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                                                    val updatedManualList = currentManual.filter { it != serverLink }
-                                                    val updatedManualStr = updatedManualList.joinToString("\n")
-                                                    settingsManager.setManualServers(updatedManualStr)
+                                                    val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                                    val updatedManualList = currentManualList.filter { it != serverLink }
+                                                    settingsManager.setManualServers(updatedManualList.joinToString("\n"))
 
                                                     if (serverLink.startsWith("chain://")) {
                                                         val chainId = serverLink.substringAfter("chain://").substringBefore("#")
@@ -5507,7 +5587,6 @@ fun MainScreen(
                                             )
                                         }
                                     }
-                                }
                             }
                         }
                     }
@@ -5515,1084 +5594,6 @@ fun MainScreen(
             }
         }
     }
-    }
-}
-
-fun getFlagEmoji(serverName: String, countryCode: String? = null): String {
-    if (!countryCode.isNullOrEmpty() && countryCode != "🌐" && countryCode != "??") {
-        return getFlagEmojiFromCountryCode(countryCode)
-    }
-    val name = serverName.lowercase()
-    
-    // Helper to check if a country code token is present in name (e.g. "de", "us", "ir")
-    fun hasCountryToken(code: String): Boolean {
-        val regex = Regex("(^|[^a-z])$code([^a-z]|$)", RegexOption.IGNORE_CASE)
-        return regex.containsMatchIn(name)
-    }
-
-    return when {
-        name.contains("germany") || name.contains("frankfurt") || hasCountryToken("de") -> "🇩🇪"
-        name.contains("spain") || name.contains("madrid") || name.contains("barcelona") || hasCountryToken("es") -> "🇪🇸"
-        name.contains("japan") || name.contains("tokyo") || name.contains("osaka") || hasCountryToken("jp") -> "🇯🇵"
-        name.contains("united states") || name.contains("new%20york") || name.contains("new york") || name.contains("chicago") || name.contains("los angeles") || hasCountryToken("us") -> "🇺🇸"
-        name.contains("united kingdom") || name.contains("london") || hasCountryToken("uk") || hasCountryToken("gb") -> "🇬🇧"
-        name.contains("france") || name.contains("paris") || hasCountryToken("fr") -> "🇫🇷"
-        name.contains("netherlands") || name.contains("amsterdam") || hasCountryToken("nl") -> "🇳🇱"
-        name.contains("singapore") || hasCountryToken("sg") -> "🇸🇬"
-        name.contains("turkey") || name.contains("istanbul") || hasCountryToken("tr") -> "🇹🇷"
-        name.contains("canada") || name.contains("toronto") || hasCountryToken("ca") -> "🇨🇦"
-        name.contains("iran") || name.contains("tehran") || hasCountryToken("ir") -> "🇮🇷"
-        name.contains("finland") || name.contains("helsinki") || hasCountryToken("fi") -> "🇫🇮"
-        name.contains("sweden") || name.contains("stockholm") || hasCountryToken("se") -> "🇸🇪"
-        name.contains("italy") || name.contains("milan") || name.contains("rome") || hasCountryToken("it") -> "🇮🇹"
-        name.contains("switzerland") || name.contains("zurich") || hasCountryToken("ch") -> "🇨🇭"
-        name.contains("uae") || name.contains("dubai") || hasCountryToken("ae") -> "🇦🇪"
-        name.contains("hong kong") || name.contains("hk") -> "🇭🇰"
-        name.contains("korea") || name.contains("seoul") || hasCountryToken("kr") -> "🇰🇷"
-        else -> "🌐"
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun ConnectionDashboard(
-    state: String,
-    cardStyle: String,
-    isDark: Boolean,
-    delayTestUrl: String,
-    activeProfile: String,
-    activeSubId: String,
-    subscriptions: List<com.hambalapps.chameleon.data.Subscription>,
-    vpnMode: String,
-    vpnModeTunnelGames: Boolean,
-    settingsManager: SettingsManager,
-    scope: CoroutineScope,
-    onConnectToggle: () -> Unit,
-    onNavigateToServers: () -> Unit,
-    activeCountryCode: String? = null
-) {
-    val context = LocalContext.current
-    val transition = updateTransition(targetState = state, label = "VPNStateTransition")
-
-    val stateText = when (state) {
-        "CONNECTED" -> "SECURED"
-        "CONNECTING" -> "CONNECTING..."
-        "DISCONNECTING" -> "DISCONNECTING..."
-        else -> "UNPROTECTED"
-    }
-
-    val isVpnActive = state == "CONNECTED" || state == "CONNECTING"
-    
-    val containerColor = if (isVpnActive) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
-    }
-    
-    val contentColor = if (isVpnActive) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    }
-
-    val buttonColor by transition.animateColor(label = "ButtonColor") { s ->
-        if (s == "CONNECTED" || s == "CONNECTING") Color.White else MaterialTheme.colorScheme.primary
-    }
-
-    val buttonIconColor by transition.animateColor(label = "ButtonIconColor") { s ->
-        if (s == "CONNECTED" || s == "CONNECTING") MaterialTheme.colorScheme.primary else Color.White
-    }
-
-    val pulseScaleState = remember { androidx.compose.animation.core.Animatable(1.0f) }
-    val isPulseActive = state == "CONNECTING" || state == "DISCONNECTING"
-    LaunchedEffect(isPulseActive) {
-        if (isPulseActive) {
-            pulseScaleState.animateTo(
-                targetValue = 1.08f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1200, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-        } else {
-            pulseScaleState.snapTo(1.0f)
-        }
-    }
-    val pulseScale = pulseScaleState.value
-
-    val scaleFactor by transition.animateFloat(
-        label = "ButtonScale",
-        transitionSpec = { spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow) }
-    ) { s ->
-        if (s == "CONNECTED") 1.05f else 1.0f
-    }
-
-    val finalScale = if (state == "CONNECTING") pulseScale else scaleFactor
-
-    var pingTime by remember { mutableStateOf("--") }
-    
-    LaunchedEffect(state, delayTestUrl) {
-        if (state == "CONNECTED") {
-            launch(Dispatchers.IO) {
-                while (true) {
-                    val startTime = System.currentTimeMillis()
-                    var connection: java.net.HttpURLConnection? = null
-                    val ping = try {
-                        val url = java.net.URL(delayTestUrl)
-                        connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 3000
-                        connection.readTimeout = 3000
-                        connection.requestMethod = "GET"
-                        connection.useCaches = false
-                        connection.instanceFollowRedirects = false
-                        val responseCode = connection.responseCode
-                        val elapsed = System.currentTimeMillis() - startTime
-                        "${elapsed}ms"
-                    } catch (e: Exception) {
-                        "Timeout"
-                    } finally {
-                        connection?.disconnect()
-                    }
-                    
-                    kotlinx.coroutines.withContext(Dispatchers.Main) {
-                        pingTime = ping
-                    }
-                    kotlinx.coroutines.delay(10000)
-                }
-            }
-        } else {
-            pingTime = "--"
-        }
-    }
-
-    val activeSubscription = remember(subscriptions, activeSubId) {
-        subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
-    }
-    val activeSubName = activeSubscription?.name ?: "Manual"
-    val serverName = if (activeProfile.isEmpty()) {
-        stringResource(R.string.no_profile_active)
-    } else if (activeProfile.startsWith("{")) {
-        stringResource(R.string.custom_json)
-    } else {
-        ProxyNameResolver.getProxyName(activeProfile, context)
-    }
-    val protocolName = if (activeProfile.isEmpty()) {
-        ""
-    } else if (activeProfile.startsWith("{")) {
-        "JSON"
-    } else {
-        activeProfile.substringBefore("://").uppercase()
-    }
-    val flagEmoji = remember(serverName, activeCountryCode) { getFlagEmoji(serverName, activeCountryCode) }
-
-    // Read settings fields for WARP configuration
-    val settingsState = settingsManager.settings.collectAsState(initial = null).value
-    val warpDetourMode = settingsState?.warpDetourMode ?: "proxy"
-    val warpPort = settingsState?.warpPort ?: "2408"
-    val enableMtProxy = settingsState?.enableMtProxy ?: false
-    val mtProxyPort = settingsState?.mtProxyPort ?: "19999"
-    val mtProxySecret = settingsState?.mtProxySecret ?: "dd000102030405060708090a0b0c0d0e0f"
-    var isRegisteringWarp by remember { mutableStateOf(false) }
-
-    // Recompute bento card brushes to exactly match Settings bento cards styling
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-    val tertiaryColor = MaterialTheme.colorScheme.tertiary
-    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
-    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHigh
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-    val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
-    val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
-    val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
-    val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
-
-    val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid") {
-            SolidColor(outlineVariant)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
-                secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
-                secondaryColor.copy(alpha = if (isDark) 0.40f else 0.06f)
-            )
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(primaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                primaryContainer,
-                secondaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    primaryColor.copy(alpha = 0.55f),
-                    secondaryColor.copy(alpha = 0.28f)
-                )
-            } else {
-                listOf(
-                    primaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
-            }
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, tertiaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(secondaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                secondaryContainer,
-                tertiaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    secondaryColor.copy(alpha = 0.55f),
-                    tertiaryColor.copy(alpha = 0.28f)
-                )
-            } else {
-                listOf(
-                    secondaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
-            }
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(tertiaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                tertiaryContainer,
-                primaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.55f),
-                    primaryColor.copy(alpha = 0.28f)
-                )
-            } else {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
-            }
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = if (isVpnActive) primaryCardBrush else secondaryCardBrush, shape = RoundedCornerShape(32.dp))
-                .border(
-                    width = 1.dp,
-                    brush = cardBorderBrush,
-                    shape = RoundedCornerShape(32.dp)
-                )
-                .clickable { onConnectToggle() },
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp, horizontal = 16.dp)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(180.dp)
-                ) {
-                    if (state == "CONNECTED" || state == "CONNECTING") {
-                        WaveVisualizer(
-                            state = state,
-                            primaryColor = MaterialTheme.colorScheme.primary,
-                            secondaryColor = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(180.dp)
-                        )
-                    }
-
-                    if (isVpnActive) {
-                        Box(
-                            modifier = Modifier
-                                .size(136.dp)
-                                .graphicsLayer {
-                                    scaleX = finalScale * pulseScale
-                                    scaleY = finalScale * pulseScale
-                                    alpha = 0.15f
-                                }
-                                .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                        )
-                    }
-
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(116.dp)
-                            .graphicsLayer {
-                                scaleX = finalScale
-                                scaleY = finalScale
-                            }
-                            .pressScaleEffect()
-                            .clip(CircleShape)
-                            .background(buttonColor)
-                            .border(
-                                width = 4.dp,
-                                color = if (state == "CONNECTED" || state == "CONNECTING") {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                                } else {
-                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
-                                },
-                                shape = CircleShape
-                            )
-                    ) {
-                        if (state == "CONNECTING") {
-                            LoadingIndicator(
-                                modifier = Modifier.size(56.dp),
-                                color = buttonIconColor
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
-                                contentDescription = stringResource(R.string.connect_toggle),
-                                tint = buttonIconColor,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AnimatedContent(
-                    targetState = stateText,
-                    transitionSpec = {
-                        (slideInVertically { height -> height } + fadeIn())
-                            .togetherWith(slideOutVertically { height -> -height } + fadeOut())
-                    },
-                    label = "StateTextTransition"
-                ) { targetText ->
-                    Text(
-                        text = targetText,
-                        color = contentColor,
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.titleMedium,
-                        letterSpacing = 2.sp
-                    )
-                }
-
-                if (state == "CONNECTED") {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val durationVal = remember { mutableStateOf("00:00:00") }
-                    val serviceManager = VpnServiceWrapper.vpnState
-                    LaunchedEffect(state) {
-                        val startTime = System.currentTimeMillis()
-                        while (serviceManager.value == "CONNECTED") {
-                            val elapsed = System.currentTimeMillis() - startTime
-                            val sec = (elapsed / 1000) % 60
-                            val min = (elapsed / (1000 * 60)) % 60
-                            val hr = elapsed / (1000 * 60 * 60)
-                            durationVal.value = String.format(java.util.Locale.US, "%02d:%02d:%02d", hr, min, sec)
-                            kotlinx.coroutines.delay(1000)
-                        }
-                    }
-                    Text(
-                        text = durationVal.value,
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        ),
-                        color = contentColor.copy(alpha = 0.9f)
-                    )
-                }
-            }
-        }
-
-        // Active Server Card (Bento Style with brush backgrounds)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
-                .clickable { onNavigateToServers() }
-                .pressScaleEffect(),
-            shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            VibrantCardContent(cardStyle) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(
-                                text = activeSubName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = serverName,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Select Server",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-
-        // Ping and Protocol Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-                shape = ExpressiveCardShape,
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                VibrantCardContent(cardStyle) {
-                    Column(
-                        modifier = Modifier
-                            .padding(18.dp)
-                            .height(86.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = "Ping",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "PING",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = pingTime,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-                shape = ExpressiveCardShape,
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                VibrantCardContent(cardStyle) {
-                    Column(
-                        modifier = Modifier
-                            .padding(18.dp)
-                            .height(86.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Protocol",
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            if (state == "CONNECTED" && flagEmoji != "🌐") {
-                                Text(
-                                    text = flagEmoji,
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "PROTOCOL",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = if (protocolName.isEmpty()) "NONE" else protocolName,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // AI-Bypass Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-            shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            VibrantCardContent(cardStyle) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SmartToy,
-                            contentDescription = "AI-Bypass",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(
-                                text = "AI-Bypass",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Smart routing active",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Switch(
-                        checked = vpnMode == "ai_bypass",
-                        onCheckedChange = { checked ->
-                            scope.launch {
-                                if (checked) {
-                                    val privateKey = settingsManager.settings.first().warpPrivateKey
-                                    val clientId = settingsManager.settings.first().warpClientId
-                                    if (privateKey.isEmpty() || clientId.isEmpty()) {
-                                        isRegisteringWarp = true
-                                        val creds = com.hambalapps.chameleon.vpn.registerWarpAccount()
-                                        isRegisteringWarp = false
-                                        if (creds != null) {
-                                            settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
-                                            settingsManager.setVpnMode("ai_bypass")
-                                            if (state == "CONNECTED") {
-                                                startVpnService(context)
-                                            }
-                                        } else {
-                                            android.widget.Toast.makeText(context, "WARP registration failed", android.widget.Toast.LENGTH_LONG).show()
-                                        }
-                                    } else {
-                                        settingsManager.setVpnMode("ai_bypass")
-                                        if (state == "CONNECTED") {
-                                            startVpnService(context)
-                                        }
-                                    }
-                                } else {
-                                    settingsManager.setVpnMode("standard")
-                                    if (state == "CONNECTED") {
-                                        startVpnService(context)
-                                    }
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        // WARP Detour & Port Selection Bento Card (shown reactively under AI-Bypass)
-        AnimatedVisibility(
-            visible = vpnMode == "ai_bypass",
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-                shape = ExpressiveCardShape,
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                VibrantCardContent(cardStyle) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = stringResource(R.string.warp_detour_title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.warp_detour_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("proxy" to "Proxy", "direct" to "Direct").forEach { (optionKey, optionName) ->
-                                val isSelected = warpDetourMode == optionKey
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        scope.launch {
-                                            settingsManager.setWarpDetourMode(optionKey)
-                                            if (state == "CONNECTED") {
-                                                startVpnService(context)
-                                            }
-                                        }
-                                    },
-                                    label = { Text(optionName) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = ExpressiveButtonShape
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(20.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Text(
-                            text = stringResource(R.string.warp_port_title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.warp_port_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("2408", "500", "1701", "4500").forEach { portStr ->
-                                val isSelected = warpPort == portStr
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        scope.launch {
-                                            settingsManager.setWarpPort(portStr)
-                                            if (state == "CONNECTED") {
-                                                startVpnService(context)
-                                            }
-                                        }
-                                    },
-                                    label = { Text(portStr) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = ExpressiveButtonShape
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Gaming Mode Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-            shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            VibrantCardContent(cardStyle) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.SportsEsports,
-                                contentDescription = "Gaming Mode",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "Gaming Mode",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Lowest latency routing",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = vpnMode == "gaming",
-                            onCheckedChange = { checked ->
-                                scope.launch {
-                                    if (checked) {
-                                        settingsManager.setVpnMode("gaming")
-                                    } else {
-                                        settingsManager.setVpnMode("standard")
-                                    }
-                                    if (state == "CONNECTED") {
-                                        startVpnService(context)
-                                    }
-                                }
-                            }
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = vpnMode == "gaming",
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(R.string.tunnel_games_title),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.tunnel_games_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Switch(
-                                    checked = vpnModeTunnelGames,
-                                    onCheckedChange = { checked ->
-                                        scope.launch {
-                                            settingsManager.setVpnModeTunnelGames(checked)
-                                            if (state == "CONNECTED") {
-                                                startVpnService(context)
-                                            }
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Telegram Proxy Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-            shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-        ) {
-            VibrantCardContent(cardStyle) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Send,
-                                contentDescription = "Telegram Proxy",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "Telegram Proxy",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Run local Telegram MTProxy server",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = enableMtProxy,
-                            onCheckedChange = { checked ->
-                                scope.launch {
-                                    settingsManager.setEnableMtProxy(checked)
-                                    // Wait until settings update is emitted to avoid race conditions
-                                    settingsManager.enableMtProxy.first { it == checked }
-                                    
-                                    if (state == "CONNECTED") {
-                                        startVpnService(context)
-                                    } else {
-                                        if (checked) {
-                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-                                                action = VpnServiceWrapper.ACTION_START_PROXY
-                                            }
-                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                context.startForegroundService(intent)
-                                            } else {
-                                                context.startService(intent)
-                                            }
-                                        } else {
-                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-                                                action = VpnServiceWrapper.ACTION_STOP
-                                                putExtra("force_stop", true)
-                                            }
-                                            context.startService(intent)
-                                        }
-                                    }
-                                }
-                            }
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = enableMtProxy,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Proxy Port",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "Port for MTProxy (1024-65535)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                var portText by remember(mtProxyPort) { mutableStateOf(mtProxyPort) }
-                                OutlinedTextField(
-                                    value = portText,
-                                    onValueChange = {
-                                        portText = it
-                                        if (it.toIntOrNull() in 1024..65535) {
-                                            scope.launch {
-                                                settingsManager.setMtProxyPort(it)
-                                                if (state == "CONNECTED") {
-                                                    startVpnService(context)
-                                                } else {
-                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-                                                        action = VpnServiceWrapper.ACTION_START_PROXY
-                                                    }
-                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                        context.startForegroundService(intent)
-                                                    } else {
-                                                        context.startService(intent)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    },
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    modifier = Modifier.width(90.dp),
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Secret Key",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "MTProto client obfuscated secret",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                var secretText by remember(mtProxySecret) { mutableStateOf(mtProxySecret) }
-                                OutlinedTextField(
-                                    value = secretText,
-                                    onValueChange = {
-                                        secretText = it
-                                        val isLengthOk = it.length == 34 || it.length == 32
-                                        val startsWithValid = it.startsWith("dd", ignoreCase = true) || 
-                                                              it.startsWith("ee", ignoreCase = true) || 
-                                                              (it.length == 32 && !it.startsWith("dd", ignoreCase = true) && !it.startsWith("ee", ignoreCase = true))
-                                        if (isLengthOk && startsWithValid) {
-                                            scope.launch {
-                                                settingsManager.setMtProxySecret(it)
-                                                if (state == "CONNECTED") {
-                                                    startVpnService(context)
-                                                } else {
-                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-                                                        action = VpnServiceWrapper.ACTION_START_PROXY
-                                                    }
-                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                        context.startForegroundService(intent)
-                                                    } else {
-                                                        context.startService(intent)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    },
-                                    singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    modifier = Modifier.width(180.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Button(
-                                onClick = {
-                                    val normalizedSecret = ConfigInjector.normalizeMtProxySecret(mtProxySecret)
-                                    val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${normalizedSecret}"
-                                    val sendIntent: Intent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, link)
-                                        type = "text/plain"
-                                    }
-                                    val shareIntent = Intent.createChooser(sendIntent, null)
-                                    context.startActivity(shareIntent)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = ExpressiveButtonShape
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Connect / Share Telegram Proxy")
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     if (isRegisteringWarp) {
@@ -6613,1354 +5614,4 @@ fun ConnectionDashboard(
         )
     }
 }
-
-@Composable
-fun BandwidthSpeedGraph(
-    history: List<Float>,
-    primaryColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        if (history.isEmpty()) {
-            drawLine(
-                color = primaryColor.copy(alpha = 0.2f),
-                start = Offset(0f, height),
-                end = Offset(width, height),
-                strokeWidth = 1.dp.toPx()
-            )
-            return@Canvas
-        }
-
-        val maxVal = maxOf(50f, history.maxOrNull() ?: 50f)
-        val path = Path()
-        val stepX = width / maxOf(1, history.size - 1)
-
-        val points = history.mapIndexed { idx, value ->
-            val x = idx * stepX
-            val y = height - (value / maxVal) * height * 0.8f
-            Offset(x, y)
-        }
-
-        if (points.isNotEmpty()) {
-            path.moveTo(points[0].x, points[0].y)
-            for (i in 0 until points.size - 1) {
-                val p0 = points[i]
-                val p1 = points[i + 1]
-                val controlX = (p0.x + p1.x) / 2f
-                path.cubicTo(
-                    x1 = controlX, y1 = p0.y,
-                    x2 = controlX, y2 = p1.y,
-                    x3 = p1.x, y3 = p1.y
-                )
-            }
-            
-            drawPath(
-                path = path,
-                color = primaryColor,
-                style = Stroke(
-                    width = 2.dp.toPx(),
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                    join = androidx.compose.ui.graphics.StrokeJoin.Round
-                )
-            )
-
-            val fillPath = Path().apply {
-                addPath(path)
-                lineTo(width, height)
-                lineTo(0f, height)
-                close()
-            }
-            drawPath(
-                path = fillPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(primaryColor.copy(alpha = 0.25f), Color.Transparent),
-                    startY = 0f,
-                    endY = height
-                )
-            )
-        }
-    }
 }
-
-private fun startVpnService(context: Context) {
-    val settingsManager = SettingsManager(context.applicationContext)
-    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-        val currentSettings = settingsManager.settings.first()
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-                action = VpnServiceWrapper.ACTION_START
-                putExtra("active_profile", currentSettings.activeProfile)
-                putExtra("show_live_notification", currentSettings.showLiveNotification)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        }
-    }
-}
-
-private fun stopVpnService(context: Context) {
-    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
-        action = VpnServiceWrapper.ACTION_STOP
-    }
-    context.startService(intent)
-}
-
-private data class FetchResult(
-    val servers: List<String>,
-    val upload: Long? = null,
-    val download: Long? = null,
-    val total: Long? = null,
-    val expire: Long? = null
-)
-
-private data class SubscriptionUserInfo(
-    val upload: Long?,
-    val download: Long?,
-    val total: Long?,
-    val expire: Long?
-)
-
-private fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
-    if (header == null) return null
-    var upload: Long? = null
-    var download: Long? = null
-    var total: Long? = null
-    var expire: Long? = null
-    header.split(Regex("[;,]")).forEach { part ->
-        val pair = if (part.contains("=")) part.split("=") else part.split(":")
-        if (pair.size == 2) {
-            val key = pair[0].trim().lowercase()
-            val value = pair[1].trim().toLongOrNull()
-            when (key) {
-                "upload" -> upload = value
-                "download" -> download = value
-                "total" -> total = value
-                "expire" -> expire = value
-            }
-        }
-    }
-    return SubscriptionUserInfo(upload, download, total, expire)
-}
-
-private suspend fun fetchSubscription(urlStr: String): FetchResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    try {
-        val url = java.net.URL(urlStr)
-        val connection = url.openConnection() as java.net.HttpURLConnection
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.requestMethod = "GET"
-        connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
-        connection.connect()
-        val responseCode = connection.responseCode
-        if (responseCode == 200) {
-            val rawData = connection.inputStream.bufferedReader().use { it.readText() }
-            val decoded = tryBase64Decode(rawData) ?: rawData
-            val servers = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-            var userInfoHeader: String? = null
-            for ((key, values) in connection.headerFields) {
-                if (key != null && (key.equals("subscription-userinfo", ignoreCase = true) || key.equals("x-user-info", ignoreCase = true))) {
-                    userInfoHeader = values.firstOrNull()
-                    break
-                }
-            }
-            val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
-            FetchResult(
-                servers = servers,
-                upload = parsedInfo?.upload,
-                download = parsedInfo?.download,
-                total = parsedInfo?.total,
-                expire = parsedInfo?.expire
-            )
-        } else {
-            FetchResult(emptyList())
-        }
-    } catch (e: Exception) {
-        FetchResult(emptyList())
-    }
-}
-
-@Composable
-fun Modifier.pressScaleEffect(): Modifier {
-    var pressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.95f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-        label = "pressScale"
-    )
-    return this
-        .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        .pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    pressed = true
-                    waitForUpOrCancellation()
-                    pressed = false
-                }
-            }
-        }
-}
-
-// ServerItem helper class for precomputed server properties to optimize scroll performance
-data class ServerItem(
-    val id: String,
-    val link: String,
-    val name: String,
-    val type: String,
-    val transport: String
-)
-
-fun getTransportType(link: String): String {
-    val scheme = link.substringBefore("://").lowercase()
-    if (scheme == "vmess") {
-        val base64Part = link.substringAfter("vmess://")
-        val decoded = tryBase64Decode(base64Part)
-        if (decoded != null && decoded.startsWith("{")) {
-            try {
-                val json = org.json.JSONObject(decoded)
-                val net = json.optString("net").lowercase()
-                if (net.isNotEmpty()) {
-                    return when (net) {
-                        "tcp" -> "TCP"
-                        "ws" -> "WebSocket"
-                        "h2" -> "HTTP/2"
-                        "http" -> "HTTP"
-                        "grpc" -> "gRPC"
-                        "httpupgrade" -> "HTTPUpgrade"
-                        "kcp" -> "mKCP"
-                        "mkcp" -> "mKCP"
-                        "quic" -> "QUIC"
-                        else -> net.uppercase()
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore
-            }
-        }
-    } else {
-        try {
-            val uri = java.net.URI(link)
-            val query = uri.rawQuery
-            if (query != null) {
-                val params = query.split("&").associate {
-                    val parts = it.split("=")
-                    val key = parts[0].lowercase()
-                    val value = if (parts.size > 1) java.net.URLDecoder.decode(parts[1], "UTF-8") else ""
-                    key to value
-                }
-                
-                val type = params["type"]?.lowercase()
-                if (type != null && type.isNotEmpty()) {
-                    return when (type) {
-                        "tcp" -> {
-                            val headerType = params["headerType"] ?: params["header_type"]
-                            if (headerType == "http") "HTTP" else "TCP"
-                        }
-                        "ws" -> "WebSocket"
-                        "grpc" -> "gRPC"
-                        "httpupgrade" -> "HTTPUpgrade"
-                        "xhttp" -> "xHTTP"
-                        "kcp" -> "mKCP"
-                        "mkcp" -> "mKCP"
-                        "quic" -> "QUIC"
-                        else -> type.uppercase()
-                    }
-                }
-                val plugin = params["plugin"]
-                if (plugin != null && plugin.isNotEmpty()) {
-                    return plugin.substringBefore(";").uppercase()
-                }
-            }
-        } catch (e: Exception) {
-            // Ignore
-        }
-    }
-    return when (scheme) {
-        "hysteria", "hysteria2", "hy2" -> "Hysteria"
-        "tuic" -> "TUIC"
-        "ssh" -> "SSH"
-        else -> "TCP"
-    }
-}
-
-private class WaveCache(points: Int) {
-    val cosAngle = FloatArray(points + 1)
-    val sinAngle = FloatArray(points + 1)
-    
-    val cos2a = FloatArray(points + 1)
-    val sin2a = FloatArray(points + 1)
-    
-    val cos3a = FloatArray(points + 1)
-    val sin3a = FloatArray(points + 1)
-    
-    val cos4a = FloatArray(points + 1)
-    val sin4a = FloatArray(points + 1)
-    
-    val cos5a = FloatArray(points + 1)
-    val sin5a = FloatArray(points + 1)
-    
-    val cos6a = FloatArray(points + 1)
-    val sin6a = FloatArray(points + 1)
-    
-    val cos7a = FloatArray(points + 1)
-    val sin7a = FloatArray(points + 1)
-    
-    val cos11a = FloatArray(points + 1)
-    val sin11a = FloatArray(points + 1)
-    
-    init {
-        val step = (2f * Math.PI / points).toFloat()
-        for (i in 0..points) {
-            val angle = i * step
-            cosAngle[i] = kotlin.math.cos(angle)
-            sinAngle[i] = kotlin.math.sin(angle)
-            
-            cos2a[i] = kotlin.math.cos(angle * 2f)
-            sin2a[i] = kotlin.math.sin(angle * 2f)
-            
-            cos3a[i] = kotlin.math.cos(angle * 3f)
-            sin3a[i] = kotlin.math.sin(angle * 3f)
-            
-            cos4a[i] = kotlin.math.cos(angle * 4f)
-            sin4a[i] = kotlin.math.sin(angle * 4f)
-            
-            cos5a[i] = kotlin.math.cos(angle * 5f)
-            sin5a[i] = kotlin.math.sin(angle * 5f)
-            
-            cos6a[i] = kotlin.math.cos(angle * 6f)
-            sin6a[i] = kotlin.math.sin(angle * 6f)
-            
-            cos7a[i] = kotlin.math.cos(angle * 7f)
-            sin7a[i] = kotlin.math.sin(angle * 7f)
-            
-            cos11a[i] = kotlin.math.cos(angle * 11f)
-            sin11a[i] = kotlin.math.sin(angle * 11f)
-        }
-    }
-}
-
-@Composable
-fun WaveVisualizer(
-    state: String,
-    primaryColor: Color,
-    secondaryColor: Color,
-    modifier: Modifier = Modifier
-) {
-    val isAnimating = state == "CONNECTED" || state == "CONNECTING"
-    
-    val phase1State = remember { androidx.compose.animation.core.Animatable(0f) }
-    val phase2State = remember { androidx.compose.animation.core.Animatable(2f * Math.PI.toFloat()) }
-    
-    LaunchedEffect(isAnimating) {
-        if (isAnimating) {
-            launch {
-                phase1State.animateTo(
-                    targetValue = 2f * Math.PI.toFloat(),
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(4500, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                )
-            }
-            launch {
-                phase2State.animateTo(
-                    targetValue = 0f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(6500, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                )
-            }
-        } else {
-            phase1State.snapTo(0f)
-            phase2State.snapTo(2f * Math.PI.toFloat())
-        }
-    }
-    
-    val phase1 = phase1State.value
-    val phase2 = phase2State.value
-    
-    val amplitudeMultiplier by animateFloatAsState(
-        targetValue = if (state == "CONNECTED" || state == "CONNECTING") 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessVeryLow
-        ),
-        label = "amplitude"
-    )
-    
-    val scaleFactor by animateFloatAsState(
-        targetValue = if (state == "CONNECTED" || state == "CONNECTING") 1f else 0.5f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "scale"
-    )
-    
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val baseRadius1Px = remember(density) { density.run { 61.dp.toPx() } }
-    val baseRadius2Px = remember(density) { density.run { 73.dp.toPx() } }
-    val baseRadius3Px = remember(density) { density.run { 85.dp.toPx() } }
-    
-    val stroke1Px = remember(density) { density.run { 3.5.dp.toPx() } }
-    val stroke2Px = remember(density) { density.run { 2.dp.toPx() } }
-    val stroke3Px = remember(density) { density.run { 1.5.dp.toPx() } }
-    
-    val amp1Px = remember(density) { density.run { 6.dp.toPx() } }
-    val amp2Px = remember(density) { density.run { 9.dp.toPx() } }
-    val amp3Px = remember(density) { density.run { 7.dp.toPx() } }
-    
-    val path1 = remember { Path() }
-    val path2 = remember { Path() }
-    val path3 = remember { Path() }
-    
-    val waveCache = remember { WaveCache(80) }
-    
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val centerX = width / 2f
-        val centerY = height / 2f
-        
-        if (amplitudeMultiplier > 0.01f) {
-            val cosP1 = kotlin.math.cos(phase1)
-            val sinP1 = kotlin.math.sin(phase1)
-            val cosP2 = kotlin.math.cos(phase2)
-            val sinP2 = kotlin.math.sin(phase2)
-            
-            val breathing1 = 1f + 0.08f * sinP1
-            val breathing2 = 1f + 0.12f * cosP2
-            val breathing3 = 1f + 0.15f * sinP1
-            
-            // Draw Wave 1 (Main Circle)
-            path1.reset()
-            val points1 = 80
-            for (i in 0..points1) {
-                val s4 = waveCache.sin4a[i] * cosP1 + waveCache.cos4a[i] * sinP1
-                val c6 = waveCache.cos6a[i] * cosP2 + waveCache.sin6a[i] * sinP2
-                val s2 = waveCache.sin2a[i] * cosP1 + waveCache.cos2a[i] * sinP1
-                
-                val waveOffset = s4 * 0.5f + c6 * 0.3f + s2 * 0.2f
-                val wave = waveOffset * amp1Px * amplitudeMultiplier * breathing1
-                val r = (baseRadius1Px + wave) * scaleFactor
-                val x = centerX + r * waveCache.cosAngle[i]
-                val y = centerY + r * waveCache.sinAngle[i]
-                if (i == 0) {
-                    path1.moveTo(x, y)
-                } else {
-                    path1.lineTo(x, y)
-                }
-            }
-            path1.close()
-            drawPath(
-                path = path1,
-                color = primaryColor.copy(alpha = 0.85f * amplitudeMultiplier),
-                style = Stroke(width = stroke1Px)
-            )
-            
-            // Draw Wave 2 (Middle Stripe)
-            path2.reset()
-            val points2 = 80
-            for (i in 0..points2) {
-                val s5 = waveCache.sin5a[i] * cosP2 - waveCache.cos5a[i] * sinP2
-                val c3 = waveCache.cos3a[i] * cosP1 - waveCache.sin3a[i] * sinP1
-                val s7 = waveCache.sin7a[i] * cosP2 - waveCache.cos7a[i] * sinP2
-                
-                val waveOffset = s5 * 0.6f + c3 * 0.3f + s7 * 0.1f
-                val wave = waveOffset * amp2Px * amplitudeMultiplier * breathing2
-                val r = (baseRadius2Px + wave) * scaleFactor
-                val x = centerX + r * waveCache.cosAngle[i]
-                val y = centerY + r * waveCache.sinAngle[i]
-                if (i == 0) {
-                    path2.moveTo(x, y)
-                } else {
-                    path2.lineTo(x, y)
-                }
-            }
-            path2.close()
-            drawPath(
-                path = path2,
-                color = secondaryColor.copy(alpha = 0.5f * amplitudeMultiplier),
-                style = Stroke(width = stroke2Px)
-            )
-            
-            // Draw Wave 3 (Outer Stripe)
-            path3.reset()
-            val points3 = 80
-            for (i in 0..points3) {
-                val c3 = waveCache.cos3a[i] * cosP1 - waveCache.sin3a[i] * sinP1
-                val s7 = waveCache.sin7a[i] * cosP2 - waveCache.cos7a[i] * sinP2
-                val c11 = waveCache.cos11a[i] * cosP1 - waveCache.sin11a[i] * sinP1
-                
-                val waveOffset = c3 * 0.5f + s7 * 0.3f + c11 * 0.2f
-                val wave = waveOffset * amp3Px * amplitudeMultiplier * breathing3
-                val r = (baseRadius3Px + wave) * scaleFactor
-                val x = centerX + r * waveCache.cosAngle[i]
-                val y = centerY + r * waveCache.sinAngle[i]
-                if (i == 0) {
-                    path3.moveTo(x, y)
-                } else {
-                    path3.lineTo(x, y)
-                }
-            }
-            path3.close()
-            drawPath(
-                path = path3,
-                color = primaryColor.copy(alpha = 0.3f * amplitudeMultiplier),
-                style = Stroke(width = stroke3Px)
-            )
-        }
-    }
-}
-
-@Composable
-fun PeakingKitty(
-    modifier: Modifier = Modifier,
-    catColor: Color = Color(0xFFFFE5B4), // Peach/Cream cat
-    earInnerColor: Color = Color(0xFFFFB7C5) // Pink inner ear
-) {
-    val outlineColor = MaterialTheme.colorScheme.outline
-    Canvas(modifier = modifier.height(36.dp).width(50.dp)) {
-        val width = size.width
-        val height = size.height
-
-        // Draw Cat Head peaking from bottom (y = height)
-        val headRadius = width * 0.4f
-        val headCenterX = width / 2f
-        val headCenterY = height
-
-        // Draw left ear
-        val leftEarPath = Path().apply {
-            moveTo(headCenterX - headRadius * 0.8f, headCenterY - headRadius * 0.5f)
-            lineTo(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 1.3f)
-            lineTo(headCenterX - headRadius * 0.2f, headCenterY - headRadius * 0.9f)
-            close()
-        }
-        drawPath(leftEarPath, catColor)
-        drawPath(leftEarPath, outlineColor, style = Stroke(width = 2.dp.toPx()))
-
-        // Inner left ear
-        val leftEarInnerPath = Path().apply {
-            moveTo(headCenterX - headRadius * 0.75f, headCenterY - headRadius * 0.55f)
-            lineTo(headCenterX - headRadius * 0.95f, headCenterY - headRadius * 1.1f)
-            lineTo(headCenterX - headRadius * 0.35f, headCenterY - headRadius * 0.8f)
-            close()
-        }
-        drawPath(leftEarInnerPath, earInnerColor)
-
-        // Draw right ear
-        val rightEarPath = Path().apply {
-            moveTo(headCenterX + headRadius * 0.8f, headCenterY - headRadius * 0.5f)
-            lineTo(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 1.3f)
-            lineTo(headCenterX + headRadius * 0.2f, headCenterY - headRadius * 0.9f)
-            close()
-        }
-        drawPath(rightEarPath, catColor)
-        drawPath(rightEarPath, outlineColor, style = Stroke(width = 2.dp.toPx()))
-
-        // Inner right ear
-        val rightEarInnerPath = Path().apply {
-            moveTo(headCenterX + headRadius * 0.75f, headCenterY - headRadius * 0.55f)
-            lineTo(headCenterX + headRadius * 0.95f, headCenterY - headRadius * 1.1f)
-            lineTo(headCenterX + headRadius * 0.35f, headCenterY - headRadius * 0.8f)
-            close()
-        }
-        drawPath(rightEarInnerPath, earInnerColor)
-
-        // Draw head circle
-        drawArc(
-            color = catColor,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = true,
-            topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
-            size = androidx.compose.ui.geometry.Size(headRadius * 2, headRadius * 2)
-        )
-        // Head outline (only the top curve)
-        drawArc(
-            color = outlineColor,
-            startAngle = 180f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
-            size = androidx.compose.ui.geometry.Size(headRadius * 2, headRadius * 2),
-            style = Stroke(width = 2.dp.toPx())
-        )
-
-        // Draw Eyes (two little black circles)
-        val eyeRadius = 3.dp.toPx()
-        val leftEyeX = headCenterX - headRadius * 0.35f
-        val rightEyeX = headCenterX + headRadius * 0.35f
-        val eyeY = headCenterY - headRadius * 0.45f
-        drawCircle(color = Color.Black, radius = eyeRadius, center = Offset(leftEyeX, eyeY))
-        drawCircle(color = Color.Black, radius = eyeRadius, center = Offset(rightEyeX, eyeY))
-        // Small eye highlight (white)
-        drawCircle(color = Color.White, radius = eyeRadius * 0.3f, center = Offset(leftEyeX - eyeRadius * 0.3f, eyeY - eyeRadius * 0.3f))
-        drawCircle(color = Color.White, radius = eyeRadius * 0.3f, center = Offset(rightEyeX - eyeRadius * 0.3f, eyeY - eyeRadius * 0.3f))
-
-        // Draw Blush (two pink circles under eyes)
-        drawCircle(color = earInnerColor.copy(alpha = 0.6f), radius = eyeRadius * 1.5f, center = Offset(leftEyeX - 2.dp.toPx(), eyeY + 4.dp.toPx()))
-        drawCircle(color = earInnerColor.copy(alpha = 0.6f), radius = eyeRadius * 1.5f, center = Offset(rightEyeX + 2.dp.toPx(), eyeY + 4.dp.toPx()))
-
-        // Draw Nose (small pink triangle)
-        val nosePath = Path().apply {
-            moveTo(headCenterX - 2.dp.toPx(), headCenterY - headRadius * 0.3f)
-            lineTo(headCenterX + 2.dp.toPx(), headCenterY - headRadius * 0.3f)
-            lineTo(headCenterX, headCenterY - headRadius * 0.23f)
-            close()
-        }
-        drawPath(nosePath, earInnerColor)
-
-        // Draw Mouth (two small curves w)
-        val mouthY = headCenterY - headRadius * 0.2f
-        val mouthPath = Path().apply {
-            moveTo(headCenterX - 4.dp.toPx(), mouthY)
-            quadraticTo(headCenterX - 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX, mouthY)
-            quadraticTo(headCenterX + 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX + 4.dp.toPx(), mouthY)
-        }
-        drawPath(mouthPath, outlineColor, style = Stroke(width = 1.5.dp.toPx()))
-
-        // Draw Whiskers (two lines on each side)
-        drawLine(outlineColor, Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.25f), Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.3f), strokeWidth = 1.5.dp.toPx())
-        drawLine(outlineColor, Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.15f), Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.15f), strokeWidth = 1.5.dp.toPx())
-
-        drawLine(outlineColor, Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.25f), Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.3f), strokeWidth = 1.5.dp.toPx())
-        drawLine(outlineColor, Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.15f), Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.15f), strokeWidth = 1.5.dp.toPx())
-
-        // Draw Paws resting on the line (which is y = height)
-        val pawWidth = 8.dp.toPx()
-        val pawHeight = 6.dp.toPx()
-        // Paw 1: left
-        drawRoundRect(
-            color = catColor,
-            topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
-            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
-        )
-        drawRoundRect(
-            color = outlineColor,
-            topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
-            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
-        // Paw 2: right
-        drawRoundRect(
-            color = catColor,
-            topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
-            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
-        )
-        drawRoundRect(
-            color = outlineColor,
-            topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
-            size = androidx.compose.ui.geometry.Size(pawWidth, pawHeight * 2),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
-    }
-}
-
-@Composable
-fun PawPrint(
-    modifier: Modifier = Modifier,
-    color: Color
-) {
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        
-        // Main pad (large oval/circle)
-        val padRadius = width * 0.28f
-        val padCenterX = width / 2f
-        val padCenterY = height * 0.6f
-        drawCircle(color = color, radius = padRadius, center = Offset(padCenterX, padCenterY))
-        
-        // 4 toes
-        val toeRadius = width * 0.12f
-        // Leftmost toe
-        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX - padRadius * 1.2f, padCenterY - padRadius * 0.8f))
-        // Middle left toe
-        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX - padRadius * 0.4f, padCenterY - padRadius * 1.5f))
-        // Middle right toe
-        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX + padRadius * 0.4f, padCenterY - padRadius * 1.5f))
-        // Rightmost toe
-        drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX + padRadius * 1.2f, padCenterY - padRadius * 0.8f))
-    }
-}
-
-@Composable
-private fun LogsConsole(
-    isActive: Boolean,
-    context: Context,
-    cardStyle: String,
-    isDark: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val rawVpnLogs by VpnServiceWrapper.vpnLogs.collectAsStateWithLifecycle()
-    val vpnLogs = if (isActive) rawVpnLogs else ""
-    val logLines = remember(vpnLogs) {
-        if (vpnLogs.isEmpty()) {
-            emptyList()
-        } else {
-            vpnLogs.split("\n")
-        }
-    }
-
-    var selectedFilter by remember { mutableStateOf("ALL") }
-    val filteredLogLines = remember(logLines, selectedFilter) {
-        if (selectedFilter == "ALL") {
-            logLines
-        } else {
-            logLines.filter { line ->
-                when (selectedFilter) {
-                    "INFO" -> line.contains("INFO", ignoreCase = true)
-                    "WARN" -> line.contains("WARN", ignoreCase = true)
-                    "ERROR" -> line.contains("ERROR", ignoreCase = true) || line.contains("FATAL", ignoreCase = true)
-                    "DEBUG" -> line.contains("DEBUG", ignoreCase = true)
-                    else -> true
-                }
-            }
-        }
-    }
-    
-    val cardBackground = if (isDark) Color.Black else Color(0xFFF7F9FB)
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
-    val tertiaryColor = MaterialTheme.colorScheme.tertiary
-    val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHigh
-
-    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
-    val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
-    val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
-    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-
-    val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid" || cardStyle == "vibrant") {
-            SolidColor(outlineVariant)
-        } else {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
-                secondaryColor.copy(alpha = if (isDark) 0.40f else 0.06f)
-            )
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, surfaceContainerLow, tertiaryContainer, primaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(surfaceContainerLow)
-        } else if (cardStyle == "vibrant") {
-            SolidColor(primaryContainer)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.55f),
-                    primaryColor.copy(alpha = 0.28f)
-                )
-            } else {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
-            }
-            Brush.linearGradient(colors = colors)
-        }
-    }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = Color(0xFF33FF33).copy(alpha = 0.3f),
-                shape = ExpressiveCardShape
-            ),
-        shape = ExpressiveCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF121212)
-        )
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Terminal,
-                        contentDescription = null,
-                        tint = Color(0xFF00FF66),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.engine_logs),
-                        color = Color(0xFF00FF66),
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = {
-                            val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            val logsToCopy = filteredLogLines.joinToString("\n")
-                            val clip = android.content.ClipData.newPlainText("VPN Logs", logsToCopy)
-                            clipboardManager.setPrimaryClip(clip)
-                            android.widget.Toast.makeText(context, "Copied to Clipboard", android.widget.Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.pressScaleEffect(),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF00FF66))
-                    ) {
-                        Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.copy), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                    }
-                    TextButton(
-                        onClick = { VpnServiceWrapper.clearLogs() },
-                        modifier = Modifier.pressScaleEffect(),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFF3333))
-                    ) {
-                        Icon(imageVector = Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.clear), fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = Color(0xFF33FF33).copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Log level filter chips
-            val filterLevels = listOf("ALL", "INFO", "WARN", "ERROR", "DEBUG")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                filterLevels.forEach { level ->
-                    val isSelected = selectedFilter == level
-                    val chipBg = if (isSelected) Color(0xFF00FF66).copy(alpha = 0.15f) else Color.Transparent
-                    val chipText = if (isSelected) Color(0xFF00FF66) else Color.Gray
-                    val chipBorder = if (isSelected) BorderStroke(1.dp, Color(0xFF00FF66)) else BorderStroke(1.dp, Color.DarkGray)
-                    
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = chipBg,
-                        border = chipBorder,
-                        modifier = Modifier
-                            .padding(vertical = 4.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { selectedFilter = level }
-                    ) {
-                        Text(
-                            text = level,
-                            color = chipText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            val listState = rememberLazyListState()
-            LaunchedEffect(filteredLogLines.size) {
-                if (filteredLogLines.isNotEmpty()) {
-                    listState.scrollToItem(filteredLogLines.size - 1)
-                }
-            }
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f)
-                    .background(Color(0xFF0A0A0A), shape = RoundedCornerShape(16.dp))
-                    .border(1.dp, Color(0xFF33FF33).copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                    .padding(12.dp)
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (filteredLogLines.isEmpty()) {
-                        item {
-                            Text(
-                                text = if (logLines.isEmpty()) stringResource(R.string.logs_placeholder) else "No logs match this filter",
-                                color = Color.Gray,
-                                fontSize = 12.sp,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    } else {
-                        itemsIndexed(filteredLogLines) { index, line ->
-                            val textColor = when {
-                                line.contains("WARN", ignoreCase = true) -> Color(0xFFFFCC00)
-                                line.contains("ERROR", ignoreCase = true) || line.contains("FATAL", ignoreCase = true) -> Color(0xFFFF3333)
-                                line.contains("INFO", ignoreCase = true) -> Color(0xFF00FF66)
-                                else -> Color(0xFFE0E0E0)
-                            }
-                            Text(
-                                text = line,
-                                color = textColor,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fun generateQrCode(text: String, size: Int): Bitmap? {
-    return try {
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(text, BarcodeFormat.QR_CODE, size, size)
-        val width = bitMatrix.width
-        val height = bitMatrix.height
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-        for (x in 0 until width) {
-            for (y in 0 until height) {
-                bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-            }
-        }
-        bitmap
-    } catch (e: Exception) {
-        null
-    }
-}
-
-@Composable
-fun QrCodeShareDialog(
-    title: String,
-    content: String,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val qrBitmap = remember(content) {
-        generateQrCode(content, 512)
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (qrBitmap != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(220.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White)
-                            .padding(12.dp)
-                    ) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "QR Code",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                } else {
-                    Text(
-                        text = "Failed to generate QR Code",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                SelectionContainer {
-                    Text(
-                        text = content,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, content)
-                        type = "text/plain"
-                    }
-                    val shareIntent = Intent.createChooser(sendIntent, null)
-                    context.startActivity(shareIntent)
-                }
-            ) {
-                Text(stringResource(R.string.share_config))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel)) // or R.string.close or cancel
-            }
-        },
-        shape = RoundedCornerShape(24.dp)
-    )
-}
-
-fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val units = arrayOf("B", "KB", "MB", "GB", "TB")
-    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-    return String.format(java.util.Locale.US, "%.2f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
-}
-
-fun formatExpiry(expirySecs: Long): String {
-    if (expirySecs <= 0) return ""
-    val ms = expirySecs * 1000L
-    val date = java.util.Date(ms)
-    val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-    return format.format(date)
-}
-
-@Composable
-fun ChainBuilderDialog(
-    editingChainLink: String?,
-    proxyChainsStr: String,
-    serverList: List<String>,
-    onDismiss: () -> Unit,
-    onSave: (name: String, relay: String, exit: String) -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    
-    // Parse all available single servers (exclude chains to prevent circular dependencies)
-    val poolNodes = remember(serverList) {
-        serverList.filter { !it.startsWith("chain://") }
-    }
-
-    var chainName by remember { mutableStateOf("") }
-    var selectedRelay by remember { mutableStateOf("") }
-    var selectedExit by remember { mutableStateOf("") }
-
-    // Dropdown open states
-    var relayDropdownExpanded by remember { mutableStateOf(false) }
-    var exitDropdownExpanded by remember { mutableStateOf(false) }
-
-    // Parse existing settings if editing
-    LaunchedEffect(editingChainLink) {
-        if (editingChainLink != null && editingChainLink.startsWith("chain://")) {
-            val chainId = editingChainLink.substringAfter("chain://").substringBefore("#")
-            val chains = deserializeProxyChains(proxyChainsStr)
-            val existing = chains.find { it.id == chainId }
-            if (existing != null) {
-                chainName = existing.name
-                selectedRelay = existing.relayLink
-                selectedExit = existing.exitLink
-            }
-        } else {
-            chainName = "Custom Chain"
-            selectedRelay = poolNodes.firstOrNull() ?: ""
-            selectedExit = poolNodes.getOrNull(1) ?: poolNodes.firstOrNull() ?: ""
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (editingChainLink == null || editingChainLink == "new_chain") 
-                    stringResource(R.string.build_chain) else stringResource(R.string.edit_node_config),
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Chain Name Input
-                OutlinedTextField(
-                    value = chainName,
-                    onValueChange = { chainName = it },
-                    label = { Text("Chain Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = ExpressiveButtonShape
-                )
-
-                // Relay Node Selector (First Hop)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(R.string.relay_node),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = if (selectedRelay.isNotEmpty()) ProxyNameResolver.getProxyName(selectedRelay, context) else "Select Server",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                IconButton(onClick = { relayDropdownExpanded = true }) {
-                                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { relayDropdownExpanded = true },
-                            shape = ExpressiveButtonShape
-                        )
-                        DropdownMenu(
-                            expanded = relayDropdownExpanded,
-                            onDismissRequest = { relayDropdownExpanded = false },
-                            modifier = Modifier.fillMaxWidth(0.9f)
-                        ) {
-                            poolNodes.forEach { node ->
-                                DropdownMenuItem(
-                                    text = { Text(ProxyNameResolver.getProxyName(node, context)) },
-                                    onClick = {
-                                        selectedRelay = node
-                                        relayDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Exit Node Selector (Second Hop)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = stringResource(R.string.exit_node),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = if (selectedExit.isNotEmpty()) ProxyNameResolver.getProxyName(selectedExit, context) else "Select Server",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = {
-                                IconButton(onClick = { exitDropdownExpanded = true }) {
-                                    Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = null)
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { exitDropdownExpanded = true },
-                            shape = ExpressiveButtonShape
-                        )
-                        DropdownMenu(
-                            expanded = exitDropdownExpanded,
-                            onDismissRequest = { exitDropdownExpanded = false },
-                            modifier = Modifier.fillMaxWidth(0.9f)
-                        ) {
-                            poolNodes.forEach { node ->
-                                DropdownMenuItem(
-                                    text = { Text(ProxyNameResolver.getProxyName(node, context)) },
-                                    onClick = {
-                                        selectedExit = node
-                                        exitDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (chainName.trim().isNotEmpty() && selectedRelay.isNotEmpty() && selectedExit.isNotEmpty()) {
-                        onSave(chainName.trim(), selectedRelay, selectedExit)
-                    }
-                },
-                modifier = Modifier.pressScaleEffect(),
-                shape = ExpressiveButtonShape
-            ) {
-                Text(stringResource(R.string.save))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.pressScaleEffect()
-            ) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-        shape = RoundedCornerShape(24.dp)
-    )
-}
-
-object IpCountryResolver {
-    private const val CACHE_FILE = "ip_countries_cache.json"
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
-    private var cacheFile: java.io.File? = null
-
-    fun init(context: android.content.Context) {
-        cacheFile = java.io.File(context.cacheDir, CACHE_FILE)
-        loadCache()
-    }
-
-    private fun loadCache() {
-        val file = cacheFile ?: return
-        if (file.exists()) {
-            try {
-                val jsonStr = file.readText()
-                val json = org.json.JSONObject(jsonStr)
-                json.keys().forEach { key ->
-                    cache[key] = json.getString(key)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun saveCache() {
-        val file = cacheFile ?: return
-        try {
-            val json = org.json.JSONObject()
-            cache.forEach { (k, v) ->
-                json.put(k, v)
-            }
-            file.writeText(json.toString())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun getCachedCountryCode(host: String): String? {
-        return cache[host]
-    }
-
-    fun resolveCountryCode(host: String): String {
-        val trimmed = host.trim()
-        if (trimmed.isEmpty() || trimmed.equals("localhost", ignoreCase = true) || 
-            trimmed.startsWith("127.") || trimmed.startsWith("10.") || 
-            trimmed.startsWith("192.168.") || trimmed.startsWith("172.")) {
-            return "🌐"
-        }
-
-        val cached = cache[trimmed]
-        if (cached != null) {
-            return cached
-        }
-
-        // Try to resolve host domain to IP address
-        val ipToResolve = try {
-            val address = java.net.InetAddress.getByName(trimmed)
-            address.hostAddress ?: trimmed
-        } catch (e: Exception) {
-            trimmed
-        }
-
-        // Check if the resolved IP is local/private
-        if (ipToResolve.startsWith("127.") || ipToResolve.startsWith("10.") || 
-            ipToResolve.startsWith("192.168.") || ipToResolve.startsWith("172.")) {
-            return "🌐"
-        }
-
-        var cc = fetchCountryCodeFromFreeIpApi(ipToResolve)
-        if (cc.isEmpty() || cc == "🌐") {
-            cc = fetchCountryCodeFromCountryIs(ipToResolve)
-        }
-        if (cc.isEmpty() || cc == "🌐") {
-            cc = fetchCountryCodeFromIpWhoIs(ipToResolve)
-        }
-
-        if (cc.isNotEmpty() && cc != "🌐") {
-            cache[trimmed] = cc
-            saveCache()
-            return cc
-        }
-        return "🌐"
-    }
-
-    private fun fetchCountryCodeFromFreeIpApi(ip: String): String {
-        return try {
-            val url = java.net.URL("https://freeipapi.com/api/json/$ip")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
-            conn.requestMethod = "GET"
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = org.json.JSONObject(text)
-            json.optString("countryCode", "")
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
-    private fun fetchCountryCodeFromCountryIs(ip: String): String {
-        return try {
-            val url = java.net.URL("https://api.country.is/$ip")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
-            conn.requestMethod = "GET"
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = org.json.JSONObject(text)
-            json.optString("country", "")
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
-    private fun fetchCountryCodeFromIpWhoIs(ip: String): String {
-        return try {
-            val url = java.net.URL("https://ipwho.is/$ip")
-            val conn = url.openConnection() as java.net.HttpURLConnection
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
-            conn.requestMethod = "GET"
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = org.json.JSONObject(text)
-            if (json.optBoolean("success", false)) {
-                json.optString("country_code", "")
-            } else ""
-        } catch (e: Exception) {
-            ""
-        }
-    }
-}
-
-fun getFlagEmojiFromCountryCode(countryCode: String): String {
-    if (countryCode.length != 2) return "🌐"
-    val code = countryCode.uppercase()
-    val firstChar = Character.codePointAt(code, 0) - 0x41 + 0x1F1E6
-    val secondChar = Character.codePointAt(code, 1) - 0x41 + 0x1F1E6
-    return String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
-}
-

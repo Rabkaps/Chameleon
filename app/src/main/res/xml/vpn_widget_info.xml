@@ -6,6 +6,7 @@
     android:minResizeHeight="50dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/vpn_widget_small"
+    android:previewLayout="@layout/vpn_widget"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen">
 </appwidget-provider>
