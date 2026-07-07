@@ -36,8 +36,8 @@ jobs:
       run: |
         echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
 
-    - name: Build APK (Standard Only)
-      run: ./gradlew assembleStandardRelease
+    - name: Build APK (Standard and Special)
+      run: ./gradlew assembleStandardRelease assembleSpecialRelease
 
     - name: Rename APKs for Release
       run: |
@@ -46,20 +46,25 @@ jobs:
         cp app/build/outputs/apk/standard/release/app-standard-armeabi-v7a-release.apk Chameleon-standard-armeabi-v7a.apk
         cp app/build/outputs/apk/standard/release/app-standard-x86-release.apk Chameleon-standard-x86.apk
         cp app/build/outputs/apk/standard/release/app-standard-x86_64-release.apk Chameleon-standard-x86_64.apk
+        cp app/build/outputs/apk/special/release/app-special-universal-release.apk Chameleon-special-universal.apk
+        cp app/build/outputs/apk/special/release/app-special-arm64-v8a-release.apk Chameleon-special-arm64-v8a.apk
+        cp app/build/outputs/apk/special/release/app-special-armeabi-v7a-release.apk Chameleon-special-armeabi-v7a.apk
+        cp app/build/outputs/apk/special/release/app-special-x86-release.apk Chameleon-special-x86.apk
+        cp app/build/outputs/apk/special/release/app-special-x86_64-release.apk Chameleon-special-x86_64.apk
 
-    - name: Upload Chameleon Standard APK Artifacts
+    - name: Upload Chameleon APK Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Chameleon-standard-apks
+        name: Chameleon-apks
         path: |
-          Chameleon-standard-*.apk
+          Chameleon-*.apk
 
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          Chameleon-standard-*.apk
+          Chameleon-*.apk
         name: Chameleon ${{ github.ref_name }}
         body_path: .github/release_notes.md
         draft: false
