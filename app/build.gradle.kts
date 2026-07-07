@@ -15,8 +15,8 @@ android {
         applicationId = "com.hambalapps.chameleon"
         minSdk = 23
         targetSdk = 36
-        versionCode = 186
-        versionName = "1.7.5"
+        versionCode = 187
+        versionName = "1.7.6"
     }
 
     testOptions {

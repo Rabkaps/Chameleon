@@ -1,4 +1,4 @@
-### What's New in v1.7.5
+### What's New in v1.7.6
 
 This release delivers critical stability bug fixes, UI enhancements, and local proxy optimizations.
 
