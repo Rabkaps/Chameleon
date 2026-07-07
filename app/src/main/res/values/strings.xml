@@ -140,7 +140,7 @@
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="custom_provider">Custom Provider</string>
-    <string name="app_name_standard">Chameleon Standard</string>
+    <string name="app_name_standard">Chameleon</string>
     <string name="app_name_special">Chameleon Special Edition</string>
     <string name="open_settings_drawer">Open Settings Drawer</string>
     <string name="show_logs">Show Logs</string>
