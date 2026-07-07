@@ -846,14 +846,14 @@ fun MainScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                Text(
-                                    context.getString(com.hambalapps.chameleon.R.string.app_name),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.2.sp,
-                                    color = MaterialTheme.colorScheme.onBackground
-                                )
                                 if (Config.IS_SPECIAL) {
+                                    Text(
+                                        context.getString(com.hambalapps.chameleon.R.string.app_name),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.2.sp,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     PawPrint(
                                         modifier = Modifier.size(16.dp),

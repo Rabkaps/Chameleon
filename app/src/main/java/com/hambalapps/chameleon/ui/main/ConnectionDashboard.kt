@@ -19,6 +19,20 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.hambalapps.chameleon.vpn.ConfigInjector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -639,71 +653,554 @@ fun ConnectionDashboard(
             colors = CardDefaults.cardColors(containerColor = Color.Transparent)
         ) {
             VibrantCardContent(cardStyle) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SmartToy,
-                            contentDescription = "AI-Bypass",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(
-                                text = "AI-Bypass",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SmartToy,
+                                contentDescription = "AI-Bypass",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
                             )
-                            Text(
-                                text = "Smart routing active",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "AI-Bypass",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Smart routing active",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                    }
-                    Switch(
-                        checked = vpnMode == "ai_bypass",
-                        onCheckedChange = { checked ->
-                            scope.launch {
-                                if (checked) {
-                                    val privateKey = settingsManager.settings.first().warpPrivateKey
-                                    val clientId = settingsManager.settings.first().warpClientId
-                                    if (privateKey.isEmpty() || clientId.isEmpty()) {
-                                        isRegisteringWarp = true
-                                        val creds = registerWarpAccount()
-                                        isRegisteringWarp = false
-                                        if (creds != null) {
-                                            settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                        Switch(
+                            checked = vpnMode == "ai_bypass",
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    if (checked) {
+                                        val privateKey = settingsManager.settings.first().warpPrivateKey
+                                        val clientId = settingsManager.settings.first().warpClientId
+                                        if (privateKey.isEmpty() || clientId.isEmpty()) {
+                                            isRegisteringWarp = true
+                                            val creds = registerWarpAccount()
+                                            isRegisteringWarp = false
+                                            if (creds != null) {
+                                                settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                                                settingsManager.setVpnMode("ai_bypass")
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                }
+                                            }
+                                        } else {
                                             settingsManager.setVpnMode("ai_bypass")
                                             if (state == "CONNECTED") {
                                                 startVpnService(context)
                                             }
                                         }
                                     } else {
-                                        settingsManager.setVpnMode("ai_bypass")
+                                        settingsManager.setVpnMode("global")
                                         if (state == "CONNECTED") {
                                             startVpnService(context)
                                         }
                                     }
-                                } else {
-                                    settingsManager.setVpnMode("global")
+                                }
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = vpnMode == "ai_bypass",
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Text(
+                                text = stringResource(R.string.warp_detour_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.warp_detour_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("proxy" to "Proxy", "direct" to "Direct").forEach { (optionKey, optionName) ->
+                                    val isSelected = warpDetourMode == optionKey
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsManager.setWarpDetourMode(optionKey)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                }
+                                            }
+                                        },
+                                        label = { Text(optionName) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = ExpressiveButtonShape
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(20.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Text(
+                                text = stringResource(R.string.warp_port_title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.warp_port_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("2408", "500", "1701", "4500").forEach { portStr ->
+                                    val isSelected = warpPort == portStr
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            scope.launch {
+                                                settingsManager.setWarpPort(portStr)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                }
+                                            }
+                                        },
+                                        label = { Text(portStr) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = ExpressiveButtonShape
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun GamingModeCard() {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            VibrantCardContent(cardStyle) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SportsEsports,
+                                contentDescription = "Gaming Mode",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "Gaming Mode",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Lowest latency routing",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = vpnMode == "gaming",
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    if (checked) {
+                                        settingsManager.setVpnMode("gaming")
+                                    } else {
+                                        settingsManager.setVpnMode("standard")
+                                    }
                                     if (state == "CONNECTED") {
                                         startVpnService(context)
                                     }
                                 }
                             }
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = vpnMode == "gaming",
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.tunnel_games_title),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.tunnel_games_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Switch(
+                                    checked = vpnModeTunnelGames,
+                                    onCheckedChange = { checked ->
+                                        scope.launch {
+                                            settingsManager.setVpnModeTunnelGames(checked)
+                                            if (state == "CONNECTED") {
+                                                startVpnService(context)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
                         }
-                    )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun TelegramProxyCard() {
+        val rootMode = settingsState?.rootMode ?: false
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+            shape = ExpressiveCardShape,
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+        ) {
+            VibrantCardContent(cardStyle) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = "Telegram Proxy",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "Telegram Proxy",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Run local Telegram MTProxy server",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = enableMtProxy,
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    settingsManager.setEnableMtProxy(checked)
+                                    settingsManager.enableMtProxy.first { it == checked }
+                                    
+                                    if (state == "CONNECTED") {
+                                        startVpnService(context)
+                                    } else {
+                                        if (checked) {
+                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                action = VpnServiceWrapper.ACTION_START_PROXY
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                context.startForegroundService(intent)
+                                            } else {
+                                                context.startService(intent)
+                                            }
+                                        } else {
+                                            val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                action = VpnServiceWrapper.ACTION_STOP
+                                                putExtra("force_stop", true)
+                                            }
+                                            context.startService(intent)
+                                        }
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = enableMtProxy,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Root Mode",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = "Use root privileges for transparent proxy routing",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = rootMode,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            val hasRoot = try {
+                                                val process = Runtime.getRuntime().exec("su")
+                                                val os = process.outputStream.bufferedWriter()
+                                                os.write("exit\n")
+                                                os.flush()
+                                                process.waitFor() == 0
+                                            } catch (e: Exception) {
+                                                false
+                                            }
+                                            if (hasRoot) {
+                                                scope.launch {
+                                                    settingsManager.setRootMode(true)
+                                                    if (state == "CONNECTED") startVpnService(context)
+                                                }
+                                            } else {
+                                                android.widget.Toast.makeText(context, "Root access not available or denied", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            scope.launch {
+                                                settingsManager.setRootMode(false)
+                                                if (state == "CONNECTED") startVpnService(context)
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Proxy Port",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Port for MTProxy (1024-65535)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                var portText by remember(mtProxyPort) { mutableStateOf(mtProxyPort) }
+                                OutlinedTextField(
+                                    value = portText,
+                                    onValueChange = {
+                                        portText = it
+                                        if (it.toIntOrNull() in 1024..65535) {
+                                            scope.launch {
+                                                settingsManager.setMtProxyPort(it)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                } else {
+                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                        action = VpnServiceWrapper.ACTION_START_PROXY
+                                                    }
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                        context.startForegroundService(intent)
+                                                    } else {
+                                                        context.startService(intent)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.width(90.dp),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Secret Key",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "MTProto client obfuscated secret",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                var secretText by remember(mtProxySecret) { mutableStateOf(mtProxySecret) }
+                                OutlinedTextField(
+                                    value = secretText,
+                                    onValueChange = {
+                                        secretText = it
+                                        val isLengthOk = it.length == 34 || it.length == 32
+                                        val startsWithValid = it.startsWith("dd", ignoreCase = true) || 
+                                                              it.startsWith("ee", ignoreCase = true) || 
+                                                              (it.length == 32 && !it.startsWith("dd", ignoreCase = true) && !it.startsWith("ee", ignoreCase = true))
+                                        if (isLengthOk && startsWithValid) {
+                                            scope.launch {
+                                                settingsManager.setMtProxySecret(it)
+                                                if (state == "CONNECTED") {
+                                                    startVpnService(context)
+                                                } else {
+                                                    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                        action = VpnServiceWrapper.ACTION_START_PROXY
+                                                    }
+                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                        context.startForegroundService(intent)
+                                                    } else {
+                                                        context.startService(intent)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.width(180.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Button(
+                                onClick = {
+                                    val normalizedSecret = ConfigInjector.normalizeMtProxySecret(mtProxySecret)
+                                    val link = "https://t.me/proxy?server=127.0.0.1&port=${mtProxyPort}&secret=${normalizedSecret}"
+                                    val sendIntent: Intent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, link)
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Connect / Share Telegram Proxy")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -727,6 +1224,8 @@ fun ConnectionDashboard(
                 ServerCard()
                 PingProtocolRow()
                 BypassCard()
+                GamingModeCard()
+                TelegramProxyCard()
             }
         }
     } else {
@@ -741,6 +1240,8 @@ fun ConnectionDashboard(
             ServerCard()
             PingProtocolRow()
             BypassCard()
+            GamingModeCard()
+            TelegramProxyCard()
         }
     }
 }
