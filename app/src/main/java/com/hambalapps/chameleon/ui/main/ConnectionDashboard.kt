@@ -925,7 +925,6 @@ fun ConnectionDashboard(
 
     @Composable
     fun TelegramProxyCard() {
-        val rootMode = settingsState?.rootMode ?: false
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1012,68 +1011,6 @@ fun ConnectionDashboard(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Security,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "Root Mode",
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            text = "Use root privileges for transparent proxy routing",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                Switch(
-                                    checked = rootMode,
-                                    onCheckedChange = { checked ->
-                                        if (checked) {
-                                            val hasRoot = try {
-                                                val process = Runtime.getRuntime().exec("su")
-                                                val os = process.outputStream.bufferedWriter()
-                                                os.write("exit\n")
-                                                os.flush()
-                                                process.waitFor() == 0
-                                            } catch (e: Exception) {
-                                                false
-                                            }
-                                            if (hasRoot) {
-                                                scope.launch {
-                                                    settingsManager.setRootMode(true)
-                                                    if (state == "CONNECTED") startVpnService(context)
-                                                }
-                                            } else {
-                                                android.widget.Toast.makeText(context, "Root access not available or denied", android.widget.Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else {
-                                            scope.launch {
-                                                settingsManager.setRootMode(false)
-                                                if (state == "CONNECTED") startVpnService(context)
-                                            }
-                                        }
-                                    }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            Spacer(modifier = Modifier.height(16.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

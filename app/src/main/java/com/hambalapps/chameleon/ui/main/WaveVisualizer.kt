@@ -1,16 +1,16 @@
 package com.hambalapps.chameleon.ui.main
 
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 
 private class WaveCache(points: Int) {
     val cosAngle = FloatArray(points + 1)
@@ -84,39 +83,27 @@ fun WaveVisualizer(
     secondaryColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val isAnimating = state == "CONNECTED" || state == "CONNECTING"
+    val infiniteTransition = rememberInfiniteTransition(label = "WaveVisualizerTransition")
     
-    val phase1State = remember { androidx.compose.animation.core.Animatable(0f) }
-    val phase2State = remember { androidx.compose.animation.core.Animatable(2f * Math.PI.toFloat()) }
+    val phase1 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2f * Math.PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(4500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase1"
+    )
     
-    LaunchedEffect(isAnimating) {
-        if (isAnimating) {
-            launch {
-                phase1State.animateTo(
-                    targetValue = 2f * Math.PI.toFloat(),
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(4500, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                )
-            }
-            launch {
-                phase2State.animateTo(
-                    targetValue = 0f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(6500, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart
-                    )
-                )
-            }
-        } else {
-            phase1State.snapTo(0f)
-            phase2State.snapTo(2f * Math.PI.toFloat())
-        }
-    }
-    
-    val phase1 = phase1State.value
-    val phase2 = phase2State.value
+    val phase2 by infiniteTransition.animateFloat(
+        initialValue = 2f * Math.PI.toFloat(),
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(6500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase2"
+    )
     
     val amplitudeMultiplier by animateFloatAsState(
         targetValue = if (state == "CONNECTED" || state == "CONNECTING") 1f else 0f,
@@ -162,10 +149,10 @@ fun WaveVisualizer(
         val centerY = height / 2f
         
         if (amplitudeMultiplier > 0.01f) {
-            val cosP1 = kotlin.math.cos(phase1)
-            val sinP1 = kotlin.math.sin(phase1)
-            val cosP2 = kotlin.math.cos(phase2)
-            val sinP2 = kotlin.math.sin(phase2)
+            val cosP1 = kotlin.math.cos(phase1.toDouble()).toFloat()
+            val sinP1 = kotlin.math.sin(phase1.toDouble()).toFloat()
+            val cosP2 = kotlin.math.cos(phase2.toDouble()).toFloat()
+            val sinP2 = kotlin.math.sin(phase2.toDouble()).toFloat()
             
             val breathing1 = 1f + 0.08f * sinP1
             val breathing2 = 1f + 0.12f * cosP2

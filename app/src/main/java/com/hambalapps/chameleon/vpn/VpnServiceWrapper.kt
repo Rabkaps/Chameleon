@@ -606,6 +606,15 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     log("Libbox setup warning: ${e.message}")
                 }
 
+                // Ensure any previous CommandServer and service instance are closed before starting a new one
+                try {
+                    commandServer?.closeService()
+                } catch (e: Exception) {}
+                try {
+                    commandServer?.close()
+                } catch (e: Exception) {}
+                commandServer = null
+
                 log("Creating CommandServer...")
                 commandServer = Libbox.newCommandServer(this@VpnServiceWrapper, this@VpnServiceWrapper)
                 
@@ -742,52 +751,56 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 log("Stopping VPN Engine...")
                 _vpnState.value = "DISCONNECTING"
                 
-                log("Stopping core service...")
-                try {
-                    commandServer?.closeService()
-                    delay(200)
-                } catch (e: Exception) {
-                    log("Error closing service: ${e.message}")
-                }
-                
-                log("Stopping CommandServer...")
-                commandServer?.close()
-                commandServer = null
-                
-                try {
-                    tunFd?.close()
-                } catch (e: Exception) {
-                    // Ignore detached close warnings
-                }
-                tunFd = null
-
-                if (tunFdInt != -1) {
+                withContext(NonCancellable) {
+                    log("Stopping core service...")
                     try {
-                        log("Adopting and closing TUN file descriptor $tunFdInt...")
-                        ParcelFileDescriptor.adoptFd(tunFdInt).close()
-                        log("TUN file descriptor closed.")
+                        commandServer?.closeService()
+                        delay(200)
                     } catch (e: Exception) {
-                        log("Error closing adopted FD: ${e.message}")
+                        log("Error closing service: ${e.message}")
                     }
-                    tunFdInt = -1
-                }
-
-                if (rootModeVal) {
-                    log("Root Mode is enabled. Cleaning up transparent proxy iptables rules...")
-                    val commands = listOf(
-                        "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
-                        "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
-                        "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true"
-                    )
-                    val success = runRootCommands(commands)
-                    if (success) {
-                        log("Transparent proxy iptables rules cleared successfully.")
-                    } else {
-                        log("Failed to clear transparent proxy iptables rules.")
+                    
+                    log("Stopping CommandServer...")
+                    try {
+                        commandServer?.close()
+                    } catch (e: Exception) {}
+                    commandServer = null
+                    
+                    try {
+                        tunFd?.close()
+                    } catch (e: Exception) {
+                        // Ignore detached close warnings
                     }
-                }
+                    tunFd = null
 
-                log("VPN Engine stopped.")
+                    if (tunFdInt != -1) {
+                        try {
+                            log("Adopting and closing TUN file descriptor $tunFdInt...")
+                            ParcelFileDescriptor.adoptFd(tunFdInt).close()
+                            log("TUN file descriptor closed.")
+                        } catch (e: Exception) {
+                            log("Error closing adopted FD: ${e.message}")
+                        }
+                        tunFdInt = -1
+                    }
+
+                    if (rootModeVal) {
+                        log("Root Mode is enabled. Cleaning up transparent proxy iptables rules...")
+                        val commands = listOf(
+                            "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
+                            "iptables -t nat -F EXPRESSIVEBOX 2>/dev/null || true",
+                            "iptables -t nat -X EXPRESSIVEBOX 2>/dev/null || true"
+                        )
+                        val success = runRootCommands(commands)
+                        if (success) {
+                            log("Transparent proxy iptables rules cleared successfully.")
+                        } else {
+                            log("Failed to clear transparent proxy iptables rules.")
+                        }
+                    }
+
+                    log("VPN Engine stopped.")
+                }
             } catch (e: Throwable) {
                 log("Error stopping VPN: ${e.message}")
             } finally {
