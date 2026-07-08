@@ -736,13 +736,26 @@ fun MainScreen(
                 ) {
                     Spacer(modifier = Modifier.height(40.dp))
                     
-                    Image(
-                        painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher),
-                        contentDescription = "App Logo",
+                    Box(
                         modifier = Modifier
                             .size(80.dp)
                             .clip(ExpressiveCardShape)
-                    )
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher_foreground),
+                            contentDescription = "App Logo",
+                            modifier = Modifier.size(60.dp)
+                        )
+                    }
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
