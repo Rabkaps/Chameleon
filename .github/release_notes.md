@@ -1,6 +1,9 @@
-### What's New in v1.7.6
+### What's New in v1.7.7
 
-This release delivers critical stability bug fixes, UI enhancements, and local proxy optimizations.
+This release delivers a critical launch crash fix, stability enhancements, and UI refinements.
+
+#### Critical Hotfix
+- **App Launch Crash Fix**: Wrapped the drawer branding icon inside a gradient Box using `ic_launcher_foreground` rather than trying to inflate the adaptive launcher XML directly, resolving a crash on app launch.
 
 ---
 
