@@ -3,8 +3,8 @@ package com.hambalapps.chameleon.ui.main
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,13 +31,14 @@ fun Modifier.pressScaleEffect(): Modifier {
             scaleY = scale
         }
         .pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    pressed = true
-                    waitForUpOrCancellation()
-                    pressed = false
-                }
+            awaitEachGesture {
+                awaitFirstDown(requireUnconsumed = false)
+                pressed = true
+                do {
+                    val event = awaitPointerEvent()
+                    val anyDown = event.changes.any { it.pressed }
+                } while (anyDown)
+                pressed = false
             }
         }
 }

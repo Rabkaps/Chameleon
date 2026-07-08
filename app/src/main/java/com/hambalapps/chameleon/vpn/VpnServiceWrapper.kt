@@ -118,6 +118,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private var showLiveNotificationVal = false
     private var activeProfileVal = ""
     private var rootModeVal = false
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -135,6 +136,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 if (isForeground) {
                     updateNotification(state)
                 }
+                updateWakeLock(state)
                 // Notify home screen widget
                 try {
                     val intent = Intent("com.hambalapps.chameleon.widget.ACTION_STATE_CHANGED").apply {
@@ -173,7 +175,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         }
         if (action == ACTION_START) {
             localProxyOnlyMode = false
-            if (_vpnState.value == "CONNECTED") {
+            if (_vpnState.value == "CONNECTED" || commandServer != null) {
                 reloadVpnEngine()
             } else {
                 _vpnState.value = "CONNECTING"
@@ -183,9 +185,13 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         } else if (action == ACTION_START_PROXY) {
             localProxyOnlyMode = true
             if (_vpnState.value != "CONNECTED" && _vpnState.value != "CONNECTING") {
-                _vpnState.value = "DISCONNECTED"
-                startForegroundServiceNotification()
-                startVpnEngine()
+                if (commandServer != null) {
+                    reloadVpnEngine()
+                } else {
+                    _vpnState.value = "DISCONNECTED"
+                    startForegroundServiceNotification()
+                    startVpnEngine()
+                }
             }
         } else if (action == ACTION_STOP) {
             val settingsManager = SettingsManager(applicationContext)
@@ -310,7 +316,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         val notificationBuilder = NotificationCompat.Builder(applicationContext, channelToUse)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_vpn_notification)
             .setContentIntent(pendingIntent)
             .setPriority(priority)
             .setOngoing(true)
@@ -337,7 +343,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             notificationBuilder.extras.putCharSequence("android.shortCriticalText", shortText)
         }
         
-        return notificationBuilder.build()
+        val notification = notificationBuilder.build()
+        notification.flags = notification.flags or android.app.Notification.FLAG_ONGOING_EVENT or android.app.Notification.FLAG_NO_CLEAR
+        return notification
     }
 
     private fun updateNotification(state: String) {
@@ -348,6 +356,28 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         }
         val notification = buildNotification(state)
         manager?.notify(NOTIFICATION_ID, notification)
+    }
+
+    @Synchronized
+    private fun updateWakeLock(state: String) {
+        if (state == "CONNECTED" || state == "CONNECTING") {
+            if (wakeLock == null) {
+                val pm = getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+                wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Chameleon:VpnWakeLock")?.apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+                log("WakeLock acquired")
+            }
+        } else {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                }
+                log("WakeLock released")
+            }
+            wakeLock = null
+        }
     }
 
     private fun startForegroundServiceNotification() {
@@ -607,13 +637,20 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
 
                 // Ensure any previous CommandServer and service instance are closed before starting a new one
-                try {
-                    commandServer?.closeService()
-                } catch (e: Exception) {}
-                try {
-                    commandServer?.close()
-                } catch (e: Exception) {}
-                commandServer = null
+                var hadPreviousServer = false
+                if (commandServer != null) {
+                    hadPreviousServer = true
+                    try {
+                        commandServer?.closeService()
+                    } catch (e: Exception) {}
+                    try {
+                        commandServer?.close()
+                    } catch (e: Exception) {}
+                    commandServer = null
+                }
+                if (hadPreviousServer) {
+                    delay(500)
+                }
 
                 log("Creating CommandServer...")
                 commandServer = Libbox.newCommandServer(this@VpnServiceWrapper, this@VpnServiceWrapper)
@@ -818,6 +855,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     override fun onDestroy() {
+        updateWakeLock("DISCONNECTED")
         if (rootModeVal) {
             val commands = listOf(
                 "iptables -t nat -D OUTPUT -p tcp -j EXPRESSIVEBOX 2>/dev/null || true",
@@ -853,6 +891,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         stopLogReader()
         val manager = getSystemService(NotificationManager::class.java)
         manager?.cancel(NOTIFICATION_ID)
+        _vpnState.value = "DISCONNECTED"
         serviceScope.cancel()
     }
 

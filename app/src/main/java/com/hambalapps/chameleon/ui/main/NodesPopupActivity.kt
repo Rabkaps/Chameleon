@@ -65,6 +65,9 @@ class NodesPopupActivity : ComponentActivity() {
                 val activeProfile = settings.activeProfile
                 val activeSubId = settings.activeSubId
                 val subscriptions = settings.deserializedSubscriptions
+                val manualServersStr = settings.manualServers
+                var isMultiSelectMode by remember { mutableStateOf(false) }
+                var selectedNodes by remember { mutableStateOf(setOf<String>()) }
                 var filterSubId by remember(activeSubId) { mutableStateOf(activeSubId) }
                 val serverList = remember(subscriptions, filterSubId) {
                     if (filterSubId == "all") {
@@ -137,87 +140,161 @@ class NodesPopupActivity : ComponentActivity() {
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            // Header
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Dns,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.available_nodes),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    IconButton(
-                                        onClick = {
-                                            isSearchVisible = !isSearchVisible
-                                            if (!isSearchVisible) searchQuery = ""
+                            if (isMultiSelectMode) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            isMultiSelectMode = false
+                                            selectedNodes = emptySet()
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Exit Selection Mode",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isSearchVisible) Icons.Default.SearchOff else Icons.Default.Search,
-                                            contentDescription = stringResource(R.string.search),
-                                            tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${selectedNodes.size} selected",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
 
-                                    IconButton(
-                                        onClick = {
-                                            if (!isTestingPings) {
-                                                scope.launch {
-                                                    isTestingPings = true
-                                                    val jobs = serverList.map { link ->
-                                                        scope.async(Dispatchers.IO) {
-                                                            val hostPort = getHostAndPortFromLink(link)
-                                                            val ping = if (hostPort != null) {
-                                                                measurePingDelay(hostPort.first, hostPort.second)
-                                                            } else {
-                                                                -1
-                                                            }
-                                                            link to ping
-                                                        }
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val allFilteredManuals = remember(filteredServerList, manualServersStr) {
+                                            filteredServerList.filter { item ->
+                                                manualServersStr.split("\n").map { it.trim() }.contains(item.link.trim())
+                                            }.map { it.link }
+                                        }
+                                        val isAllSelected = remember(selectedNodes, allFilteredManuals) {
+                                            allFilteredManuals.isNotEmpty() && selectedNodes.containsAll(allFilteredManuals)
+                                        }
+
+                                        TextButton(
+                                            onClick = {
+                                                if (isAllSelected) {
+                                                    selectedNodes = selectedNodes - allFilteredManuals.toSet()
+                                                    if (selectedNodes.isEmpty()) {
+                                                        isMultiSelectMode = false
                                                     }
-                                                    val results = jobs.awaitAll()
-                                                    pingsMap = pingsMap + results.toMap()
-                                                    isTestingPings = false
+                                                } else {
+                                                    selectedNodes = selectedNodes + allFilteredManuals.toSet()
                                                 }
                                             }
-                                        },
-                                        enabled = !isTestingPings
-                                    ) {
-                                        if (isTestingPings) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(20.dp),
-                                                strokeWidth = 2.dp,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        } else {
+                                        ) {
+                                            Text(if (isAllSelected) "Deselect All" else "Select All")
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                                val newManualList = currentManualList.filter { !selectedNodes.contains(it) }
+                                                scope.launch {
+                                                    settingsManager.setManualServers(newManualList.joinToString("\n"))
+                                                }
+                                                isMultiSelectMode = false
+                                                selectedNodes = emptySet()
+                                            }
+                                        ) {
                                             Icon(
-                                                imageVector = Icons.Default.Speed,
-                                                contentDescription = stringResource(R.string.test_pings),
-                                                tint = MaterialTheme.colorScheme.primary
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Delete Selected",
+                                                tint = MaterialTheme.colorScheme.error
                                             )
                                         }
                                     }
-
-                                    IconButton(onClick = { finish() }) {
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Close",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            imageVector = Icons.Default.Dns,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = stringResource(R.string.available_nodes),
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        IconButton(
+                                            onClick = {
+                                                isSearchVisible = !isSearchVisible
+                                                if (!isSearchVisible) searchQuery = ""
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isSearchVisible) Icons.Default.SearchOff else Icons.Default.Search,
+                                                contentDescription = stringResource(R.string.search),
+                                                tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                if (!isTestingPings) {
+                                                    scope.launch {
+                                                        isTestingPings = true
+                                                        val jobs = serverList.map { link ->
+                                                            scope.async(Dispatchers.IO) {
+                                                                val hostPort = getHostAndPortFromLink(link)
+                                                                val ping = if (hostPort != null) {
+                                                                    measurePingDelay(hostPort.first, hostPort.second)
+                                                                } else {
+                                                                    -1
+                                                                }
+                                                                link to ping
+                                                            }
+                                                        }
+                                                        val results = jobs.awaitAll()
+                                                        pingsMap = pingsMap + results.toMap()
+                                                        isTestingPings = false
+                                                    }
+                                                }
+                                            },
+                                            enabled = !isTestingPings
+                                        ) {
+                                            if (isTestingPings) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Default.Speed,
+                                                    contentDescription = stringResource(R.string.test_pings),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(onClick = { finish() }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Close",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -347,6 +424,10 @@ class NodesPopupActivity : ComponentActivity() {
                                             else -> MaterialTheme.colorScheme.onTertiaryContainer
                                         }
 
+                                        val isManualNode = remember(manualServersStr, serverLink) {
+                                            manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                                        }
+
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -360,42 +441,84 @@ class NodesPopupActivity : ComponentActivity() {
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else Color.Transparent,
                                                     shape = ExpressiveButtonShape
                                                 )
-                                                .pressScaleEffect()
-                                                .clickable {
-                                                    scope.launch {
-                                                        settingsManager.setActiveProfile(serverLink)
-                                                        if (vpnState == "CONNECTED") {
-                                                            val startIntent = Intent(context, VpnServiceWrapper::class.java).apply {
-                                                                action = VpnServiceWrapper.ACTION_START
-                                                            }
-                                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                                                context.startForegroundService(startIntent)
+                                                .combinedClickable(
+                                                    onClick = {
+                                                        if (isMultiSelectMode) {
+                                                            if (isManualNode) {
+                                                                selectedNodes = if (selectedNodes.contains(serverLink)) {
+                                                                    selectedNodes - serverLink
+                                                                } else {
+                                                                    selectedNodes + serverLink
+                                                                }
+                                                                if (selectedNodes.isEmpty()) {
+                                                                    isMultiSelectMode = false
+                                                                }
                                                             } else {
-                                                                context.startService(startIntent)
+                                                                android.widget.Toast.makeText(context, "Only custom/manual nodes can be selected for batch deletion", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        } else {
+                                                            scope.launch {
+                                                                settingsManager.setActiveProfile(serverLink)
+                                                                if (vpnState == "CONNECTED") {
+                                                                    val startIntent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                                                        action = VpnServiceWrapper.ACTION_START
+                                                                    }
+                                                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                                        context.startForegroundService(startIntent)
+                                                                    } else {
+                                                                        context.startService(startIntent)
+                                                                    }
+                                                                }
+                                                                finish() // Close popup on selection
                                                             }
                                                         }
-                                                        finish() // Close popup on selection
+                                                    },
+                                                    onLongClick = {
+                                                        if (isManualNode) {
+                                                            if (!isMultiSelectMode) {
+                                                                isMultiSelectMode = true
+                                                                selectedNodes = setOf(serverLink)
+                                                            }
+                                                        }
                                                     }
-                                                }
+                                                )
+                                                .pressScaleEffect()
                                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                                        else MaterialTheme.colorScheme.surfaceVariant
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
-                                                    contentDescription = null,
-                                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    modifier = Modifier.size(16.dp)
+                                            if (isMultiSelectMode && isManualNode) {
+                                                Checkbox(
+                                                    checked = selectedNodes.contains(serverLink),
+                                                    onCheckedChange = { checked ->
+                                                        selectedNodes = if (checked) {
+                                                            selectedNodes + serverLink
+                                                        } else {
+                                                            selectedNodes - serverLink
+                                                        }
+                                                        if (selectedNodes.isEmpty()) {
+                                                            isMultiSelectMode = false
+                                                        }
+                                                    },
+                                                    modifier = Modifier.padding(end = 4.dp)
                                                 )
+                                            } else {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                                            else MaterialTheme.colorScheme.surfaceVariant
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (isSelected) Icons.Default.Check else Icons.Default.Hub,
+                                                        contentDescription = null,
+                                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
                                             }
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column(modifier = Modifier.weight(1f)) {

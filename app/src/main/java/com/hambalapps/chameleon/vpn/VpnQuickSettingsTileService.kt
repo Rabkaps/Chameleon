@@ -1,13 +1,15 @@
 package com.hambalapps.chameleon.vpn
 
+import android.app.PendingIntent
 import android.content.Intent
+import android.net.VpnService
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.hambalapps.chameleon.MainActivity
+import com.hambalapps.chameleon.data.SettingsManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
-
-import com.hambalapps.chameleon.data.SettingsManager
 import kotlinx.coroutines.flow.first
 
 class VpnQuickSettingsTileService : TileService() {
@@ -76,7 +78,45 @@ class VpnQuickSettingsTileService : TileService() {
         if (currentState == "CONNECTED" || currentState == "CONNECTING") {
             stopVpnService()
         } else {
-            startVpnService()
+            // Check VPN permission first
+            if (VpnService.prepare(this) != null) {
+                // Open App to grant permission
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                if (isLocked) {
+                    unlockAndRun {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            val pendingIntent = PendingIntent.getActivity(
+                                this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                            )
+                            startActivityAndCollapse(pendingIntent)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            startActivityAndCollapse(intent)
+                        }
+                    }
+                } else {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        val pendingIntent = PendingIntent.getActivity(
+                            this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                        )
+                        startActivityAndCollapse(pendingIntent)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        startActivityAndCollapse(intent)
+                    }
+                }
+            } else {
+                // Permission is granted, start the VPN
+                if (isLocked) {
+                    unlockAndRun {
+                        startVpnService()
+                    }
+                } else {
+                    startVpnService()
+                }
+            }
         }
     }
 

@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
@@ -200,6 +201,7 @@ fun ConnectionDashboard(
     val finalScale = if (state == "CONNECTING") pulseScale else scaleFactor
 
     var pingTime by remember { mutableStateOf("--") }
+    var userIpAddress by remember { mutableStateOf("Detecting...") }
     
     LaunchedEffect(state, delayTestUrl) {
         if (state == "CONNECTED") {
@@ -232,6 +234,42 @@ fun ConnectionDashboard(
             }
         } else {
             pingTime = "--"
+        }
+    }
+
+    LaunchedEffect(state) {
+        if (state == "CONNECTING" || state == "DISCONNECTING") {
+            userIpAddress = "Detecting..."
+        } else {
+            userIpAddress = "Detecting..."
+            launch(Dispatchers.IO) {
+                var ip = "Unknown"
+                var attempts = 3
+                while (attempts > 0) {
+                    var connection: java.net.HttpURLConnection? = null
+                    try {
+                        val url = java.net.URL("https://api.ipify.org")
+                        connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.connectTimeout = 3000
+                        connection.readTimeout = 3000
+                        connection.requestMethod = "GET"
+                        connection.useCaches = false
+                        val responseCode = connection.responseCode
+                        if (responseCode == 200) {
+                            ip = connection.inputStream.bufferedReader().use { it.readText().trim() }
+                            break
+                        }
+                    } catch (e: Exception) {
+                        attempts--
+                        delay(1000)
+                    } finally {
+                        connection?.disconnect()
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    userIpAddress = ip
+                }
+            }
         }
     }
 
@@ -417,7 +455,7 @@ fun ConnectionDashboard(
                             )
                     ) {
                         if (state == "CONNECTING") {
-                            androidx.compose.material3.CircularProgressIndicator(
+                            androidx.compose.material3.LoadingIndicator(
                                 modifier = Modifier.size(56.dp),
                                 color = buttonIconColor
                             )
@@ -607,8 +645,8 @@ fun ConnectionDashboard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Protocol",
+                                imageVector = Icons.Default.Language,
+                                contentDescription = "IP Address",
                                 tint = MaterialTheme.colorScheme.tertiary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -621,15 +659,15 @@ fun ConnectionDashboard(
                         }
                         Column {
                             Text(
-                                text = "PROTOCOL",
+                                text = "IP ADDRESS",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = if (protocolName.isEmpty()) "NONE" else protocolName,
-                                style = MaterialTheme.typography.titleLarge,
+                                text = userIpAddress,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,

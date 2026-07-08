@@ -2451,12 +2451,13 @@ fun MainScreen(
                         }
 
                         Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+                            if (useDropdownMenu) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
                                 // Top Bento Row
@@ -2464,40 +2465,32 @@ fun MainScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    // Fastest Auto-Connect Card
+                                    // QR Scanner Bento Card
                                     Card(
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(100.dp)
                                             .clip(RoundedCornerShape(28.dp))
                                             .clickable {
-                                                if (!isTestingPings) {
-                                                    scope.launch {
-                                                        isTestingPings = true
-                                                        val jobs = serverList.map { link ->
-                                                            scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                val hostPort = getHostAndPortFromLink(link)
-                                                                val ping = if (hostPort != null) measurePingDelay(hostPort.first, hostPort.second) else -1
-                                                                link to ping
-                                                            }
-                                                        }
-                                                        val results = jobs.awaitAll().filter { it.second > 0 }
-                                                        isTestingPings = false
-                                                        val bestNode = results.minByOrNull { it.second }?.first
-                                                        if (bestNode != null) {
-                                                            settingsManager.setActiveProfile(bestNode)
-                                                            if (vpnState == "CONNECTED") {
-                                                                startVpnService(context)
+                                                scanResultCallback = { result ->
+                                                    val trimmedImport = result.trim()
+                                                    if (trimmedImport.isNotEmpty()) {
+                                                        scope.launch {
+                                                            val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
+                                                                val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                                                                "openvpn://vpn?config=$b64#OpenVPN_Imported"
+                                                            } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
+                                                                val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                                                                "awg://vpn?config=$b64#AmneziaWG_Imported"
                                                             } else {
-                                                                val intent = VpnService.prepare(context)
-                                                                if (intent != null) {
-                                                                    vpnPermissionLauncher.launch(intent)
-                                                                } else {
-                                                                    startVpnService(context)
-                                                                }
+                                                                trimmedImport
                                                             }
-                                                        } else {
-                                                            android.widget.Toast.makeText(context, "No responsive node found", android.widget.Toast.LENGTH_SHORT).show()
+                                                            val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                                            val newLinkWithoutRemark = finalLink.substringBefore("#")
+                                                            val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                                                            settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                                            settingsManager.setActiveSubId("manual")
+                                                            settingsManager.setActiveProfile(finalLink)
                                                         }
                                                     }
                                                 }
@@ -2518,27 +2511,21 @@ fun MainScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.Bolt,
-                                                    contentDescription = "Fastest",
+                                                    imageVector = Icons.Default.QrCodeScanner,
+                                                    contentDescription = "Scan QR Code",
                                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                                     modifier = Modifier.size(24.dp)
                                                 )
-                                                if (isTestingPings) {
-                                                    LoadingIndicator(
-                                                        modifier = Modifier.size(16.dp),
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
-                                                }
                                             }
                                             Column {
                                                 Text(
-                                                    text = "Fastest Node",
+                                                    text = "Scan QR Code",
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                                 )
                                                 Text(
-                                                    text = "Auto-Connect",
+                                                    text = "Direct config import",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                                 )
@@ -2628,23 +2615,14 @@ fun MainScreen(
                                         }
                                     }
 
-                                    // Create Card
+                                    // Search Card
                                     Card(
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(100.dp)
                                             .clip(RoundedCornerShape(28.dp))
                                             .clickable {
-                                                editingNodeLink = "new_node"
-                                                editType = "vless"
-                                                editRemark = ""
-                                                editServer = ""
-                                                editPort = "443"
-                                                editCreds = ""
-                                                editTls = false
-                                                editSni = ""
-                                                editLinkInput = ""
-                                                editorMode = "form"
+                                                isSearchVisible = true
                                             }
                                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp)),
                                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.35f else 0.15f)),
@@ -2655,20 +2633,20 @@ fun MainScreen(
                                             verticalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.AddCircle,
-                                                contentDescription = "Create",
+                                                imageVector = Icons.Default.Search,
+                                                contentDescription = "Search",
                                                 tint = MaterialTheme.colorScheme.secondary,
                                                 modifier = Modifier.size(24.dp)
                                             )
                                             Column {
                                                 Text(
-                                                    text = "Create Node",
+                                                    text = "Search Nodes",
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSecondaryContainer
                                                 )
                                                 Text(
-                                                    text = "Add manual proxy config",
+                                                    text = "Find your servers",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                                 )
@@ -2677,178 +2655,203 @@ fun MainScreen(
                                     }
                                 }
 
-                                // Horizontal Filters Row & Speed Test Button
+                                // Side-by-side Filtering Cards
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Row(
+                                    // Country Filtering Card
+                                    var isCountryDropdownExpanded by remember { mutableStateOf(false) }
+                                    Card(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .height(60.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .clickable { isCountryDropdownExpanded = true }
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                        shape = RoundedCornerShape(16.dp)
                                     ) {
-                                        // Group filter chip
-                                        Box {
-                                            androidx.compose.material3.FilterChip(
-                                                selected = selectedSubGroupFilter != "All Groups",
-                                                onClick = { isGroupDropdownExpanded = true },
-                                                label = { 
-                                                    Text(
-                                                        text = if (selectedSubGroupFilter == "All Groups") "All Groups" else selectedSubGroupFilter,
-                                                        maxLines = 1,
-                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                    )
-                                                },
-                                                modifier = Modifier.widthIn(max = 130.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "COUNTRY",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.5.sp
+                                                )
+                                                Text(
+                                                    text = selectedCountryFilter,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.FilterAlt,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
                                             )
-                                            DropdownMenu(
-                                                expanded = isGroupDropdownExpanded,
-                                                onDismissRequest = { isGroupDropdownExpanded = false }
-                                            ) {
-                                                subGroups.forEach { group ->
-                                                    DropdownMenuItem(
-                                                        text = { Text(group) },
-                                                        onClick = {
-                                                            selectedSubGroupFilter = group
-                                                            isGroupDropdownExpanded = false
-                                                        }
-                                                    )
-                                                }
+                                        }
+                                        DropdownMenu(
+                                            expanded = isCountryDropdownExpanded,
+                                            onDismissRequest = { isCountryDropdownExpanded = false }
+                                        ) {
+                                            uniqueCountries.forEach { country ->
+                                                DropdownMenuItem(
+                                                    text = { Text(country) },
+                                                    onClick = {
+                                                        selectedCountryFilter = country
+                                                        isCountryDropdownExpanded = false
+                                                    }
+                                                )
                                             }
                                         }
+                                    }
 
-                                        // Country filter chip
-                                        Box {
-                                            androidx.compose.material3.FilterChip(
-                                                selected = selectedCountryFilter != "All Countries",
-                                                onClick = { isCountryDropdownExpanded = true },
-                                                label = { 
-                                                    Text(
-                                                        text = if (selectedCountryFilter == "All Countries") "All Countries" else selectedCountryFilter,
-                                                        maxLines = 1,
-                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                                    )
-                                                },
-                                                modifier = Modifier.widthIn(max = 130.dp)
+                                    // Subscription Selector Card
+                                    var isSubDropdownExpanded by remember { mutableStateOf(false) }
+                                    Card(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(60.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .clickable { isSubDropdownExpanded = true }
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "SUBSCRIPTION",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.5.sp
+                                                )
+                                                Text(
+                                                    text = activeSubscription?.name ?: "Manual Config",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.Layers,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(18.dp)
                                             )
-                                            DropdownMenu(
-                                                expanded = isCountryDropdownExpanded,
-                                                onDismissRequest = { isCountryDropdownExpanded = false }
-                                            ) {
-                                                uniqueCountries.forEach { country ->
-                                                    DropdownMenuItem(
-                                                        text = { Text(country) },
-                                                        onClick = {
-                                                            selectedCountryFilter = country
-                                                            isCountryDropdownExpanded = false
+                                        }
+                                        DropdownMenu(
+                                            expanded = isSubDropdownExpanded,
+                                            onDismissRequest = { isSubDropdownExpanded = false }
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Manual Config") },
+                                                onClick = {
+                                                    scope.launch {
+                                                        settingsManager.setActiveSubId("manual")
+                                                    }
+                                                    isSubDropdownExpanded = false
+                                                }
+                                            )
+                                            subscriptions.forEach { sub ->
+                                                DropdownMenuItem(
+                                                    text = { Text(sub.name) },
+                                                    onClick = {
+                                                        scope.launch {
+                                                            settingsManager.setActiveSubId(sub.id)
                                                         }
-                                                    )
+                                                        isSubDropdownExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Row with Speed Test & Fullscreen Buttons
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Ping/Speed test button
+                                    FilledIconButton(
+                                        onClick = {
+                                            if (!isTestingPings) {
+                                                scope.launch {
+                                                    isTestingPings = true
+                                                    val jobs = serverList.map { link ->
+                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                            val hostPort = getHostAndPortFromLink(link)
+                                                            val ping = if (hostPort != null) {
+                                                                measurePingDelay(hostPort.first, hostPort.second)
+                                                            } else {
+                                                                -1
+                                                            }
+                                                            link to ping
+                                                        }
+                                                    }
+                                                    val results = jobs.awaitAll()
+                                                    pingsMap = pingsMap + results.toMap()
+                                                    isTestingPings = false
                                                 }
                                             }
+                                        },
+                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = CircleShape,
+                                        enabled = !isTestingPings
+                                    ) {
+                                        if (isTestingPings) {
+                                            LoadingIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = stringResource(R.string.test_pings),
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         }
                                     }
 
                                     Spacer(modifier = Modifier.width(8.dp))
 
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    FilledIconButton(
+                                        onClick = { isNodesExpanded = true },
+                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        shape = CircleShape
                                     ) {
-                                        // Ping/Speed test button
-                                        FilledIconButton(
-                                            onClick = {
-                                                if (!isTestingPings) {
-                                                    scope.launch {
-                                                        isTestingPings = true
-                                                        val jobs = serverList.map { link ->
-                                                            scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                val hostPort = getHostAndPortFromLink(link)
-                                                                val ping = if (hostPort != null) {
-                                                                    measurePingDelay(hostPort.first, hostPort.second)
-                                                                } else {
-                                                                    -1
-                                                                }
-                                                                link to ping
-                                                            }
-                                                        }
-                                                        val results = jobs.awaitAll()
-                                                        pingsMap = pingsMap + results.toMap()
-                                                        isTestingPings = false
-                                                    }
-                                                }
-                                            },
-                                            modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                            ),
-                                            shape = CircleShape,
-                                            enabled = !isTestingPings
-                                        ) {
-                                            if (isTestingPings) {
-                                                LoadingIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Default.Speed,
-                                                    contentDescription = stringResource(R.string.test_pings),
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-
-                                        FilledIconButton(
-                                            onClick = { isNodesExpanded = true },
-                                            modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                            ),
-                                            shape = CircleShape
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Fullscreen,
-                                                contentDescription = "Expand Card",
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Protocols tab row
-                                ScrollableTabRow(
-                                    selectedTabIndex = selectedTab,
-                                    edgePadding = 0.dp,
-                                    containerColor = Color.Transparent,
-                                    contentColor = MaterialTheme.colorScheme.primary,
-                                    indicator = { tabPositions ->
-                                        if (selectedTab < tabPositions.size) {
-                                            TabRowDefaults.SecondaryIndicator(
-                                                Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    },
-                                    divider = {}
-                                ) {
-                                    listOf("All", "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
-                                        Tab(
-                                            selected = selectedTab == index,
-                                            onClick = { selectedTab = index },
-                                            text = { 
-                                                Text(
-                                                    text = title, 
-                                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (selectedTab == index) MaterialTheme.colorScheme.primary
-                                                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                                    fontSize = 13.sp
-                                                ) 
-                                            }
+                                        Icon(
+                                            imageVector = Icons.Default.Fullscreen,
+                                            contentDescription = "Expand Card",
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
@@ -3223,23 +3226,32 @@ fun MainScreen(
                                  }
                              }
 
-                            if (showSubManagerDialog) {
-                                androidx.compose.ui.window.Dialog(onDismissRequest = { showSubManagerDialog = false }) {
-                                    Card(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .fillMaxHeight(0.85f),
-                                        shape = RoundedCornerShape(28.dp),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                    ) {
-                                        subscriptionManagerCard(
-                                            Modifier.fillMaxSize(),
-                                            Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
-                                        )
+                               if (showSubManagerDialog) {
+                                    androidx.compose.ui.window.Dialog(onDismissRequest = { showSubManagerDialog = false }) {
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(0.85f),
+                                            shape = RoundedCornerShape(28.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                        ) {
+                                            subscriptionManagerCard(
+                                                Modifier.fillMaxSize(),
+                                                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+                                            )
+                                        }
                                     }
                                 }
+                               } else {
+                                   Row(
+                                       modifier = Modifier.fillMaxSize().padding(16.dp),
+                                       horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                   ) {
+                                       subscriptionManagerCard(Modifier.weight(1.2f).fillMaxHeight(), Modifier.weight(1f).fillMaxHeight())
+                                       availableNodesCard(Modifier.weight(1.8f).fillMaxHeight(), Modifier.weight(1f).fillMaxHeight())
+                                   }
+                               }
                             }
-                        }
                     }
                     2 -> { // Logs Tab
                         Column(
@@ -4171,20 +4183,6 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(
-                            onClick = {
-                                scanResultCallback = { result ->
-                                    importText = result
-                                }
-                            },
-                            enabled = !isImportFetching
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.QrCodeScanner,
-                                contentDescription = stringResource(R.string.scan_qr_code),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                     OutlinedTextField(
                         value = importText,
@@ -4206,6 +4204,32 @@ fun MainScreen(
                         Icon(imageVector = Icons.Default.UploadFile, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Choose .ovpn or .conf File")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showImportDialog = false
+                            editingNodeLink = "new_node"
+                            editType = "vless"
+                            editRemark = ""
+                            editServer = ""
+                            editPort = "443"
+                            editCreds = ""
+                            editTls = false
+                            editSni = ""
+                            editLinkInput = ""
+                            editorMode = "form"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressiveButtonShape,
+                        enabled = !isImportFetching,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Icon(imageVector = Icons.Default.AddCircle, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Create Manually (Manual Config)")
                     }
                     if (isImportingSubscription) {
                         Spacer(modifier = Modifier.height(8.dp))
