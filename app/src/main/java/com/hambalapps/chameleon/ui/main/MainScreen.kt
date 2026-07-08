@@ -77,6 +77,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.cos
 import kotlin.math.sin
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.hambalapps.chameleon.SplitTunneling
 import com.hambalapps.chameleon.ui.qr.QrScannerScreen
@@ -229,7 +230,7 @@ fun MainScreen(
             val trimmed = line.trim()
             if (trimmed.isNotEmpty()) list.add(trimmed)
         }
-        list
+        list.distinct()
     }
 
     var showLivePromoGuide by remember { mutableStateOf(false) }
@@ -735,27 +736,13 @@ fun MainScreen(
                 ) {
                     Spacer(modifier = Modifier.height(40.dp))
                     
-                    Box(
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher),
+                        contentDescription = "App Logo",
                         modifier = Modifier
                             .size(80.dp)
                             .clip(ExpressiveCardShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.tertiary
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Hub,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
+                    )
                     
                     Spacer(modifier = Modifier.height(24.dp))
                     
@@ -2452,6 +2439,8 @@ fun MainScreen(
 
                         Box(modifier = Modifier.fillMaxSize()) {
                             if (useDropdownMenu) {
+                                val fontScale = LocalDensity.current.fontScale
+                                val bentoTitleSize = if (fontScale > 1.0f) (15f / fontScale).sp else 15.sp
                                 Column(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -2487,7 +2476,7 @@ fun MainScreen(
                                                             }
                                                             val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                                             val newLinkWithoutRemark = finalLink.substringBefore("#")
-                                                            val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                                                            val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
                                                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                                             settingsManager.setActiveSubId("manual")
                                                             settingsManager.setActiveProfile(finalLink)
@@ -2520,14 +2509,10 @@ fun MainScreen(
                                             Column {
                                                 Text(
                                                     text = "Scan QR Code",
-                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontSize = bentoTitleSize,
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                                Text(
-                                                    text = "Direct config import",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                                 )
                                             }
                                         }
@@ -2559,14 +2544,10 @@ fun MainScreen(
                                             Column {
                                                 Text(
                                                     text = "Subscriptions",
-                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontSize = bentoTitleSize,
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Text(
-                                                    text = "${subscriptions.size} groups",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                                 )
                                             }
                                         }
@@ -2602,14 +2583,10 @@ fun MainScreen(
                                             Column {
                                                 Text(
                                                     text = "Import Link",
-                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontSize = bentoTitleSize,
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                                Text(
-                                                    text = "Add config or sub URL",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                                 )
                                             }
                                         }
@@ -2641,14 +2618,10 @@ fun MainScreen(
                                             Column {
                                                 Text(
                                                     text = "Search Nodes",
-                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontSize = bentoTitleSize,
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                                     fontWeight = FontWeight.Bold,
                                                     color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Text(
-                                                    text = "Find your servers",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                                 )
                                             }
                                         }
@@ -3210,18 +3183,7 @@ fun MainScreen(
                                              }
                                          }
                                      } else {
-                                         androidx.compose.material3.FloatingActionButton(
-                                             onClick = { isSearchVisible = true },
-                                             modifier = Modifier.pressScaleEffect(),
-                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                             shape = CircleShape
-                                         ) {
-                                             Icon(
-                                                 imageVector = Icons.Default.Search,
-                                                 contentDescription = "Expand Search"
-                                             )
-                                         }
+                                         Spacer(modifier = Modifier.size(0.dp))
                                      }
                                  }
                              }
@@ -4299,7 +4261,7 @@ fun MainScreen(
                                     }
                                     val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                     val newLinkWithoutRemark = finalLink.substringBefore("#")
-                                    val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                                    val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
                                     settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                     settingsManager.setActiveSubId("manual")
                                     settingsManager.setActiveProfile(finalLink)
@@ -4488,7 +4450,7 @@ fun MainScreen(
                         if (isNewChain) {
                             val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                             val newLinkWithoutRemark = finalLink.substringBefore("#")
-                            val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                            val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                             settingsManager.setActiveSubId("manual")
                             settingsManager.setActiveProfile(finalLink)
@@ -4496,7 +4458,7 @@ fun MainScreen(
                             val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                             val updatedManualList = currentManualList.map {
                                 if (it == link) finalLink else it
-                            }
+                            }.distinct()
                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                             if (activeProfile == link) {
                                 settingsManager.setActiveProfile(finalLink)
@@ -4989,7 +4951,7 @@ fun MainScreen(
                                     if (isNewNode) {
                                         val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val newLinkWithoutRemark = finalLink.substringBefore("#")
-                                        val updatedManualList = currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink
+                                        val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
                                         settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
@@ -4997,7 +4959,7 @@ fun MainScreen(
                                         val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val updatedManualList = currentManualList.map {
                                             if (it == originalLink) finalLink else it
-                                        }
+                                        }.distinct()
                                         settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         if (activeProfile == originalLink) {
                                             settingsManager.setActiveProfile(finalLink)
@@ -5578,7 +5540,7 @@ fun MainScreen(
                                             onClick = {
                                                 scope.launch {
                                                     val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                                                    val updatedManualList = currentManualList.filter { it != serverLink }
+                                                    val updatedManualList = currentManualList.filter { it != serverLink }.distinct()
                                                     settingsManager.setManualServers(updatedManualList.joinToString("\n"))
 
                                                     if (serverLink.startsWith("chain://")) {

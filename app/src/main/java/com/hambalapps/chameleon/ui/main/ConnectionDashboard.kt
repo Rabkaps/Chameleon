@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -202,6 +203,28 @@ fun ConnectionDashboard(
 
     var pingTime by remember { mutableStateOf("--") }
     var userIpAddress by remember { mutableStateOf("Detecting...") }
+    val fontScale = LocalDensity.current.fontScale
+    val ipTextSize = remember(userIpAddress, fontScale) {
+        val base = when {
+            userIpAddress.length > 25 -> 10.sp
+            userIpAddress.length > 18 -> 11.sp
+            userIpAddress.length > 14 -> 12.sp
+            else -> 14.sp
+        }
+        if (fontScale > 1.0f) {
+            (base.value / fontScale).sp
+        } else {
+            base
+        }
+    }
+    val pingTextSize = remember(pingTime, fontScale) {
+        val base = if (pingTime.length > 6) 12.sp else 18.sp
+        if (fontScale > 1.0f) {
+            (base.value / fontScale).sp
+        } else {
+            base
+        }
+    }
     
     LaunchedEffect(state, delayTestUrl) {
         if (state == "CONNECTED") {
@@ -615,7 +638,8 @@ fun ConnectionDashboard(
                             )
                             Text(
                                 text = pingTime,
-                                style = MaterialTheme.typography.titleLarge,
+                                fontSize = pingTextSize,
+                                style = MaterialTheme.typography.titleLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -667,7 +691,8 @@ fun ConnectionDashboard(
                             )
                             Text(
                                 text = userIpAddress,
-                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = ipTextSize,
+                                style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
                                 fontWeight = FontWeight.Black,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,

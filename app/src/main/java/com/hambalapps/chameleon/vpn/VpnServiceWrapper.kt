@@ -783,6 +783,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     private fun stopVpnEngine() {
+        localProxyOnlyMode = false
         serviceScope.launch {
             try {
                 log("Stopping VPN Engine...")
@@ -855,6 +856,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     override fun onDestroy() {
+        localProxyOnlyMode = false
         updateWakeLock("DISCONNECTED")
         if (rootModeVal) {
             val commands = listOf(
