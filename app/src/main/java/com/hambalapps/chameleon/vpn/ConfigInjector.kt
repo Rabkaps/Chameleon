@@ -1796,7 +1796,6 @@ object ConfigInjector {
         if (passwordVal.isNotEmpty()) outbound.put("password", passwordVal)
         
         val tls = JSONObject().apply {
-            put("enabled", true)
             if (caText.isNotEmpty()) put("ca", caText)
             if (certText.isNotEmpty()) put("certificate", certText)
             if (keyText.isNotEmpty()) put("key", keyText)

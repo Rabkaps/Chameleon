@@ -735,11 +735,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 _vpnState.value = "CONNECTING"
                 
                 // Teardown core service
-                try {
-                    commandServer?.closeService()
-                    delay(500)
-                } catch (e: Exception) {
-                    log("Error closing service during reconnect: ${e.message}")
+                val closeJob = kotlin.concurrent.thread(start = true) {
+                    try {
+                        commandServer?.closeService()
+                    } catch (e: Exception) {
+                        android.util.Log.e("Chameleon", "Error closing service during reconnect: ${e.message}")
+                    }
+                }
+                val startTime = System.currentTimeMillis()
+                while (closeJob.isAlive && System.currentTimeMillis() - startTime < 500) {
+                    delay(50)
                 }
                 
                 try {
@@ -791,11 +796,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 
                 withContext(NonCancellable) {
                     log("Stopping core service...")
-                    try {
-                        commandServer?.closeService()
-                        delay(500)
-                    } catch (e: Exception) {
-                        log("Error closing service: ${e.message}")
+                    val closeJob = kotlin.concurrent.thread(start = true) {
+                        try {
+                            commandServer?.closeService()
+                        } catch (e: Exception) {
+                            android.util.Log.e("Chameleon", "Error closing service: ${e.message}")
+                        }
+                    }
+                    val startTime = System.currentTimeMillis()
+                    while (closeJob.isAlive && System.currentTimeMillis() - startTime < 500) {
+                        delay(50)
                     }
                     
                     log("Stopping CommandServer...")
@@ -869,12 +879,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         super.onDestroy()
         
         // Ensure core service and command server are closed
+        val closeJob = kotlin.concurrent.thread(start = true) {
+            try {
+                commandServer?.closeService()
+            } catch (e: Exception) {}
+            try {
+                commandServer?.close()
+            } catch (e: Exception) {}
+        }
         try {
-            commandServer?.closeService()
-            Thread.sleep(500)
-        } catch (e: Exception) {}
-        try {
-            commandServer?.close()
+            closeJob.join(500)
         } catch (e: Exception) {}
         commandServer = null
 
