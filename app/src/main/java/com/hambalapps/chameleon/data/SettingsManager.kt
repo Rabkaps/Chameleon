@@ -405,11 +405,11 @@ fun deserializeSubscriptions(data: String): List<Subscription> {
                 expire = if (fields.size > 7 && fields[7].isNotEmpty()) fields[7].toLongOrNull() else null
             )
         } else null
-    }
+    }.filter { it.id != "manual" }
 }
 
 fun serializeSubscriptions(subs: List<Subscription>): String {
-    return subs.joinToString("\u001e") { sub ->
+    return subs.filter { it.id != "manual" }.joinToString("\u001e") { sub ->
         val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
         val safeUrl = sub.url.replace("\u001e", "").replace("\u001f", "")
         val safeServers = sub.servers.replace("\u001e", "").replace("\u001f", "")

@@ -47,6 +47,12 @@ jobs:
         cp app/build/outputs/apk/standard/release/app-standard-x86-release.apk Chameleon-standard-x86.apk
         cp app/build/outputs/apk/standard/release/app-standard-x86_64-release.apk Chameleon-standard-x86_64.apk
 
+    - name: Upload Chameleon Arm64 APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Chameleon-standard-arm64
+        path: Chameleon-standard-arm64-v8a.apk
+
     - name: Upload Chameleon Standard APK Artifacts
       uses: actions/upload-artifact@v4
       with:
