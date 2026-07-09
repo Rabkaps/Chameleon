@@ -1443,6 +1443,8 @@ object ConfigInjector {
                         })
                     }
                     outbound.put("servers", serversArray)
+                    outbound.put("server", host)
+                    outbound.put("server_port", port)
                     outbound.put("proto", queryParams["proto"] ?: "udp")
                     outbound.put("cipher", queryParams["cipher"] ?: "AES-256-GCM")
                     outbound.put("auth", queryParams["auth"] ?: "SHA512")
@@ -1812,6 +1814,20 @@ object ConfigInjector {
             outbound.put("tls_auth", tlsAuthText)
             outbound.put("key_direction", keyDir)
         }
+        
+        if (serversArray.length() > 0) {
+            val firstServer = serversArray.optJSONObject(0)
+            if (firstServer != null) {
+                if (!outbound.has("server")) {
+                    outbound.put("server", firstServer.optString("server"))
+                }
+                if (!outbound.has("server_port")) {
+                    outbound.put("server_port", firstServer.optInt("server_port"))
+                }
+            }
+        }
+        outbound.put("config", configText)
+        outbound.put("config_text", configText)
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {

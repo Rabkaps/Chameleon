@@ -1,9 +1,10 @@
-### What's New in v1.7.7
+### What's New in v1.7.8
 
-This release delivers a critical launch crash fix, stability enhancements, and UI refinements.
+This release delivers critical fixes for MTProxy (MTProto) stopping reliability and greatly improves OpenVPN configuration parsing and connection support.
 
-#### Critical Hotfix
-- **App Launch Crash Fix**: Wrapped the drawer branding icon inside a gradient Box using `ic_launcher_foreground` rather than trying to inflate the adaptive launcher XML directly, resolving a crash on app launch.
+#### Added & Improved
+- **Robust OpenVPN Integration**: Restructured the OpenVPN parsing engine to expose `server` and `server_port` at the outbound JSON top level and embedded the raw profile configuration under the required `config` fields. This resolves connection errors when importing custom `.ovpn` profiles.
+- **Reliable Local MTProto Proxy Stopping**: Extended the command server teardown delay to 500ms and added thread blocking in `onDestroy()` to guarantee the native Go/sing-box service completely terminates and releases the listening socket.
 
 ---
 

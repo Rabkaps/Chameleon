@@ -737,7 +737,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 // Teardown core service
                 try {
                     commandServer?.closeService()
-                    delay(200)
+                    delay(500)
                 } catch (e: Exception) {
                     log("Error closing service during reconnect: ${e.message}")
                 }
@@ -793,7 +793,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     log("Stopping core service...")
                     try {
                         commandServer?.closeService()
-                        delay(200)
+                        delay(500)
                     } catch (e: Exception) {
                         log("Error closing service: ${e.message}")
                     }
@@ -871,6 +871,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         // Ensure core service and command server are closed
         try {
             commandServer?.closeService()
+            Thread.sleep(500)
         } catch (e: Exception) {}
         try {
             commandServer?.close()
