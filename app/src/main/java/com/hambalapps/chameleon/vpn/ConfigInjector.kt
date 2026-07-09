@@ -688,7 +688,8 @@ object ConfigInjector {
 
             // Inject fragmentation into proxy outbound if enabled
             val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
-            if (isProxyOrRelay && settings.enableFragment) {
+            val isOpenVpn = out.optString("type") == "openvpn"
+            if (isProxyOrRelay && settings.enableFragment && !isOpenVpn) {
                 injectFragmentToOutbound(out, settings)
             }
             // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp configs)
@@ -696,7 +697,7 @@ object ConfigInjector {
             val isReality = tls?.has("reality") ?: false
             val transport = out.optJSONObject("transport")
             val isXhttp = transport?.optString("type") == "xhttp"
-            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp) {
+            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp && !isOpenVpn) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -704,7 +705,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp)) {
+            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp || isOpenVpn)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
@@ -797,6 +798,7 @@ object ConfigInjector {
     }
 
     private fun applyCamouflage(outbound: JSONObject, config: CamouflageConfig, settings: InjectorSettings) {
+        if (outbound.optString("type") == "openvpn") return
         val originalServer = outbound.optString("server")
         if (originalServer.isEmpty()) return
 
@@ -860,6 +862,7 @@ object ConfigInjector {
     }
 
     private fun injectFragmentToOutbound(outbound: JSONObject, settings: InjectorSettings) {
+        if (outbound.optString("type") == "openvpn") return
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
         tls.put("fragment", true)
