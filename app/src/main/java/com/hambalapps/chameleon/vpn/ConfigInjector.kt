@@ -1994,11 +1994,32 @@ object ConfigInjector {
     private fun getProxyServerHosts(config: JSONObject): List<String> {
         val hosts = mutableListOf<String>()
         val outbounds = config.optJSONArray("outbounds") ?: return hosts
-        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2", "socks", "http")
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val type = outbound.optString("type")
-            if (proxyTypes.contains(type)) {
+            if (type == "openvpn") {
+                val serversArr = outbound.optJSONArray("servers")
+                if (serversArr != null) {
+                    for (j in 0 until serversArr.length()) {
+                        val sObj = serversArr.optJSONObject(j)
+                        val sHost = sObj?.optString("server") ?: ""
+                        if (sHost.isNotEmpty()) {
+                            hosts.add(sHost)
+                        }
+                    }
+                }
+            } else if (type == "wireguard") {
+                val peersArr = outbound.optJSONArray("peers")
+                if (peersArr != null) {
+                    for (j in 0 until peersArr.length()) {
+                        val pObj = peersArr.optJSONObject(j)
+                        val pHost = pObj?.optString("server") ?: ""
+                        if (pHost.isNotEmpty()) {
+                            hosts.add(pHost)
+                        }
+                    }
+                }
+            } else {
                 val server = outbound.optString("server")
                 if (server.isNotEmpty()) {
                     hosts.add(server)
@@ -2011,13 +2032,34 @@ object ConfigInjector {
     private fun getEntrypointProxyServerHosts(config: JSONObject): List<String> {
         val hosts = mutableListOf<String>()
         val outbounds = config.optJSONArray("outbounds") ?: return hosts
-        val proxyTypes = setOf("vless", "trojan", "shadowsocks", "vmess", "shadowsocksr", "tuic", "hysteria", "hysteria2", "socks", "http")
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val type = outbound.optString("type")
-            if (proxyTypes.contains(type)) {
-                val detour = outbound.optString("detour")
-                if (detour.isEmpty()) {
+            val detour = outbound.optString("detour")
+            if (detour.isEmpty()) {
+                if (type == "openvpn") {
+                    val serversArr = outbound.optJSONArray("servers")
+                    if (serversArr != null) {
+                        for (j in 0 until serversArr.length()) {
+                            val sObj = serversArr.optJSONObject(j)
+                            val sHost = sObj?.optString("server") ?: ""
+                            if (sHost.isNotEmpty()) {
+                                hosts.add(sHost)
+                            }
+                        }
+                    }
+                } else if (type == "wireguard") {
+                    val peersArr = outbound.optJSONArray("peers")
+                    if (peersArr != null) {
+                        for (j in 0 until peersArr.length()) {
+                            val pObj = peersArr.optJSONObject(j)
+                            val pHost = pObj?.optString("server") ?: ""
+                            if (pHost.isNotEmpty()) {
+                                hosts.add(pHost)
+                            }
+                        }
+                    }
+                } else {
                     val server = outbound.optString("server")
                     if (server.isNotEmpty()) {
                         hosts.add(server)
@@ -2049,65 +2091,100 @@ object ConfigInjector {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val detour = outbound.optString("detour")
             val tag = outbound.optString("tag")
+            val type = outbound.optString("type")
             val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
             if (isEntryProxy) {
-                val server = outbound.optString("server")
-                if (server.isNotEmpty() && !isIpAddress(server)) {
-                    android.util.Log.i("Chameleon", "Pre-resolving proxy server domain: $server")
-                    val resolvedIp = resolveDomainWithFallbacks(context, server, settings)
-                    if (resolvedIp != null) {
-                        android.util.Log.i("Chameleon", "Proxy server $server successfully pre-resolved to IP: $resolvedIp")
-                        
-                        // If outbound has TLS enabled, ensure SNI (server_name) is set to original hostname
-                        val tls = outbound.optJSONObject("tls")
-                        if (tls != null) {
-                            if (tls.optBoolean("enabled", false) && !tls.has("server_name")) {
-                                tls.put("server_name", server)
+                if (type == "openvpn") {
+                    val serversArr = outbound.optJSONArray("servers")
+                    if (serversArr != null) {
+                        for (j in 0 until serversArr.length()) {
+                            val sObj = serversArr.optJSONObject(j) ?: continue
+                            val server = sObj.optString("server")
+                            if (server.isNotEmpty() && !isIpAddress(server)) {
+                                android.util.Log.i("Chameleon", "Pre-resolving OpenVPN server domain: $server")
+                                val resolvedIp = resolveDomainWithFallbacks(context, server, settings)
+                                if (resolvedIp != null) {
+                                    android.util.Log.i("Chameleon", "OpenVPN server $server successfully pre-resolved to IP: $resolvedIp")
+                                    sObj.put("server", resolvedIp)
+                                }
                             }
                         }
-                        
-                        // Preserve original domain hostname in transport host / Host headers if pre-resolved
-                        val transport = outbound.optJSONObject("transport")
-                        if (transport != null) {
-                            val transType = transport.optString("type")
-                            if (transType == "ws") {
-                                var headers = transport.optJSONObject("headers")
-                                if (headers == null) {
-                                    headers = JSONObject()
-                                    transport.put("headers", headers)
+                    }
+                } else if (type == "wireguard") {
+                    val peersArr = outbound.optJSONArray("peers")
+                    if (peersArr != null) {
+                        for (j in 0 until peersArr.length()) {
+                            val pObj = peersArr.optJSONObject(j) ?: continue
+                            val server = pObj.optString("server")
+                            if (server.isNotEmpty() && !isIpAddress(server)) {
+                                android.util.Log.i("Chameleon", "Pre-resolving WireGuard server domain: $server")
+                                val resolvedIp = resolveDomainWithFallbacks(context, server, settings)
+                                if (resolvedIp != null) {
+                                    android.util.Log.i("Chameleon", "WireGuard server $server successfully pre-resolved to IP: $resolvedIp")
+                                    pObj.put("server", resolvedIp)
                                 }
-                                if (!headers.has("Host")) {
-                                    headers.put("Host", server)
+                            }
+                        }
+                    }
+                } else {
+                    val server = outbound.optString("server")
+                    if (server.isNotEmpty() && !isIpAddress(server)) {
+                        android.util.Log.i("Chameleon", "Pre-resolving proxy server domain: $server")
+                        val resolvedIp = resolveDomainWithFallbacks(context, server, settings)
+                        if (resolvedIp != null) {
+                            android.util.Log.i("Chameleon", "Proxy server $server successfully pre-resolved to IP: $resolvedIp")
+                            
+                            // If outbound has TLS enabled, ensure SNI (server_name) is set to original hostname
+                            val tls = outbound.optJSONObject("tls")
+                            if (tls != null) {
+                                if (tls.optBoolean("enabled", false) && !tls.has("server_name")) {
+                                    tls.put("server_name", server)
                                 }
-                            } else if (transType == "httpupgrade" || transType == "http") {
-                                if (!transport.has("host")) {
-                                    if (transType == "http") {
-                                        val hostArray = JSONArray()
-                                        hostArray.put(server)
-                                        transport.put("host", hostArray)
-                                    } else {
+                            }
+                            
+                            // Preserve original domain hostname in transport host / Host headers if pre-resolved
+                            val transport = outbound.optJSONObject("transport")
+                            if (transport != null) {
+                                val transType = transport.optString("type")
+                                if (transType == "ws") {
+                                    var headers = transport.optJSONObject("headers")
+                                    if (headers == null) {
+                                        headers = JSONObject()
+                                        transport.put("headers", headers)
+                                    }
+                                    if (!headers.has("Host")) {
+                                        headers.put("Host", server)
+                                    }
+                                } else if (transType == "httpupgrade" || transType == "http") {
+                                    if (!transport.has("host")) {
+                                        if (transType == "http") {
+                                            val hostArray = JSONArray()
+                                            hostArray.put(server)
+                                            transport.put("host", hostArray)
+                                        } else {
+                                            transport.put("host", server)
+                                        }
+                                    }
+                                    var headers = transport.optJSONObject("headers")
+                                    if (headers == null) {
+                                        headers = JSONObject()
+                                        transport.put("headers", headers)
+                                    }
+                                    if (!headers.has("Host")) {
+                                        headers.put("Host", server)
+                                    }
+                                } else if (transType == "xhttp") {
+                                    if (!transport.has("host")) {
                                         transport.put("host", server)
                                     }
                                 }
-                                var headers = transport.optJSONObject("headers")
-                                if (headers == null) {
-                                    headers = JSONObject()
-                                    transport.put("headers", headers)
-                                }
-                                if (!headers.has("Host")) {
-                                    headers.put("Host", server)
-                                }
-                            } else if (transType == "xhttp") {
-                                if (!transport.has("host")) {
-                                    transport.put("host", server)
-                                }
                             }
+                            
+                            // Overwrite server domain with the resolved IP
+                            outbound.put("server", resolvedIp)
+                        } else {
+                            android.util.Log.w("Chameleon", "Failed to pre-resolve proxy server: $server. Falling back to default routing.")
                         }
-                        
-                        // Overwrite server domain with the resolved IP
-                        outbound.put("server", resolvedIp)
-                    } else {
-                        android.util.Log.w("Chameleon", "Failed to pre-resolve proxy server: $server. Falling back to default routing.")
                     }
                 }
             }
