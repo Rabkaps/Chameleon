@@ -40,6 +40,7 @@ data class InjectorSettings(
     val globalCamouflageHost: String = "",
     val globalCamouflageCustomIps: String = "",
     val globalCamouflageTimeout: String = "600",
+    val globalCamouflagePinnedIp: String = "",
     val rootMode: Boolean = false,
     val enableMtProxy: Boolean = false,
     val mtProxyPort: String = "19999",
@@ -815,7 +816,8 @@ object ConfigInjector {
             preset = config.preset,
             customIps = customIpsList,
             port = 443,
-            timeoutMs = timeoutVal
+            timeoutMs = timeoutVal,
+            pinnedIp = settings.globalCamouflagePinnedIp
         ) ?: originalServer
         outbound.put("server", cleanIp)
 

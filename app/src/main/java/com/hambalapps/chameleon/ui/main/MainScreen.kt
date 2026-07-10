@@ -3519,6 +3519,8 @@ fun MainScreen(
                             ) {
                                 VibrantCardContent(settings.cardStyle) {
                                     var isScanningCamo by remember { mutableStateOf(false) }
+                                    var isCamoMenuExpanded by remember { mutableStateOf(false) }
+                                    var lastScanTrigger by remember { mutableStateOf(0) }
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -3619,6 +3621,171 @@ fun MainScreen(
                                                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                                                 )
 
+                                                if (settings.globalCamouflageEnabled) {
+                                                    val scannedIps = remember(settings.globalCamouflagePreset, lastScanTrigger) {
+                                                        com.hambalapps.chameleon.vpn.CdnIpScanner.lastScanResults[settings.globalCamouflagePreset] ?: emptyList()
+                                                    }
+                                                    
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    
+                                                    Card(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .animateContentSize()
+                                                            .clip(RoundedCornerShape(24.dp))
+                                                            .clickable { isCamoMenuExpanded = !isCamoMenuExpanded }
+                                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(24.dp)),
+                                                        colors = CardDefaults.cardColors(
+                                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+                                                        ),
+                                                        shape = RoundedCornerShape(24.dp)
+                                                    ) {
+                                                        Column(modifier = Modifier.padding(16.dp)) {
+                                                            Row(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                Column {
+                                                                    Text(
+                                                                        text = "Selected Clean IP",
+                                                                        style = MaterialTheme.typography.labelMedium,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                    )
+                                                                    Text(
+                                                                        text = if (settings.globalCamouflagePinnedIp.isEmpty()) "Auto (Fastest Scanned IP)" else settings.globalCamouflagePinnedIp,
+                                                                        style = MaterialTheme.typography.bodyLarge,
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                                                    )
+                                                                }
+                                                                Icon(
+                                                                    imageVector = if (isCamoMenuExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                                                    contentDescription = null,
+                                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                )
+                                                            }
+                                                            
+                                                            if (isCamoMenuExpanded) {
+                                                                Spacer(modifier = Modifier.height(12.dp))
+                                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                                                Spacer(modifier = Modifier.height(8.dp))
+                                                                
+                                                                // Option: Auto
+                                                                Row(
+                                                                    modifier = Modifier
+                                                                        .fillMaxWidth()
+                                                                        .clip(RoundedCornerShape(12.dp))
+                                                                        .clickable {
+                                                                            scope.launch {
+                                                                                settingsManager.setGlobalCamouflagePinnedIp("")
+                                                                                if (vpnState == "CONNECTED") startVpnService(context)
+                                                                            }
+                                                                        }
+                                                                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                                    verticalAlignment = Alignment.CenterVertically
+                                                                ) {
+                                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Settings,
+                                                                            contentDescription = null,
+                                                                            tint = if (settings.globalCamouflagePinnedIp.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                            modifier = Modifier.size(20.dp)
+                                                                        )
+                                                                        Spacer(modifier = Modifier.width(10.dp))
+                                                                        Text(
+                                                                            text = "Auto (Fastest IP)",
+                                                                            style = MaterialTheme.typography.bodyMedium,
+                                                                            color = if (settings.globalCamouflagePinnedIp.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                                            fontWeight = if (settings.globalCamouflagePinnedIp.isEmpty()) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                                                                        )
+                                                                    }
+                                                                    if (settings.globalCamouflagePinnedIp.isEmpty()) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Check,
+                                                                            contentDescription = null,
+                                                                            tint = MaterialTheme.colorScheme.primary,
+                                                                            modifier = Modifier.size(18.dp)
+                                                                        )
+                                                                    }
+                                                                }
+                                                                
+                                                                if (scannedIps.isEmpty()) {
+                                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                                    Text(
+                                                                        text = "No scanned IPs. Run a scan to see working targets.",
+                                                                        style = MaterialTheme.typography.bodySmall,
+                                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                                    )
+                                                                } else {
+                                                                    // Scanned IPs list
+                                                                    scannedIps.forEach { scannedIp ->
+                                                                        val isSelected = settings.globalCamouflagePinnedIp == scannedIp.ip
+                                                                        Row(
+                                                                            modifier = Modifier
+                                                                                .fillMaxWidth()
+                                                                                .clip(RoundedCornerShape(12.dp))
+                                                                                .clickable {
+                                                                                    scope.launch {
+                                                                                        settingsManager.setGlobalCamouflagePinnedIp(scannedIp.ip)
+                                                                                        if (vpnState == "CONNECTED") startVpnService(context)
+                                                                                    }
+                                                                                }
+                                                                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                                            verticalAlignment = Alignment.CenterVertically
+                                                                        ) {
+                                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                                Icon(
+                                                                                    imageVector = Icons.Default.List,
+                                                                                    contentDescription = null,
+                                                                                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                                    modifier = Modifier.size(20.dp)
+                                                                                )
+                                                                                Spacer(modifier = Modifier.width(10.dp))
+                                                                                Text(
+                                                                                    text = scannedIp.ip,
+                                                                                    style = MaterialTheme.typography.bodyMedium,
+                                                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                                                    fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                                                                                )
+                                                                            }
+                                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                                val pingColor = when {
+                                                                                    scannedIp.latencyMs < 150 -> androidx.compose.ui.graphics.Color(0xFF4CAF50) // Green
+                                                                                    scannedIp.latencyMs < 300 -> androidx.compose.ui.graphics.Color(0xFFFFC107) // Orange
+                                                                                    else -> androidx.compose.ui.graphics.Color(0xFFF44336) // Red
+                                                                                }
+                                                                                Text(
+                                                                                    text = "${scannedIp.latencyMs} ms",
+                                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                                    color = pingColor,
+                                                                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                                                                    modifier = Modifier
+                                                                                        .clip(RoundedCornerShape(6.dp))
+                                                                                        .background(pingColor.copy(alpha = 0.1f))
+                                                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                                                )
+                                                                                if (isSelected) {
+                                                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                                                    Icon(
+                                                                                        imageVector = Icons.Default.Check,
+                                                                                        contentDescription = null,
+                                                                                        tint = MaterialTheme.colorScheme.primary,
+                                                                                        modifier = Modifier.size(18.dp)
+                                                                                    )
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
                                                 Spacer(modifier = Modifier.height(16.dp))
                                                 Button(
                                                     onClick = {
@@ -3639,6 +3806,7 @@ fun MainScreen(
                                                             )
                                                             
                                                             isScanningCamo = false
+                                                            lastScanTrigger++
                                                             
                                                             val msg = if (res.workingIpsCount > 0) {
                                                                 "Scan completed! Found ${res.workingIpsCount} clean CDN edge IPs. Best: ${res.fastestIp} (${res.fastestLatencyMs}ms)"

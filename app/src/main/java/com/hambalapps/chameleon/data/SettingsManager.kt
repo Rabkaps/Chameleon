@@ -59,6 +59,7 @@ class SettingsManager(private val context: Context) {
         val GLOBAL_CAMOUFLAGE_HOST = stringPreferencesKey("global_camouflage_host")
         val GLOBAL_CAMOUFLAGE_CUSTOM_IPS = stringPreferencesKey("global_camouflage_custom_ips")
         val GLOBAL_CAMOUFLAGE_TIMEOUT = stringPreferencesKey("global_camouflage_timeout")
+        val GLOBAL_CAMOUFLAGE_PINNED_IP = stringPreferencesKey("global_camouflage_pinned_ip")
         val ROOT_MODE = booleanPreferencesKey("root_mode")
         val ENABLE_MTPROXY = booleanPreferencesKey("enable_mtproxy")
         val MTPROXY_PORT = stringPreferencesKey("mtproxy_port")
@@ -115,6 +116,7 @@ class SettingsManager(private val context: Context) {
             globalCamouflageHost = "",
             globalCamouflageCustomIps = "",
             globalCamouflageTimeout = "600",
+            globalCamouflagePinnedIp = "",
             enableMtProxy = false,
             mtProxyPort = "19999",
             mtProxySecret = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574"
@@ -184,6 +186,7 @@ class SettingsManager(private val context: Context) {
             globalCamouflageHost = prefs[GLOBAL_CAMOUFLAGE_HOST] ?: "",
             globalCamouflageCustomIps = prefs[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] ?: "",
             globalCamouflageTimeout = prefs[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600",
+            globalCamouflagePinnedIp = prefs[GLOBAL_CAMOUFLAGE_PINNED_IP] ?: "",
             rootMode = prefs[ROOT_MODE] ?: false,
             enableMtProxy = prefs[ENABLE_MTPROXY] ?: false,
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
@@ -287,6 +290,7 @@ class SettingsManager(private val context: Context) {
     val globalCamouflageHost: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_HOST] ?: "" }.distinctUntilChanged()
     val globalCamouflageCustomIps: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] ?: "" }.distinctUntilChanged()
     val globalCamouflageTimeout: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600" }.distinctUntilChanged()
+    val globalCamouflagePinnedIp: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_PINNED_IP] ?: "" }.distinctUntilChanged()
 
     suspend fun setGlobalCamouflageEnabled(value: Boolean) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_ENABLED] = value } }
     suspend fun setGlobalCamouflagePreset(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_PRESET] = value } }
@@ -294,6 +298,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setGlobalCamouflageHost(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_HOST] = value } }
     suspend fun setGlobalCamouflageCustomIps(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] = value } }
     suspend fun setGlobalCamouflageTimeout(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_TIMEOUT] = value } }
+    suspend fun setGlobalCamouflagePinnedIp(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_PINNED_IP] = value } }
 
     val autoConnectSubs: Flow<Set<String>> = context.dataStore.data.map { it[AUTO_CONNECT_SUBS] ?: emptySet() }.distinctUntilChanged()
 
@@ -357,6 +362,7 @@ data class UserSettings(
     val globalCamouflageHost: String,
     val globalCamouflageCustomIps: String,
     val globalCamouflageTimeout: String,
+    val globalCamouflagePinnedIp: String,
     val rootMode: Boolean,
     val enableMtProxy: Boolean,
     val mtProxyPort: String,

@@ -548,6 +548,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 val globalCamouflageHostVal = settingsManager.globalCamouflageHost.first()
                 val globalCamouflageCustomIpsVal = settingsManager.globalCamouflageCustomIps.first()
                 val globalCamouflageTimeoutVal = settingsManager.globalCamouflageTimeout.first()
+                val globalCamouflagePinnedIpVal = settingsManager.globalCamouflagePinnedIp.first()
                 splitTunnelingEnabledVal = settingsManager.splitTunnelingEnabled.first()
                 splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
@@ -590,6 +591,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     globalCamouflageHost = globalCamouflageHostVal,
                     globalCamouflageCustomIps = globalCamouflageCustomIpsVal,
                     globalCamouflageTimeout = globalCamouflageTimeoutVal,
+                    globalCamouflagePinnedIp = globalCamouflagePinnedIpVal,
                     rootMode = rootModeVal,
                     enableMtProxy = enableMtProxyVal,
                     mtProxyPort = mtProxyPortVal,

@@ -5,15 +5,24 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 
+data class ScannedIp(
+    val ip: String,
+    val latencyMs: Long
+)
+
 data class ScanResult(
     val workingIpsCount: Int,
     val fastestIp: String?,
-    val fastestLatencyMs: Long
+    val fastestLatencyMs: Long,
+    val workingIps: List<ScannedIp> = emptyList()
 )
 
 object CdnIpScanner {
     private val cleanIpCache = ConcurrentHashMap<String, Pair<String, Long>>() // preset -> Pair(IP, timestamp)
     private val CACHE_DURATION_MS = 15 * 60 * 1000L // 15 minutes cache
+    
+    // Thread-safe store for the latest scan results per preset
+    val lastScanResults = ConcurrentHashMap<String, List<ScannedIp>>()
 
     val CLOUDFLARE_IPS = listOf(
         "104.16.85.20", "104.16.86.20", "104.17.2.20", "104.18.26.240", "104.19.241.100",
@@ -30,8 +39,14 @@ object CdnIpScanner {
         preset: String,
         customIps: List<String> = emptyList(),
         port: Int = 443,
-        timeoutMs: Int = 600
+        timeoutMs: Int = 600,
+        pinnedIp: String = ""
     ): String? {
+        if (pinnedIp.isNotEmpty()) {
+            android.util.Log.i("Chameleon", "Using pinned clean IP for $preset: $pinnedIp")
+            return pinnedIp
+        }
+
         val cached = cleanIpCache[preset]
         if (cached != null && (System.currentTimeMillis() - cached.second) < CACHE_DURATION_MS) {
             android.util.Log.i("Chameleon", "Using cached clean IP for $preset: ${cached.first}")
@@ -64,7 +79,7 @@ object CdnIpScanner {
         }
 
         if (targetIps.isEmpty()) {
-            return ScanResult(0, null, -1L)
+            return ScanResult(0, null, -1L, emptyList())
         }
 
         return withContext(Dispatchers.IO) {
@@ -87,12 +102,15 @@ object CdnIpScanner {
             val results = jobs.awaitAll().filterNotNull().sortedBy { it.second }
             val workingCount = results.size
             val best = results.firstOrNull()
+            val scannedList = results.map { ScannedIp(it.first, it.second) }
             
             if (best != null) {
                 cleanIpCache[preset] = Pair(best.first, System.currentTimeMillis())
-                ScanResult(workingCount, best.first, best.second)
+                lastScanResults[preset] = scannedList
+                ScanResult(workingCount, best.first, best.second, scannedList)
             } else {
-                ScanResult(workingCount, null, -1L)
+                lastScanResults[preset] = emptyList()
+                ScanResult(workingCount, null, -1L, emptyList())
             }
         }
     }

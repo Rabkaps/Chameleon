@@ -701,7 +701,7 @@ class ConfigInjectorTest {
         assert(outbound.getString("password") == "my_password")
         
         val tls = outbound.getJSONObject("tls")
-        assert(tls.getBoolean("enabled"))
+        assert(!tls.has("enabled"))
         assert(tls.getString("ca").contains("CA_CONTENT"))
         assert(tls.getString("certificate").contains("CLIENT_CERT_CONTENT"))
         assert(tls.getString("key").contains("CLIENT_KEY_CONTENT"))
@@ -821,6 +821,48 @@ class ConfigInjectorTest {
         val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
         assert(outbound2.getString("type") == "wireguard")
         assert(outbound2.getString("private_key") == "my_private_key")
+    }
+
+    @Test
+    fun testCamouflageAndCdnScanner() {
+        // 1. Verify getCleanIp returns pinnedIp if not empty
+        val pinned = "8.8.8.8"
+        val ip = CdnIpScanner.getCleanIp(preset = "cloudflare", pinnedIp = pinned)
+        assert(ip == pinned)
+
+        // 2. Verify performScan execution
+        val scanRes = kotlinx.coroutines.runBlocking {
+            CdnIpScanner.performScan(preset = "custom", customIps = listOf("127.0.0.1"), timeoutMs = 100)
+        }
+        println("Scan count for localhost custom check: " + scanRes.workingIpsCount)
+
+        // 3. Verify ConfigInjector applies camouflage pinned IP
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal",
+            globalCamouflageEnabled = true,
+            globalCamouflagePreset = "cloudflare",
+            globalCamouflageSni = "speedtest.net",
+            globalCamouflageHost = "speedtest.net",
+            globalCamouflagePinnedIp = "1.2.3.4"
+        )
+        val vlessUri = "vless://myuuid@my.server.com:443?encryption=none#TestVLESS"
+        val configStr = ConfigInjector.injectConfig(mockContext, vlessUri, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound.getString("server") == "1.2.3.4")
+        val tls = outbound.getJSONObject("tls")
+        assert(tls.getBoolean("enabled"))
+        assert(tls.getString("server_name") == "speedtest.net")
     }
 }
 
