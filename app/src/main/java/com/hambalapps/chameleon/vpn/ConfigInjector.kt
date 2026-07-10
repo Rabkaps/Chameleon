@@ -98,6 +98,7 @@ object ConfigInjector {
                 trimmedProfile.startsWith("tuic://") ||
                 trimmedProfile.startsWith("wireguard://") ||
                 trimmedProfile.startsWith("awg://") ||
+                trimmedProfile.startsWith("amneziawg://") ||
                 trimmedProfile.startsWith("openvpn://") ||
                 trimmedProfile.startsWith("ovpn://") ||
                 trimmedProfile.startsWith("mieru://") ||
@@ -1334,7 +1335,7 @@ object ConfigInjector {
                     val hbStr = if (hb.endsWith("s") || hb.endsWith("ms")) hb else "${hb}s"
                     outbound.put("heartbeat", hbStr)
                 }
-            } else if (scheme == "wireguard" || scheme == "awg") {
+            } else if (scheme == "wireguard" || scheme == "awg" || scheme == "amneziawg") {
                 val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
                 if (configText.isNotEmpty()) {
                     val wgOutbound = parseWireGuardConf(configText, defaultTag)
@@ -1579,13 +1580,13 @@ object ConfigInjector {
             val value = parts[1].trim()
 
             when (key) {
-                "privatekey" -> privateKey = value
+                "privatekey", "private_key", "private-key", "private key" -> privateKey = value
                 "address" -> addressStr = value
                 "mtu" -> mtu = value.toIntOrNull() ?: 1400
-                "publickey" -> publicKey = value
-                "presharedkey" -> presharedKey = value
-                "allowedips" -> allowedIpsStr = value
-                "persistentkeepalive" -> keepalive = value.toIntOrNull() ?: 0
+                "publickey", "public_key", "public-key", "public key" -> publicKey = value
+                "presharedkey", "preshared_key", "preshared-key", "preshared key" -> presharedKey = value
+                "allowedips", "allowed_ips", "allowed-ips", "allowed ips" -> allowedIpsStr = value
+                "persistentkeepalive", "persistent_keepalive", "persistent-keepalive", "persistent keepalive", "persistent_keepalive_interval" -> keepalive = value.toIntOrNull() ?: 0
                 "reserved" -> reservedStr = value
                 "endpoint" -> {
                     val colonIdx = value.lastIndexOf(":")
