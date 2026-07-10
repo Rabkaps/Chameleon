@@ -666,10 +666,11 @@ class ConfigInjectorTest {
         val rawOvpn = """
             client
             dev tun
-            proto udp
+            proto tcp-client
             remote my-ovpn-server.com 1194
             cipher AES-128-CBC
             auth SHA256
+            tls-auth ta.key 1
             #EXT-USER: my_username
             #EXT-PASS: my_password
             <ca>
@@ -687,6 +688,16 @@ class ConfigInjectorTest {
             CLIENT_KEY_CONTENT
             ---END PRIVATE KEY---
             </key>
+            <tls-auth>
+            ---BEGIN OpenVPN Static key V1---
+            TA_KEY_CONTENT
+            ---END OpenVPN Static key V1---
+            </tls-auth>
+            <tls-crypt-v2>
+            ---BEGIN OpenVPN Static key V2---
+            CRYPT_V2_CONTENT
+            ---END OpenVPN Static key V2---
+            </tls-crypt-v2>
         """.trimIndent()
 
         val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
@@ -694,11 +705,14 @@ class ConfigInjectorTest {
         val outbound = json.getJSONArray("outbounds").getJSONObject(0)
         
         assert(outbound.getString("type") == "openvpn")
-        assert(outbound.getString("proto") == "udp")
+        assert(outbound.getString("proto") == "tcp")
         assert(outbound.getString("cipher") == "AES-128-CBC")
         assert(outbound.getString("auth") == "SHA256")
         assert(outbound.getString("username") == "my_username")
         assert(outbound.getString("password") == "my_password")
+        assert(outbound.getInt("key_direction") == 1)
+        assert(outbound.getString("tls_auth").contains("TA_KEY_CONTENT"))
+        assert(outbound.getString("tls_crypt_v2").contains("CRYPT_V2_CONTENT"))
         
         val tls = outbound.getJSONObject("tls")
         assert(!tls.has("enabled"))

@@ -1709,6 +1709,7 @@ object ConfigInjector {
         var cipherVal = "AES-256-GCM"
         var authVal = "SHA512"
         var tlsCryptText = ""
+        var tlsCryptV2Text = ""
         var tlsAuthText = ""
         var keyDir = 0
         var usernameVal = ""
@@ -1728,6 +1729,7 @@ object ConfigInjector {
         }
         
         tlsCryptText = extractTag(configText, "tls-crypt")
+        tlsCryptV2Text = extractTag(configText, "tls-crypt-v2")
         tlsAuthText = extractTag(configText, "tls-auth")
         val caText = extractTag(configText, "ca")
         val certText = extractTag(configText, "cert")
@@ -1762,7 +1764,18 @@ object ConfigInjector {
                 }
                 "proto" -> {
                     if (tokens.size >= 2) {
-                        protoVal = tokens[1].lowercase()
+                        val p = tokens[1].lowercase()
+                        protoVal = if (p.contains("tcp")) "tcp" else "udp"
+                    }
+                }
+                "tls-auth" -> {
+                    if (tokens.size >= 3) {
+                        keyDir = tokens[2].toIntOrNull() ?: 0
+                    } else if (tokens.size >= 2) {
+                        val possibleDir = tokens[1].toIntOrNull()
+                        if (possibleDir != null) {
+                            keyDir = possibleDir
+                        }
                     }
                 }
                 "cipher" -> {
@@ -1812,6 +1825,9 @@ object ConfigInjector {
         
         if (tlsCryptText.isNotEmpty()) {
             outbound.put("tls_crypt", tlsCryptText)
+        }
+        if (tlsCryptV2Text.isNotEmpty()) {
+            outbound.put("tls_crypt_v2", tlsCryptV2Text)
         }
         if (tlsAuthText.isNotEmpty()) {
             outbound.put("tls_auth", tlsAuthText)
