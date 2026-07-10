@@ -691,15 +691,16 @@ object ConfigInjector {
             // Inject fragmentation into proxy outbound if enabled
             val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
             val isOpenVpn = out.optString("type") == "openvpn"
-            if (isProxyOrRelay && settings.enableFragment && !isOpenVpn) {
+            val isWireGuard = out.optString("type") == "wireguard" || out.optString("type") == "amneziawg"
+            if (isProxyOrRelay && settings.enableFragment && !isOpenVpn && !isWireGuard) {
                 injectFragmentToOutbound(out, settings)
             }
-            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp configs)
+            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp/OpenVPN/WireGuard configs)
             val tls = out.optJSONObject("tls")
             val isReality = tls?.has("reality") ?: false
             val transport = out.optJSONObject("transport")
             val isXhttp = transport?.optString("type") == "xhttp"
-            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp && !isOpenVpn) {
+            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp && !isOpenVpn && !isWireGuard) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -707,7 +708,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp || isOpenVpn)) {
+            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp || isOpenVpn || isWireGuard)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
@@ -1338,14 +1339,18 @@ object ConfigInjector {
                     outbound.put("heartbeat", hbStr)
                 }
             } else if (scheme == "wireguard" || scheme == "awg" || scheme == "amneziawg") {
+                val isAmnezia = scheme == "awg" || scheme == "amneziawg"
                 val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
                 if (configText.isNotEmpty()) {
                     val wgOutbound = parseWireGuardConf(configText, defaultTag)
+                    if (isAmnezia) {
+                        wgOutbound.put("type", "amneziawg")
+                    }
                     wgOutbound.keys().forEach { key ->
                         outbound.put(key, wgOutbound.get(key))
                     }
                 } else {
-                    outbound.put("type", "wireguard")
+                    outbound.put("type", if (isAmnezia) "amneziawg" else "wireguard")
                     outbound.put("private_key", userInfo)
                     outbound.put("mtu", queryParams["mtu"]?.toIntOrNull() ?: 1400)
                     
@@ -1675,6 +1680,7 @@ object ConfigInjector {
 
         val hasAmnezia = jc != null || jmin != null || jmax != null || s1 != null || s2 != null || s3 != null || s4 != null || h1 != null || h2 != null || h3 != null || h4 != null || i1 != null || i2 != null || i3 != null || i4 != null || i5 != null || j1 != null || j2 != null || j3 != null || itime != null
         if (hasAmnezia) {
+            outbound.put("type", "amneziawg")
             val amnezia = JSONObject().apply {
                 jc?.let { put("jc", it) }
                 jmin?.let { put("jmin", it) }
@@ -1698,6 +1704,8 @@ object ConfigInjector {
                 itime?.let { put("itime", it) }
             }
             outbound.put("amnezia", amnezia)
+        } else {
+            outbound.put("type", "wireguard")
         }
 
         return outbound
@@ -2027,7 +2035,7 @@ object ConfigInjector {
                         }
                     }
                 }
-            } else if (type == "wireguard") {
+            } else if (type == "wireguard" || type == "amneziawg") {
                 val peersArr = outbound.optJSONArray("peers")
                 if (peersArr != null) {
                     for (j in 0 until peersArr.length()) {
@@ -2067,7 +2075,7 @@ object ConfigInjector {
                             }
                         }
                     }
-                } else if (type == "wireguard") {
+                } else if (type == "wireguard" || type == "amneziawg") {
                     val peersArr = outbound.optJSONArray("peers")
                     if (peersArr != null) {
                         for (j in 0 until peersArr.length()) {
@@ -2129,7 +2137,7 @@ object ConfigInjector {
                             }
                         }
                     }
-                } else if (type == "wireguard") {
+                } else if (type == "wireguard" || type == "amneziawg") {
                     val peersArr = outbound.optJSONArray("peers")
                     if (peersArr != null) {
                         for (j in 0 until peersArr.length()) {

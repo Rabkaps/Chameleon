@@ -311,7 +311,7 @@ class ConfigInjectorTest {
         val outbounds = json.getJSONArray("outbounds")
         val proxyOutbound = outbounds.getJSONObject(0)
 
-        assert(proxyOutbound.getString("type") == "wireguard")
+        assert(proxyOutbound.getString("type") == "amneziawg")
         assert(proxyOutbound.getString("private_key") == "my_private_key_base64")
         assert(proxyOutbound.getInt("mtu") == 1360)
 
@@ -766,7 +766,7 @@ class ConfigInjectorTest {
         val json = org.json.JSONObject(configStr)
         val outbound = json.getJSONArray("outbounds").getJSONObject(0)
         
-        assert(outbound.getString("type") == "wireguard")
+        assert(outbound.getString("type") == "amneziawg")
         assert(outbound.getString("private_key") == "my_private_key")
         assert(outbound.getInt("mtu") == 1420)
         
@@ -833,7 +833,7 @@ class ConfigInjectorTest {
         val configStr2 = ConfigInjector.injectConfig(mockContext, wgUri, settings)
         val json2 = org.json.JSONObject(configStr2)
         val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
-        assert(outbound2.getString("type") == "wireguard")
+        assert(outbound2.getString("type") == "amneziawg")
         assert(outbound2.getString("private_key") == "my_private_key")
     }
 
