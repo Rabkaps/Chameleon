@@ -1814,8 +1814,6 @@ object ConfigInjector {
             outbound.put("tls_auth", tlsAuthText)
             outbound.put("key_direction", keyDir)
         }
-        outbound.put("config", configText)
-        outbound.put("config_text", configText)
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {
