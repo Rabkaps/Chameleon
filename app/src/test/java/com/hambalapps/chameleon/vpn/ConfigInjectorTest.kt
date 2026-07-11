@@ -714,11 +714,10 @@ class ConfigInjectorTest {
         assert(outbound.getString("tls_auth").contains("TA_KEY_CONTENT"))
         assert(outbound.getString("tls_crypt_v2").contains("CRYPT_V2_CONTENT"))
         
-        val tls = outbound.getJSONObject("tls")
-        assert(!tls.has("enabled"))
-        assert(tls.getString("ca").contains("CA_CONTENT"))
-        assert(tls.getString("certificate").contains("CLIENT_CERT_CONTENT"))
-        assert(tls.getString("key").contains("CLIENT_KEY_CONTENT"))
+        assert(!outbound.has("tls"))
+        assert(outbound.getString("ca").contains("CA_CONTENT"))
+        assert(outbound.getString("cert").contains("CLIENT_CERT_CONTENT"))
+        assert(outbound.getString("key").contains("CLIENT_KEY_CONTENT"))
     }
 
     @Test
