@@ -1820,13 +1820,16 @@ object ConfigInjector {
         if (usernameVal.isNotEmpty()) outbound.put("username", usernameVal)
         if (passwordVal.isNotEmpty()) outbound.put("password", passwordVal)
         
-        if (caText.isNotEmpty()) outbound.put("ca", caText)
-        if (certText.isNotEmpty()) outbound.put("cert", certText)
-        if (keyText.isNotEmpty()) outbound.put("key", keyText)
-        if (verifyX509NameVal.isNotEmpty()) {
-            outbound.put("verify_x509_name", verifyX509NameVal)
-            outbound.put("verify_x509_name_mode", verifyX509NameModeVal)
+        val tls = JSONObject().apply {
+            if (caText.isNotEmpty()) put("ca", caText)
+            if (certText.isNotEmpty()) put("cert", certText)
+            if (keyText.isNotEmpty()) put("key", keyText)
+            if (verifyX509NameVal.isNotEmpty()) {
+                put("verify_x509_name", verifyX509NameVal)
+                put("verify_x509_name_mode", verifyX509NameModeVal)
+            }
         }
+        outbound.put("tls", tls)
         
         if (tlsCryptText.isNotEmpty()) {
             outbound.put("tls_crypt", tlsCryptText)
