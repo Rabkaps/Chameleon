@@ -336,6 +336,70 @@ fun MainScreen(
     // Observe VPN state and logs
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
     var appVersion by remember { mutableStateOf("v1.6.12") }
+    var isCheckingUpdates by remember { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var updateDialogTitle by remember { mutableStateOf("") }
+    var updateDialogMessage by remember { mutableStateOf("") }
+    var updateLatestUrl by remember { mutableStateOf("") }
+
+    fun checkForUpdates() {
+        if (isCheckingUpdates) return
+        isCheckingUpdates = true
+        scope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val url = java.net.URL("https://api.github.com/repos/Rabkaps/Chameleon/releases/latest")
+                    val conn = url.openConnection() as java.net.HttpURLConnection
+                    conn.requestMethod = "GET"
+                    conn.setRequestProperty("User-Agent", "Chameleon-App")
+                    conn.connectTimeout = 8000
+                    conn.readTimeout = 8000
+                    
+                    if (conn.responseCode == 200) {
+                        val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+                        val json = org.json.JSONObject(responseText)
+                        val latestTag = json.getString("tag_name").trim()
+                        val latestClean = latestTag.removePrefix("v").trim()
+                        val currentClean = appVersion.removePrefix("v").trim()
+                        
+                        if (latestClean != currentClean) {
+                            val body = json.optString("body", "")
+                            Result.success(Pair(latestTag, body))
+                        } else {
+                            Result.success(Pair(latestTag, null))
+                        }
+                    } else {
+                        Result.failure(Exception("HTTP error: ${conn.responseCode}"))
+                    }
+                } catch (e: Exception) {
+                    Result.failure(e)
+                }
+            }
+            
+            isCheckingUpdates = false
+            result.fold(
+                onSuccess = { (latestTag, releaseNotes) ->
+                    if (releaseNotes != null) {
+                        updateDialogTitle = "Update Available"
+                        updateDialogMessage = "A new version of Chameleon ($latestTag) is available.\n\n" +
+                                "Change Log:\n${releaseNotes.take(300)}${if (releaseNotes.length > 300) "..." else ""}"
+                        updateLatestUrl = "https://github.com/Rabkaps/Chameleon/releases/tag/$latestTag"
+                    } else {
+                        updateDialogTitle = "Up to Date"
+                        updateDialogMessage = "You are running the latest version of Chameleon ($appVersion)."
+                        updateLatestUrl = ""
+                    }
+                    showUpdateDialog = true
+                },
+                onFailure = { error ->
+                    updateDialogTitle = "Check Failed"
+                    updateDialogMessage = "Unable to check for updates. Please verify your internet connection.\n\nError: ${error.localizedMessage}"
+                    updateLatestUrl = ""
+                    showUpdateDialog = true
+                }
+            )
+        }
+    }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
@@ -537,6 +601,11 @@ fun MainScreen(
     var isNodesExpanded by remember { mutableStateOf(false) }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    androidx.activity.compose.BackHandler(enabled = drawerState.isOpen) {
+        scope.launch {
+            drawerState.close()
+        }
+    }
     val refreshingSubs = remember { mutableStateMapOf<String, Boolean>() }
 
     // Launcher for VPN system permission dialog
@@ -751,7 +820,7 @@ fun MainScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher_foreground),
+                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.drawable.ic_launcher_foreground),
                             contentDescription = "App Logo",
                             modifier = Modifier.size(60.dp)
                         )
@@ -799,6 +868,65 @@ fun MainScreen(
                         lineHeight = 20.sp
                     )
                     
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { checkForUpdates() },
+                            modifier = Modifier.weight(1f),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            if (isCheckingUpdates) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Check Updates",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
+                        
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/Rabkaps/Chameleon"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {}
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(
+                                painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.drawable.ic_github),
+                                contentDescription = "GitHub Repo",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    
                     Spacer(modifier = Modifier.weight(1f))
                     
                     if (Config.IS_SPECIAL) {
@@ -819,6 +947,42 @@ fun MainScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (showUpdateDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showUpdateDialog = false },
+                            title = { Text(text = updateDialogTitle, fontWeight = FontWeight.Bold) },
+                            text = { Text(text = updateDialogMessage) },
+                            confirmButton = {
+                                if (updateLatestUrl.isNotEmpty()) {
+                                    Button(
+                                        onClick = {
+                                            showUpdateDialog = false
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(updateLatestUrl))
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {}
+                                        }
+                                    ) {
+                                        Text("Download")
+                                    }
+                                } else {
+                                    Button(onClick = { showUpdateDialog = false }) {
+                                        Text("OK")
+                                    }
+                                }
+                            },
+                            dismissButton = {
+                                if (updateLatestUrl.isNotEmpty()) {
+                                    TextButton(onClick = { showUpdateDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            },
+                            shape = ExpressiveCardShape,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
