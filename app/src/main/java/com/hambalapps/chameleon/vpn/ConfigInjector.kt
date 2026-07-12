@@ -780,34 +780,9 @@ object ConfigInjector {
         }
         if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val warpOutbound = JSONObject().apply {
-                put("type", "wireguard")
+                put("type", "direct")
                 put("tag", "warp-out")
-                
-                val rawIp = settings.warpIpAddress.trim()
-                val formattedIp = if (rawIp.isEmpty()) {
-                    "172.16.0.2/32"
-                } else if (rawIp.contains("/")) {
-                    rawIp
-                } else {
-                    "$rawIp/32"
-                }
-                put("address", JSONArray().apply { put(formattedIp) })
-                put("private_key", settings.warpPrivateKey)
-                
-                val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
-                android.util.Log.i("Chameleon", "WARP outbound peer engage.cloudflareclient.com pre-resolved to: $peerAddress")
-
-                val peerObj = JSONObject().apply {
-                    put("server", peerAddress)
-                    put("server_port", settings.warpPort.toIntOrNull() ?: 2408)
-                    put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
-                    put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
-                    if (settings.warpClientId.isNotEmpty()) {
-                        put("reserved", settings.warpClientId)
-                    }
-                }
-                put("peers", JSONArray().apply { put(peerObj) })
-                put("detour", settings.warpDetourMode)
+                put("detour", "warp-endpoint")
             }
             cleanOutbounds.put(warpOutbound)
         }
@@ -935,6 +910,40 @@ object ConfigInjector {
             if (ep.optString("tag") != "warp-endpoint") {
                 cleanEndpoints.put(ep)
             }
+        }
+        
+        if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
+            val warpEndpoint = JSONObject().apply {
+                put("type", "wireguard")
+                put("tag", "warp-endpoint")
+                
+                val rawIp = settings.warpIpAddress.trim()
+                val formattedIp = if (rawIp.isEmpty()) {
+                    "172.16.0.2/32"
+                } else if (rawIp.contains("/")) {
+                    rawIp
+                } else {
+                    "$rawIp/32"
+                }
+                put("address", JSONArray().apply { put(formattedIp) })
+                put("private_key", settings.warpPrivateKey)
+                
+                val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
+                android.util.Log.i("Chameleon", "WARP endpoint peer engage.cloudflareclient.com pre-resolved to: $peerAddress")
+
+                val peerObj = JSONObject().apply {
+                    put("address", peerAddress)
+                    put("port", settings.warpPort.toIntOrNull() ?: 2408)
+                    put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
+                    put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
+                    if (settings.warpClientId.isNotEmpty()) {
+                        put("reserved", settings.warpClientId)
+                    }
+                }
+                put("peers", JSONArray().apply { put(peerObj) })
+                put("detour", "proxy") // DETOUR TO PROXY (DIRECT) TO PREVENT EPERM ROUTING LOOP!
+            }
+            cleanEndpoints.put(warpEndpoint)
         }
         
         if (cleanEndpoints.length() > 0) {

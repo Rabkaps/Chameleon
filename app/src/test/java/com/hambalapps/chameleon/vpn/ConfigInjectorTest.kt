@@ -71,23 +71,32 @@ class ConfigInjectorTest {
         }
         
         assert(warpOutbound != null) { "warp-out outbound not found in outbounds" }
-        val endpoint = warpOutbound!!
+        assert(warpOutbound!!.getString("type") == "direct")
+        assert(warpOutbound.getString("tag") == "warp-out")
+        assert(warpOutbound.getString("detour") == "warp-endpoint")
+
+        val endpoints = json.getJSONArray("endpoints")
+        var warpEndpoint: org.json.JSONObject? = null
+        for (i in 0 until endpoints.length()) {
+            val ep = endpoints.getJSONObject(i)
+            if (ep.getString("tag") == "warp-endpoint") {
+                warpEndpoint = ep
+                break
+            }
+        }
+        assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
+        val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "wireguard")
-        assert(endpoint.getString("tag") == "warp-out")
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
-        assert(endpoint.getString("detour") == "direct")
+        assert(endpoint.getString("detour") == "proxy")
 
         val peers = endpoint.getJSONArray("peers")
         assert(peers.length() == 1)
         val peer = peers.getJSONObject(0)
-        val peerAddress = peer.getString("server")
+        val peerAddress = peer.getString("address")
         assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
-        assert(peer.getInt("server_port") == 4500)
-        
-        // In java org.json, "reserved" is a string or array? 
-        // In ConfigInjector.kt: if (settings.warpClientId.isNotEmpty()) { put("reserved", settings.warpClientId) }
-        // So it is a string in this case (or maybe it can be parsed as a string).
+        assert(peer.getInt("port") == 4500)
         assert(peer.getString("reserved") == "6hHy")
     }
 
