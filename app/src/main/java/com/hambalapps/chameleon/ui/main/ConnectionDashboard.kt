@@ -698,21 +698,21 @@ fun ConnectionDashboard(
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.SmartToy,
-                                contentDescription = "AI-Bypass",
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "WARP",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "AI-Bypass",
+                                    text = "WARP",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Smart routing active",
+                                    text = "Allows bypassing AI and streaming services limitations",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

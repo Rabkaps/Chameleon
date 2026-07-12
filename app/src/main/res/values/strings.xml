@@ -177,7 +177,7 @@
     <string name="vpn_mode_title">VPN Mode</string>
     <string name="mode_standard">Standard</string>
     <string name="mode_gaming">Gaming Mode (Beta)</string>
-    <string name="mode_ai_bypass">AI Bypass (Beta)</string>
+    <string name="mode_ai_bypass">WARP</string>
     <string name="registering_warp">Registering Cloudflare WARP...</string>
     <string name="warp_failed">WARP Registration failed. Check connection.</string>
     <string name="tunnel_games_title">Tunnel Games through VPN</string>
@@ -190,7 +190,7 @@
     <string name="warp_port_desc">Select UDP port to connect to Cloudflare WARP. Default is 2408.</string>
     <string name="mode_standard_title">Standard</string>
     <string name="mode_gaming_title">Gaming Mode</string>
-    <string name="mode_ai_bypass_title">AI Bypass</string>
+    <string name="mode_ai_bypass_title">WARP</string>
     <string name="tag_stable">Stable</string>
     <string name="tag_experimental">Experimental</string>
     <string name="chain_str">Chain</string>

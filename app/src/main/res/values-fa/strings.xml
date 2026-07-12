@@ -177,7 +177,7 @@
     <string name="vpn_mode_title">حالت اتصال VPN</string>
     <string name="mode_standard">معمولی (وب‌گردی)</string>
     <string name="mode_gaming">حالت بازی (کاهش پینگ - بتا)</string>
-    <string name="mode_ai_bypass">دور زدن تحریم AI (کلودفلر Warp - بتا)</string>
+    <string name="mode_ai_bypass">WARP</string>
     <string name="registering_warp">در حال ثبت اکانت Cloudflare WARP...</string>
     <string name="warp_failed">ثبت اکانت WARP ناموفق بود. اتصال را بررسی کنید.</string>
     <string name="tunnel_games_title">عبور بازی‌ها از VPN</string>
@@ -190,7 +190,7 @@
     <string name="warp_port_desc">پورت UDP برای اتصال به Cloudflare WARP را انتخاب کنید. مقدار پیش‌فرض ۲۴۰۸ است.</string>
     <string name="mode_standard_title">معمولی</string>
     <string name="mode_gaming_title">حالت بازی</string>
-    <string name="mode_ai_bypass_title">دور زدن تحریم</string>
+    <string name="mode_ai_bypass_title">WARP</string>
     <string name="tag_stable">پایدار</string>
     <string name="tag_experimental">آزمایشی</string>
 </resources>

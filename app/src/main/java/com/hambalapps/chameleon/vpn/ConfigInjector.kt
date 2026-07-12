@@ -791,7 +791,7 @@ object ConfigInjector {
                 } else {
                     "$rawIp/32"
                 }
-                put("local_address", JSONArray().apply { put(formattedIp) })
+                put("addresses", JSONArray().apply { put(formattedIp) })
                 put("private_key", settings.warpPrivateKey)
                 
                 val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
@@ -1434,7 +1434,7 @@ object ConfigInjector {
                             }
                         }
                     }
-                    outbound.put("local_address", addressArray)
+                    outbound.put("addresses", addressArray)
 
                     val peer = JSONObject().apply {
                         put("server", host)
@@ -1690,7 +1690,7 @@ object ConfigInjector {
                 }
             }
         }
-        outbound.put("local_address", addressArray)
+        outbound.put("addresses", addressArray)
 
         val peer = JSONObject().apply {
             put("server", serverHost)
