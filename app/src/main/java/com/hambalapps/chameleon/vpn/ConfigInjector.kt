@@ -355,6 +355,11 @@ object ConfigInjector {
         dns.put("strategy", "ipv4_only")
         val servers = JSONArray()
 
+        // 1. Clean secure DoH fallback for the proxy outbound (must be first to ensure fast public internet resolution)
+        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
+        servers.put(fallbackSecureProxy)
+
+        // 2. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options)
         val outboundsList = config.optJSONArray("outbounds")
         if (outboundsList != null) {
             for (i in 0 until outboundsList.length()) {
@@ -387,8 +392,6 @@ object ConfigInjector {
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
         val bootstrapServer = createDnsServer("dns-bootstrap", "https://1.1.1.1/dns-query", "direct")
 
-        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
-
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
             val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
@@ -398,7 +401,6 @@ object ConfigInjector {
             servers.put(directServer)
             servers.put(bootstrapServer)
         } else {
-            servers.put(fallbackSecureProxy)
             servers.put(secureServer)
             servers.put(directServer)
             servers.put(bootstrapServer)
@@ -1891,12 +1893,9 @@ object ConfigInjector {
                 outbound.put("key_direction", keyDir)
             }
         }
-        if (dnsServersArray.length() == 0) {
-            dnsServersArray.put("10.8.0.1")
-            dnsServersArray.put("172.27.224.1")
-            dnsServersArray.put("10.0.0.1")
+        if (dnsServersArray.length() > 0) {
+            outbound.put("_dns_servers", dnsServersArray)
         }
-        outbound.put("_dns_servers", dnsServersArray)
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {
