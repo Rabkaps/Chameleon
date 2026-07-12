@@ -936,9 +936,6 @@ object ConfigInjector {
                     put("port", settings.warpPort.toIntOrNull() ?: 2408)
                     put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
                     put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
-                    if (settings.warpClientId.isNotEmpty()) {
-                        put("reserved", settings.warpClientId)
-                    }
                 }
                 put("peers", JSONArray().apply { put(peerObj) })
                 put("detour", "proxy") // DETOUR TO PROXY (DIRECT) TO PREVENT EPERM ROUTING LOOP!

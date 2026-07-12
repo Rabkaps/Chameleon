@@ -97,7 +97,6 @@ class ConfigInjectorTest {
         val peerAddress = peer.getString("address")
         assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
         assert(peer.getInt("port") == 4500)
-        assert(peer.getString("reserved") == "6hHy")
     }
 
     @Test
