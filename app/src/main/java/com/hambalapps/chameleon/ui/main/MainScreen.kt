@@ -792,7 +792,7 @@ fun MainScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = pagerState.currentPage == 0,
+        gesturesEnabled = true,
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
@@ -824,7 +824,7 @@ fun MainScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.drawable.ic_launcher_foreground),
+                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher),
                             contentDescription = "App Logo",
                             modifier = Modifier.size(60.dp)
                         )
