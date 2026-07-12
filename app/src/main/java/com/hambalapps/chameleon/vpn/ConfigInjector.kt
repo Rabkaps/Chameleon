@@ -1747,7 +1747,7 @@ object ConfigInjector {
         var tlsCryptText = ""
         var tlsCryptV2Text = ""
         var tlsAuthText = ""
-        var keyDir = 0
+        var keyDir: Int? = null
         var usernameVal = ""
         var passwordVal = ""
         var verifyX509NameVal = ""
@@ -1764,12 +1764,22 @@ object ConfigInjector {
             return ""
         }
         
-        tlsCryptText = extractTag(configText, "tls-crypt")
-        tlsCryptV2Text = extractTag(configText, "tls-crypt-v2")
-        tlsAuthText = extractTag(configText, "tls-auth")
-        val caText = extractTag(configText, "ca")
-        val certText = extractTag(configText, "cert")
-        val keyText = extractTag(configText, "key")
+        fun cleanOpenVpnBlock(text: String): String {
+            if (text.isEmpty()) return ""
+            val lines = text.split("\n")
+            val cleanedLines = lines.filter { line ->
+                val trimmed = line.trim()
+                !trimmed.startsWith("#") && !trimmed.startsWith(";")
+            }
+            return cleanedLines.joinToString("\n").trim()
+        }
+        
+        tlsCryptText = cleanOpenVpnBlock(extractTag(configText, "tls-crypt"))
+        tlsCryptV2Text = cleanOpenVpnBlock(extractTag(configText, "tls-crypt-v2"))
+        tlsAuthText = cleanOpenVpnBlock(extractTag(configText, "tls-auth"))
+        val caText = cleanOpenVpnBlock(extractTag(configText, "ca"))
+        val certText = cleanOpenVpnBlock(extractTag(configText, "cert"))
+        val keyText = cleanOpenVpnBlock(extractTag(configText, "key"))
         
         configText.split("\n").forEach { line ->
             val trimmedLine = line.trim()
@@ -1806,7 +1816,7 @@ object ConfigInjector {
                 }
                 "tls-auth" -> {
                     if (tokens.size >= 3) {
-                        keyDir = tokens[2].toIntOrNull() ?: 0
+                        keyDir = tokens[2].toIntOrNull()
                     } else if (tokens.size >= 2) {
                         val possibleDir = tokens[1].toIntOrNull()
                         if (possibleDir != null) {
@@ -1826,7 +1836,7 @@ object ConfigInjector {
                 }
                 "key-direction" -> {
                     if (tokens.size >= 2) {
-                        keyDir = tokens[1].toIntOrNull() ?: 0
+                        keyDir = tokens[1].toIntOrNull()
                     }
                 }
                 "verify-x509-name" -> {
@@ -1875,7 +1885,9 @@ object ConfigInjector {
         }
         if (tlsAuthText.isNotEmpty()) {
             outbound.put("tls_auth", tlsAuthText)
-            outbound.put("key_direction", keyDir)
+            if (keyDir != null) {
+                outbound.put("key_direction", keyDir)
+            }
         }
         if (dnsServersArray.length() == 0) {
             dnsServersArray.put("10.8.0.1")
