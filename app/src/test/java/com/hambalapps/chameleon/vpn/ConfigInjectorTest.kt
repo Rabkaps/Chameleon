@@ -60,7 +60,6 @@ class ConfigInjectorTest {
 
         val json = org.json.JSONObject(configStr)
         val outbounds = json.getJSONArray("outbounds")
-        
         var warpOutbound: org.json.JSONObject? = null
         for (i in 0 until outbounds.length()) {
             val out = outbounds.getJSONObject(i)
@@ -69,22 +68,18 @@ class ConfigInjectorTest {
                 break
             }
         }
-        
-        assert(warpOutbound != null) { "warp-out outbound not found in outbounds" }
-        assert(warpOutbound!!.getString("type") == "direct")
-        assert(warpOutbound.getString("tag") == "warp-out")
-        assert(warpOutbound.getString("detour") == "warp-endpoint")
+        assert(warpOutbound == null) { "warp-out outbound should not be present in outbounds array" }
 
         val endpoints = json.getJSONArray("endpoints")
         var warpEndpoint: org.json.JSONObject? = null
         for (i in 0 until endpoints.length()) {
             val ep = endpoints.getJSONObject(i)
-            if (ep.getString("tag") == "warp-endpoint") {
+            if (ep.getString("tag") == "warp-out") {
                 warpEndpoint = ep
                 break
             }
         }
-        assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
+        assert(warpEndpoint != null) { "warp-out endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
