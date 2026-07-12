@@ -178,7 +178,7 @@ object ConfigInjector {
             put("tag", "tun-in")
             put("interface_name", "tun0")
             put("stack", if (settings.vpnMode == "gaming") "system" else (settings.run { if (tunStack.isEmpty()) "mixed" else tunStack }))
-            put("mtu", if (settings.vpnMode == "gaming") 1350 else 1400)
+            put("mtu", 1280) // 1280 MTU ensures compatibility and avoids packet drops on mobile/encapsulated links
             put("auto_route", true)
             put("strict_route", true)
             put("address", JSONArray(listOf("172.19.0.1/30")))
@@ -385,8 +385,9 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapDnsAddr = directDnsAddr
-        val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
+        val bootstrapServer = createDnsServer("dns-bootstrap", "https://1.1.1.1/dns-query", "direct")
+
+        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
@@ -397,6 +398,7 @@ object ConfigInjector {
             servers.put(directServer)
             servers.put(bootstrapServer)
         } else {
+            servers.put(fallbackSecureProxy)
             servers.put(secureServer)
             servers.put(directServer)
             servers.put(bootstrapServer)
