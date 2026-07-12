@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -141,6 +142,8 @@ fun ConnectionDashboard(
     scope: CoroutineScope,
     onConnectToggle: () -> Unit,
     onNavigateToServers: () -> Unit,
+    sessionDownBytes: Long = 0L,
+    sessionUpBytes: Long = 0L,
     activeCountryCode: String? = null
 ) {
     val context = LocalContext.current
@@ -201,7 +204,6 @@ fun ConnectionDashboard(
 
     val finalScale = if (state == "CONNECTING") pulseScale else scaleFactor
 
-    var pingTime by remember { mutableStateOf("--") }
     var userIpAddress by remember { mutableStateOf("Detecting...") }
     val fontScale = LocalDensity.current.fontScale
     val ipTextSize = remember(userIpAddress, fontScale) {
@@ -215,48 +217,6 @@ fun ConnectionDashboard(
             (base.value / fontScale).sp
         } else {
             base
-        }
-    }
-    val pingTextSize = remember(pingTime, fontScale) {
-        val base = if (pingTime.length > 6) 12.sp else 18.sp
-        if (fontScale > 1.0f) {
-            (base.value / fontScale).sp
-        } else {
-            base
-        }
-    }
-    
-    LaunchedEffect(state, delayTestUrl) {
-        if (state == "CONNECTED") {
-            launch(Dispatchers.IO) {
-                while (true) {
-                    val startTime = System.currentTimeMillis()
-                    var connection: java.net.HttpURLConnection? = null
-                    val ping = try {
-                        val url = java.net.URL(delayTestUrl)
-                        connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 3000
-                        connection.readTimeout = 3000
-                        connection.requestMethod = "GET"
-                        connection.useCaches = false
-                        connection.instanceFollowRedirects = false
-                        val responseCode = connection.responseCode
-                        val elapsed = System.currentTimeMillis() - startTime
-                        "${elapsed}ms"
-                    } catch (e: Exception) {
-                        "Timeout"
-                    } finally {
-                        connection?.disconnect()
-                    }
-                    
-                    withContext(Dispatchers.Main) {
-                        pingTime = ping
-                    }
-                    delay(10000)
-                }
-            }
-        } else {
-            pingTime = "--"
         }
     }
 
@@ -623,25 +583,32 @@ fun ConnectionDashboard(
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Speed,
-                            contentDescription = "Ping",
+                            imageVector = Icons.Default.SwapVert,
+                            contentDescription = "Traffic",
                             tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(20.dp)
                         )
                         Column {
                             Text(
-                                text = "PING",
+                                text = "TRAFFIC",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = pingTime,
-                                fontSize = pingTextSize,
-                                style = MaterialTheme.typography.titleLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = "↓ ${formatBytes(sessionDownBytes)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "↑ ${formatBytes(sessionUpBytes)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }

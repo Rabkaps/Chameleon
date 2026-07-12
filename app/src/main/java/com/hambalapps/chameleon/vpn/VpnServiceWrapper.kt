@@ -6,6 +6,8 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.VpnService
+import android.net.TrafficStats
+import android.os.Process
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
@@ -35,6 +37,12 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
         private val _vpnState = MutableStateFlow("DISCONNECTED")
         val vpnState: StateFlow<String> = _vpnState
+
+        private val _sessionDownBytes = MutableStateFlow(0L)
+        val sessionDownBytes: StateFlow<Long> = _sessionDownBytes
+
+        private val _sessionUpBytes = MutableStateFlow(0L)
+        val sessionUpBytes: StateFlow<Long> = _sessionUpBytes
 
         private val _vpnLogs = MutableStateFlow("")
         val vpnLogs: StateFlow<String> = _vpnLogs
@@ -106,6 +114,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private var tunFdInt: Int = -1
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var logReaderJob: Job? = null
+    private var trafficMonitorJob: Job? = null
     private var defaultInterfaceListener: InterfaceUpdateListener? = null
     private var defaultNetworkCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private var lastSentPhysicalName: String? = null
@@ -137,6 +146,38 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     updateNotification(state)
                 }
                 updateWakeLock(state)
+                
+                if (state == "CONNECTED") {
+                    trafficMonitorJob?.cancel()
+                    trafficMonitorJob = serviceScope.launch {
+                        val uid = Process.myUid()
+                        val rxBaseline = TrafficStats.getUidRxBytes(uid)
+                        val txBaseline = TrafficStats.getUidTxBytes(uid)
+                        while (isActive) {
+                            val currentRx = TrafficStats.getUidRxBytes(uid)
+                            val currentTx = TrafficStats.getUidTxBytes(uid)
+                            val down = if (currentRx != TrafficStats.UNSUPPORTED.toLong() && rxBaseline != TrafficStats.UNSUPPORTED.toLong()) {
+                                (currentRx - rxBaseline).coerceAtLeast(0L)
+                            } else {
+                                0L
+                            }
+                            val up = if (currentTx != TrafficStats.UNSUPPORTED.toLong() && txBaseline != TrafficStats.UNSUPPORTED.toLong()) {
+                                (currentTx - txBaseline).coerceAtLeast(0L)
+                            } else {
+                                0L
+                            }
+                            _sessionDownBytes.value = down
+                            _sessionUpBytes.value = up
+                            delay(1000)
+                        }
+                    }
+                } else if (state == "DISCONNECTED") {
+                    trafficMonitorJob?.cancel()
+                    trafficMonitorJob = null
+                    _sessionDownBytes.value = 0L
+                    _sessionUpBytes.value = 0L
+                }
+
                 // Notify home screen widget
                 try {
                     val intent = Intent("com.hambalapps.chameleon.widget.ACTION_STATE_CHANGED").apply {

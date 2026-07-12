@@ -152,6 +152,8 @@ object ConfigInjector {
             injectEndpoints(context, configJson, settings)
 
             return configJson.toString(2)
+        } catch (e: IllegalArgumentException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             return buildDefaultSkeleton(settings).toString(2)
@@ -699,6 +701,9 @@ object ConfigInjector {
         for (i in 0 until outbounds.length()) {
             val out = outbounds.optJSONObject(i) ?: continue
             val type = out.optString("type")
+            if (type == "openvpn") {
+                continue
+            }
             val tag = out.optString("tag")
             if (type == "dns" || tag == "dns-out") {
                 continue // Remove deprecated DNS outbounds
@@ -958,6 +963,8 @@ object ConfigInjector {
         try {
             val outbound = parseOutboundFromUri(uriStr, "proxy")
             outbounds.put(0, outbound)
+        } catch (e: IllegalArgumentException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -965,12 +972,15 @@ object ConfigInjector {
     }
 
     private fun parseOutboundFromUri(uriStr: String, defaultTag: String): JSONObject {
+        val trimmed = uriStr.trim()
+        if (trimmed.startsWith("client") || trimmed.contains("dev tun") || trimmed.startsWith("openvpn://") || trimmed.startsWith("ovpn://")) {
+            throw IllegalArgumentException("OpenVPN is not supported")
+        }
         val outbound = JSONObject()
-        outbound.put("tag", defaultTag)
-        outbound.put("_original_link", uriStr)
-
         try {
-            val trimmed = uriStr.trim()
+            outbound.put("tag", defaultTag)
+            outbound.put("_original_link", uriStr)
+
             val fragmentIdx = trimmed.indexOf("#")
             val name = if (fragmentIdx >= 0) {
                 URLDecoder.decode(trimmed.substring(fragmentIdx + 1), "UTF-8")
@@ -983,14 +993,6 @@ object ConfigInjector {
             if (schemeIdx < 0) {
                 if (trimmed.contains("[Interface]") && trimmed.contains("[Peer]")) {
                     return parseWireGuardConf(trimmed, defaultTag)
-                }
-                if (trimmed.startsWith("client") || trimmed.contains("dev tun")) {
-                    val outbound = JSONObject()
-                    outbound.put("tag", defaultTag)
-                    outbound.put("_original_link", trimmed)
-                    outbound.put("type", "openvpn")
-                    parseOpenVpnConfDetails(outbound, trimmed)
-                    return outbound
                 }
                 return outbound
             }
@@ -1211,7 +1213,7 @@ object ConfigInjector {
                         outbound.put("tls", tls)
                     }
 
-                    if (net == "ws" || net == "grpc" || net == "httpupgrade" || net == "kcp" || net == "mkcp" || net == "h2" || net == "http") {
+                    if (net == "ws" || net == "grpc" || net == "httpupgrade" || net == "kcp" || net == "mkcp" || net == "h2" || net == "http" || net == "xhttp") {
                         val transport = JSONObject()
                         val transType = if (net == "h2") "http" else net
                         transport.put("type", transType)
@@ -1239,6 +1241,25 @@ object ConfigInjector {
                                 val headers = JSONObject()
                                 headers.put("Host", fallbackHost)
                                 transport.put("headers", headers)
+                            }
+                        } else if (net == "xhttp") {
+                            transport.put("path", if (path.startsWith("/")) path else "/$path")
+                            if (fallbackHost.isNotEmpty()) {
+                                transport.put("host", fallbackHost)
+                            }
+                            val modeVal = vmessJson.optString("mode")
+                            if (modeVal.isNotEmpty()) {
+                                transport.put("mode", modeVal)
+                            }
+                            val xPaddingBytes = if (vmessJson.has("x_padding_bytes")) {
+                                vmessJson.optString("x_padding_bytes")
+                            } else if (vmessJson.has("xPaddingBytes")) {
+                                vmessJson.optString("xPaddingBytes")
+                            } else {
+                                ""
+                            }
+                            if (xPaddingBytes.isNotEmpty()) {
+                                transport.put("x_padding_bytes", xPaddingBytes)
                             }
                         }
                         outbound.put("transport", transport)
@@ -1487,35 +1508,7 @@ object ConfigInjector {
                     }
                 }
             } else if (scheme == "openvpn" || scheme == "ovpn") {
-                outbound.put("type", "openvpn")
-                val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""
-                if (configText.isNotEmpty()) {
-                    parseOpenVpnConfDetails(outbound, configText)
-                } else {
-                    val serversArray = JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("server", host)
-                            put("server_port", port)
-                        })
-                    }
-                    outbound.put("servers", serversArray)
-                    outbound.put("proto", queryParams["proto"] ?: "udp")
-                    outbound.put("cipher", queryParams["cipher"] ?: "AES-256-GCM")
-                    outbound.put("auth", queryParams["auth"] ?: "SHA512")
-                    if (userInfo.contains(":")) {
-                        val parts = userInfo.split(":")
-                        outbound.put("username", parts[0])
-                        outbound.put("password", parts[1])
-                    }
-                }
-                val qUsername = queryParams["username"] ?: ""
-                val qPassword = queryParams["password"] ?: ""
-                if (qUsername.isNotEmpty()) {
-                    outbound.put("username", qUsername)
-                }
-                if (qPassword.isNotEmpty()) {
-                    outbound.put("password", qPassword)
-                }
+                throw IllegalArgumentException("OpenVPN is not supported")
             } else if (scheme == "mieru") {
                 outbound.put("type", "mieru")
                 outbound.put("server", host)

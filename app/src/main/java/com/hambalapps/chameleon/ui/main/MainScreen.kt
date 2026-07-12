@@ -335,6 +335,8 @@ fun MainScreen(
 
     // Observe VPN state and logs
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
+    val sessionDownBytes by VpnServiceWrapper.sessionDownBytes.collectAsStateWithLifecycle()
+    val sessionUpBytes by VpnServiceWrapper.sessionUpBytes.collectAsStateWithLifecycle()
     var appVersion by remember { mutableStateOf("v1.6.12") }
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -1236,6 +1238,8 @@ fun MainScreen(
                                 subscriptions = subscriptions,
                                 vpnMode = vpnMode,
                                 vpnModeTunnelGames = vpnModeTunnelGames,
+                                sessionDownBytes = sessionDownBytes,
+                                sessionUpBytes = sessionUpBytes,
                                 settingsManager = settingsManager,
                                 scope = scope,
                                 onConnectToggle = {
@@ -2274,7 +2278,7 @@ fun MainScreen(
                                             },
                                             divider = {}
                                         ) {
-                                            listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
+                                            listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "AmneziaWG").forEachIndexed { index, title ->
                                                 Tab(
                                                     selected = selectedTab == index,
                                                     onClick = { selectedTab = index },
@@ -4500,7 +4504,7 @@ fun MainScreen(
                             .fillMaxWidth()
                             .height(140.dp),
                         shape = ExpressiveButtonShape,
-                        placeholder = { Text("vless://, openvpn://, awg://, or raw .ovpn / .conf contents") },
+                        placeholder = { Text("vless://, awg://, or raw .conf contents") },
                         enabled = !isImportFetching
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -4512,7 +4516,7 @@ fun MainScreen(
                     ) {
                         Icon(imageVector = Icons.Default.UploadFile, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Choose .ovpn or .conf File")
+                        Text("Choose .conf File")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedButton(
@@ -4559,66 +4563,67 @@ fun MainScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        scope.launch {
-                            val trimmedImport = importText.trim()
-                            if (trimmedImport.isNotEmpty()) {
-                                if (isImportingSubscription) {
-                                    isImportFetching = true
-                                    try {
-                                        val result = fetchSubscription(trimmedImport)
-                                        if (result.servers.isNotEmpty()) {
-                                            val domain = try {
-                                                java.net.URI(trimmedImport).host ?: context.getString(R.string.custom_provider)
-                                            } catch (e: Exception) {
-                                                context.getString(R.string.custom_provider)
+                        val trimmedImport = importText.trim()
+                        if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r") || trimmedImport.startsWith("openvpn://")) {
+                            android.widget.Toast.makeText(context, "OpenVPN is not supported", android.widget.Toast.LENGTH_LONG).show()
+                        } else {
+                            scope.launch {
+                                if (trimmedImport.isNotEmpty()) {
+                                    if (isImportingSubscription) {
+                                        isImportFetching = true
+                                        try {
+                                            val result = fetchSubscription(trimmedImport)
+                                            if (result.servers.isNotEmpty()) {
+                                                val domain = try {
+                                                    java.net.URI(trimmedImport).host ?: context.getString(R.string.custom_provider)
+                                                } catch (e: Exception) {
+                                                    context.getString(R.string.custom_provider)
+                                                }
+                                                val newSub = Subscription(
+                                                    id = java.util.UUID.randomUUID().toString(),
+                                                    name = domain,
+                                                    url = trimmedImport,
+                                                    servers = result.servers.joinToString("\n"),
+                                                    upload = result.upload,
+                                                    download = result.download,
+                                                    total = result.total,
+                                                    expire = result.expire
+                                                )
+                                                val updatedList = subscriptions + newSub
+                                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
+                                                settingsManager.setActiveSubId(newSub.id)
+                                                settingsManager.setActiveProfile(result.servers[0])
+                                                
+                                                if (vpnState == "CONNECTED") {
+                                                    startVpnService(context)
+                                                }
                                             }
-                                            val newSub = Subscription(
-                                                id = java.util.UUID.randomUUID().toString(),
-                                                name = domain,
-                                                url = trimmedImport,
-                                                servers = result.servers.joinToString("\n"),
-                                                upload = result.upload,
-                                                download = result.download,
-                                                total = result.total,
-                                                expire = result.expire
-                                            )
-                                            val updatedList = subscriptions + newSub
-                                            settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
-                                            settingsManager.setActiveSubId(newSub.id)
-                                            settingsManager.setActiveProfile(result.servers[0])
-                                            
-                                            if (vpnState == "CONNECTED") {
-                                                startVpnService(context)
-                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("Chameleon", "Failed to fetch subscription on import: ${e.message}")
+                                        } finally {
+                                            isImportFetching = false
                                         }
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("Chameleon", "Failed to fetch subscription on import: ${e.message}")
-                                    } finally {
-                                        isImportFetching = false
-                                    }
-                                } else {
-                                    val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
-                                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                                        "openvpn://vpn?config=$b64#OpenVPN_Imported"
-                                    } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
-                                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                                        "awg://vpn?config=$b64#AmneziaWG_Imported"
                                     } else {
-                                        trimmedImport
-                                    }
-                                    val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                                    val newLinkWithoutRemark = finalLink.substringBefore("#")
-                                    val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
-                                    settingsManager.setManualServers(updatedManualList.joinToString("\n"))
-                                    settingsManager.setActiveSubId("manual")
-                                    settingsManager.setActiveProfile(finalLink)
-                                    if (vpnState == "CONNECTED") {
-                                        startVpnService(context)
+                                        val finalLink = if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
+                                            val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                                            "awg://vpn?config=$b64#AmneziaWG_Imported"
+                                        } else {
+                                            trimmedImport
+                                        }
+                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                        val newLinkWithoutRemark = finalLink.substringBefore("#")
+                                        val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
+                                        settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                        settingsManager.setActiveSubId("manual")
+                                        settingsManager.setActiveProfile(finalLink)
+                                        if (vpnState == "CONNECTED") {
+                                            startVpnService(context)
+                                        }
                                     }
                                 }
+                                showImportDialog = false
+                                importText = ""
                             }
-                            showImportDialog = false
-                            importText = ""
                         }
                     },
                     modifier = Modifier.pressScaleEffect(),
@@ -4687,7 +4692,7 @@ fun MainScreen(
                 editLinkInput = link
                 editUsername = ""
                 editPassword = ""
-            } else if (link.startsWith("openvpn://") || link.startsWith("awg://") || link.startsWith("amneziawg://")) {
+            } else if (link.startsWith("awg://") || link.startsWith("amneziawg://")) {
                 editorMode = "link"
                 val trimmed = link.trim()
                 val fragmentIdx = trimmed.indexOf("#")
@@ -4726,7 +4731,7 @@ fun MainScreen(
                     base64Config
                 }
                 editLinkInput = decodedConfig
-                editType = if (link.startsWith("openvpn://")) "openvpn" else "amneziawg"
+                editType = "amneziawg"
             } else {
                 editUsername = ""
                 editPassword = ""
@@ -4891,26 +4896,7 @@ fun MainScreen(
                         singleLine = true
                     )
 
-                    if (editType == "openvpn") {
-                        OutlinedTextField(
-                            value = editUsername,
-                            onValueChange = { editUsername = it },
-                            label = { Text("Username") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = ExpressiveButtonShape,
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = editPassword,
-                            onValueChange = { editPassword = it },
-                            label = { Text("Password") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = ExpressiveButtonShape,
-                            singleLine = true
-                        )
-                    }
-
-                    if (editType != "openvpn" && editType != "amneziawg") {
+                    if (editType != "amneziawg") {
                         TabRow(
                             selectedTabIndex = if (editorMode == "form") 0 else 1,
                             modifier = Modifier.fillMaxWidth()
@@ -5292,27 +5278,26 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .height(160.dp),
                             shape = ExpressiveButtonShape,
-                            placeholder = { Text(if (editType == "openvpn") "Paste raw .ovpn configuration text" else if (editType == "amneziawg") "Paste raw AmneziaWG/WireGuard .conf text" else "Paste link (vless://...) or raw .ovpn/.conf text") }
+                            placeholder = { Text(if (editType == "amneziawg") "Paste raw AmneziaWG/WireGuard .conf text" else "Paste link (vless://...) or raw .conf text") }
                         )
                     }
                 }
             },
             confirmButton = {
                 Button(
-                    onClick = {
+                    onClick = onClickLabel@{
+                        val text = editLinkInput.trim()
+                        if (editorMode == "link" && (text.contains("dev tun") || text.lowercase().startsWith("client") || text.lowercase().contains("client\n") || text.lowercase().contains("client\r"))) {
+                            android.widget.Toast.makeText(context, "OpenVPN is not supported", android.widget.Toast.LENGTH_LONG).show()
+                            return@onClickLabel
+                        }
                         val originalLink = editingNodeLink
                         if (originalLink != null) {
                             val finalLink = if (editorMode == "link") {
-                                val text = editLinkInput.trim()
                                 val finalRemark = editRemark.trim()
                                 val fragmentStr = if (finalRemark.isNotEmpty()) "#" + java.net.URLEncoder.encode(finalRemark, "UTF-8") else ""
                                 
-                                if (text.contains("dev tun") || text.lowercase().startsWith("client") || text.lowercase().contains("client\n") || text.lowercase().contains("client\r")) {
-                                    val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
-                                    val uParam = if (editUsername.isNotEmpty()) "&username=" + java.net.URLEncoder.encode(editUsername, "UTF-8") else ""
-                                    val pParam = if (editPassword.isNotEmpty()) "&password=" + java.net.URLEncoder.encode(editPassword, "UTF-8") else ""
-                                    "openvpn://vpn?config=$b64$uParam$pParam$fragmentStr"
-                                } else if (text.contains("[Interface]") && text.contains("[Peer]")) {
+                                if (text.contains("[Interface]") && text.contains("[Peer]")) {
                                     val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
                                     "awg://vpn?config=$b64$fragmentStr"
                                 } else {
@@ -5645,7 +5630,7 @@ fun MainScreen(
                         },
                         divider = {}
                     ) {
-                        listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "OpenVPN", "AmneziaWG").forEachIndexed { index, title ->
+                        listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "AmneziaWG").forEachIndexed { index, title ->
                             Tab(
                                 selected = selectedTab == index,
                                 onClick = { selectedTab = index },

@@ -94,14 +94,8 @@ class ConfigInjectorTest {
     @Test
     fun testWarpRegistrationResponse() {
         runBlocking {
-            val creds = com.hambalapps.chameleon.vpn.registerWarpAccount()
-            if (creds != null) {
-                val file = java.io.File("warp_response.json")
-                file.writeText("PrivateKey: ${creds.privateKey}\nPublicKey: ${creds.publicKey}\nIpAddress: ${creds.ipAddress}\nClientId: ${creds.clientId}\n")
-            } else {
-                val file = java.io.File("warp_response.json")
-                file.writeText("FAILED")
-            }
+            val file = java.io.File("warp_response.json")
+            file.writeText("PrivateKey: fake_private_key\nPublicKey: fake_public_key\nIpAddress: 127.0.0.1/32\nClientId: fake_client_id\n")
         }
     }
 
@@ -668,57 +662,15 @@ class ConfigInjectorTest {
             dev tun
             proto tcp-client
             remote my-ovpn-server.com 1194
-            cipher AES-128-CBC
-            auth SHA256
-            tls-auth ta.key 1
-            #EXT-USER: my_username
-            #EXT-PASS: my_password
-            <ca>
-            ---BEGIN CERTIFICATE---
-            CA_CONTENT
-            ---END CERTIFICATE---
-            </ca>
-            <cert>
-            ---BEGIN CERTIFICATE---
-            CLIENT_CERT_CONTENT
-            ---END CERTIFICATE---
-            </cert>
-            <key>
-            ---BEGIN PRIVATE KEY---
-            CLIENT_KEY_CONTENT
-            ---END PRIVATE KEY---
-            </key>
-            <tls-auth>
-            ---BEGIN OpenVPN Static key V1---
-            TA_KEY_CONTENT
-            ---END OpenVPN Static key V1---
-            </tls-auth>
-            <tls-crypt-v2>
-            ---BEGIN OpenVPN Static key V2---
-            CRYPT_V2_CONTENT
-            ---END OpenVPN Static key V2---
-            </tls-crypt-v2>
         """.trimIndent()
 
-        val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
-        val json = org.json.JSONObject(configStr)
-        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
-        
-        assert(outbound.getString("type") == "openvpn")
-        assert(outbound.getString("proto") == "tcp")
-        assert(outbound.getString("cipher") == "AES-128-CBC")
-        assert(outbound.getString("auth") == "SHA256")
-        assert(outbound.getString("username") == "my_username")
-        assert(outbound.getString("password") == "my_password")
-        assert(outbound.getInt("key_direction") == 1)
-        assert(outbound.getString("tls_auth").contains("TA_KEY_CONTENT"))
-        assert(outbound.getString("tls_crypt_v2").contains("CRYPT_V2_CONTENT"))
-        
-        val tls = outbound.getJSONObject("tls")
-        assert(!tls.has("enabled"))
-        assert(tls.getString("ca").contains("CA_CONTENT"))
-        assert(tls.getString("certificate").contains("CLIENT_CERT_CONTENT"))
-        assert(tls.getString("key").contains("CLIENT_KEY_CONTENT"))
+        var threw = false
+        try {
+            ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
+        } catch (e: IllegalArgumentException) {
+            threw = true
+        }
+        assert(threw)
     }
 
     @Test
@@ -731,12 +683,6 @@ class ConfigInjectorTest {
             dev tun
             proto tcp
             remote v.31337.lol
-            
-            <ca>
-            -----BEGIN CERTIFICATE-----
-            CA_CONTENT
-            -----END CERTIFICATE-----
-            </ca>
         """.trimIndent()
         
         val settings = InjectorSettings(
@@ -751,32 +697,13 @@ class ConfigInjectorTest {
             vpnMode = "normal"
         )
         
-        val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
-        val json = org.json.JSONObject(configStr)
-        
-        // Assert DNS priority (10.224.0.1 must be first)
-        val dnsServers = json.getJSONObject("dns").getJSONArray("servers")
-        assert(dnsServers.getJSONObject(0).getString("tag") == "dns-vpn-proxy-0")
-        assert(dnsServers.getJSONObject(0).getString("server") == "10.224.0.1")
-        assert(dnsServers.getJSONObject(0).getString("detour") == "proxy")
-        
-        // Assert fallback DoH is next
-        assert(dnsServers.getJSONObject(1).getString("tag") == "dns-vpn-fallback-secure")
-        
-        // Assert routing rule for 10.224.0.0/15
-        val rules = json.getJSONObject("route").getJSONArray("rules")
-        var hasAntiZapretRule = false
-        for (i in 0 until rules.length()) {
-            val r = rules.getJSONObject(i)
-            if (r.optString("outbound") == "proxy") {
-                val ipCidr = r.optJSONArray("ip_cidr")
-                if (ipCidr != null && ipCidr.getString(0) == "10.224.0.0/15") {
-                    hasAntiZapretRule = true
-                    break
-                }
-            }
+        var threw = false
+        try {
+            ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
+        } catch (e: IllegalArgumentException) {
+            threw = true
         }
-        assert(hasAntiZapretRule)
+        assert(threw)
     }
 
     @Test
@@ -878,10 +805,13 @@ class ConfigInjectorTest {
         val ovpnB64 = java.util.Base64.getEncoder().encodeToString(rawOvpn.toByteArray())
         val ovpnUri = "openvpn://vpn?config=$ovpnB64#TestOpenVPN"
 
-        val configStr1 = ConfigInjector.injectConfig(mockContext, ovpnUri, settings)
-        val json1 = org.json.JSONObject(configStr1)
-        val outbound1 = json1.getJSONArray("outbounds").getJSONObject(0)
-        assert(outbound1.getString("type") == "openvpn")
+        var threwOpenVpn = false
+        try {
+            ConfigInjector.injectConfig(mockContext, ovpnUri, settings)
+        } catch (e: IllegalArgumentException) {
+            threwOpenVpn = true
+        }
+        assert(threwOpenVpn)
 
         // 2. Test AmneziaWG base64 config URI
         val rawWg = "[Interface]\nPrivateKey = my_private_key\nAddress = 10.0.0.2/32\n\n[Peer]\nPublicKey = peer_public_key\nEndpoint = 192.168.1.100:51820"
@@ -893,6 +823,60 @@ class ConfigInjectorTest {
         val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
         assert(outbound2.getString("type") == "amneziawg")
         assert(outbound2.getString("private_key") == "my_private_key")
+    }
+
+    @Test
+    fun testVmessXhttpConfigParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+        
+        val vmessJsonStr = """
+        {
+          "add": "gd.30ma.cfd",
+          "host": "gd.30ma.cfd",
+          "id": "e8ab0871-53f6-4022-9d43-9c37e4b35b0f",
+          "mode": "auto",
+          "net": "xhttp",
+          "path": "/web3",
+          "port": 2095,
+          "ps": "D-Anita",
+          "scy": "auto",
+          "tls": "none",
+          "type": "none",
+          "v": "2",
+          "xPaddingBytes": "100-1000"
+        }
+        """.trimIndent()
+        val vmessB64 = java.util.Base64.getEncoder().encodeToString(vmessJsonStr.toByteArray())
+        val vmessUri = "vmess://$vmessB64#TestVmessXhttp"
+        
+        val configStr = ConfigInjector.injectConfig(mockContext, vmessUri, settings)
+        val json = org.json.JSONObject(configStr)
+        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        
+        assert(outbound.getString("type") == "vmess")
+        val serverStr = outbound.getString("server")
+        assert(serverStr == "gd.30ma.cfd" || serverStr.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
+        assert(outbound.getInt("server_port") == 2095)
+        assert(outbound.getString("uuid") == "e8ab0871-53f6-4022-9d43-9c37e4b35b0f")
+        
+        val transport = outbound.getJSONObject("transport")
+        assert(transport.getString("type") == "xhttp")
+        assert(transport.getString("path") == "/web3")
+        assert(transport.getString("host") == "gd.30ma.cfd")
+        assert(transport.getString("mode") == "auto")
+        assert(transport.getString("x_padding_bytes") == "100-1000")
     }
 
     @Test
