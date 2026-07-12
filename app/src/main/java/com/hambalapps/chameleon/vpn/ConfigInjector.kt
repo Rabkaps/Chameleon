@@ -930,22 +930,6 @@ object ConfigInjector {
                 put("address", JSONArray().apply { put(formattedIp) })
                 put("private_key", settings.warpPrivateKey)
                 
-                val clientId = settings.warpClientId.trim()
-                if (clientId.isNotEmpty()) {
-                    try {
-                        val decoded = Base64.decode(clientId, Base64.DEFAULT)
-                        if (decoded.size == 3) {
-                            put("reserved", JSONArray().apply {
-                                put(decoded[0].toInt() and 0xFF)
-                                put(decoded[1].toInt() and 0xFF)
-                                put(decoded[2].toInt() and 0xFF)
-                            })
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("Chameleon", "Failed to decode warpClientId: $clientId", e)
-                    }
-                }
-                
                 val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
                 android.util.Log.i("Chameleon", "WARP endpoint peer engage.cloudflareclient.com pre-resolved to: $peerAddress")
 
