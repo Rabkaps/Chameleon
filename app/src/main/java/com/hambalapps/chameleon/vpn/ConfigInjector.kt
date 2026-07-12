@@ -1463,6 +1463,14 @@ object ConfigInjector {
                         outbound.put("password", parts[1])
                     }
                 }
+                val qUsername = queryParams["username"] ?: ""
+                val qPassword = queryParams["password"] ?: ""
+                if (qUsername.isNotEmpty()) {
+                    outbound.put("username", qUsername)
+                }
+                if (qPassword.isNotEmpty()) {
+                    outbound.put("password", qPassword)
+                }
             } else if (scheme == "mieru") {
                 outbound.put("type", "mieru")
                 outbound.put("server", host)

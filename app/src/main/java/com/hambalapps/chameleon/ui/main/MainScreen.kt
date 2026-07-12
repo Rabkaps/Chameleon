@@ -576,6 +576,8 @@ fun MainScreen(
     var editorMode by remember { mutableStateOf("form") } // "form" or "link"
     var editType by remember { mutableStateOf("vless") }
     var editRemark by remember { mutableStateOf("") }
+    var editUsername by remember { mutableStateOf("") }
+    var editPassword by remember { mutableStateOf("") }
     var editServer by remember { mutableStateOf("") }
     var editPort by remember { mutableStateOf("443") }
     var editCreds by remember { mutableStateOf("") }
@@ -4654,6 +4656,8 @@ fun MainScreen(
             if (link == "new_node") {
                 editType = "vless"
                 editRemark = "New Node"
+                editUsername = ""
+                editPassword = ""
                 editServer = ""
                 editPort = "443"
                 editCreds = ""
@@ -4681,6 +4685,8 @@ fun MainScreen(
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
+                editUsername = ""
+                editPassword = ""
             } else if (link.startsWith("openvpn://") || link.startsWith("awg://") || link.startsWith("amneziawg://")) {
                 editorMode = "link"
                 val trimmed = link.trim()
@@ -4690,13 +4696,29 @@ fun MainScreen(
                 } else { "" }
                 
                 val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
-                val queryPrefix = "?config="
-                val configStartIdx = rest.indexOf(queryPrefix)
-                val base64Config = if (configStartIdx >= 0) {
-                    rest.substring(configStartIdx + queryPrefix.length)
-                } else {
-                    ""
+                
+                val queryParams = mutableMapOf<String, String>()
+                val queryIdx = rest.indexOf("?")
+                if (queryIdx >= 0) {
+                    val queryPart = rest.substring(queryIdx + 1)
+                    val pairs = queryPart.split("&")
+                    for (pair in pairs) {
+                        val idx = pair.indexOf("=")
+                        if (idx > 0) {
+                            try {
+                                val k = java.net.URLDecoder.decode(pair.substring(0, idx), "UTF-8")
+                                val v = java.net.URLDecoder.decode(pair.substring(idx + 1), "UTF-8")
+                                queryParams[k] = v
+                            } catch (e: Exception) {
+                                // Ignore
+                            }
+                        }
+                    }
                 }
+                
+                val base64Config = queryParams["config"] ?: ""
+                editUsername = queryParams["username"] ?: ""
+                editPassword = queryParams["password"] ?: ""
                 
                 val decodedConfig = try {
                     String(android.util.Base64.decode(base64Config, android.util.Base64.DEFAULT))
@@ -4706,6 +4728,8 @@ fun MainScreen(
                 editLinkInput = decodedConfig
                 editType = if (link.startsWith("openvpn://")) "openvpn" else "amneziawg"
             } else {
+                editUsername = ""
+                editPassword = ""
                 try {
                     val trimmed = link.trim()
                     val fragmentIdx = trimmed.indexOf("#")
@@ -4866,6 +4890,25 @@ fun MainScreen(
                         shape = ExpressiveButtonShape,
                         singleLine = true
                     )
+
+                    if (editType == "openvpn") {
+                        OutlinedTextField(
+                            value = editUsername,
+                            onValueChange = { editUsername = it },
+                            label = { Text("Username") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ExpressiveButtonShape,
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = editPassword,
+                            onValueChange = { editPassword = it },
+                            label = { Text("Password") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = ExpressiveButtonShape,
+                            singleLine = true
+                        )
+                    }
 
                     if (editType != "openvpn" && editType != "amneziawg") {
                         TabRow(
@@ -5266,7 +5309,9 @@ fun MainScreen(
                                 
                                 if (text.contains("dev tun") || text.lowercase().startsWith("client") || text.lowercase().contains("client\n") || text.lowercase().contains("client\r")) {
                                     val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
-                                    "openvpn://vpn?config=$b64$fragmentStr"
+                                    val uParam = if (editUsername.isNotEmpty()) "&username=" + java.net.URLEncoder.encode(editUsername, "UTF-8") else ""
+                                    val pParam = if (editPassword.isNotEmpty()) "&password=" + java.net.URLEncoder.encode(editPassword, "UTF-8") else ""
+                                    "openvpn://vpn?config=$b64$uParam$pParam$fragmentStr"
                                 } else if (text.contains("[Interface]") && text.contains("[Peer]")) {
                                     val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
                                     "awg://vpn?config=$b64$fragmentStr"
