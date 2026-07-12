@@ -798,7 +798,7 @@ fun MainScreen(
                 modifier = Modifier
                     .width(300.dp)
                     .fillMaxHeight(),
-                drawerContainerColor = if (isSystemInDarkTheme()) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
+                drawerContainerColor = if (MaterialTheme.colorScheme.background.red < 0.5f) Color.Black else MaterialTheme.colorScheme.surfaceContainer,
                 drawerShape = RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp)
             ) {
                 Column(

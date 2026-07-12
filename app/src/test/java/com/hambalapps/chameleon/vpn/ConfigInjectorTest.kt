@@ -84,7 +84,7 @@ class ConfigInjectorTest {
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
-        assert(endpoint.getString("detour") == "proxy")
+        assert(endpoint.getString("detour") == "direct")
 
         val peers = endpoint.getJSONArray("peers")
         assert(peers.length() == 1)
