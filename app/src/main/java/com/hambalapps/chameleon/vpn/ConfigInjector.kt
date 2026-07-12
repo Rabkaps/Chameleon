@@ -940,7 +940,7 @@ object ConfigInjector {
                     put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
                 }
                 put("peers", JSONArray().apply { put(peerObj) })
-                put("detour", "direct") // DETOUR TO DIRECT TO BYPASS PROXY AND PREVENT EPERM ROUTING LOOP!
+                put("detour", settings.warpDetourMode.ifEmpty { "direct" })
             }
             cleanEndpoints.put(warpEndpoint)
         }
