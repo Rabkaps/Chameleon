@@ -68,7 +68,9 @@ object ConfigInjector {
         "g.co", "recaptcha.net",
         "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com",
         "anthropic.com", "claude.ai",
-        "netflix.com", "netflix.net", "nflximg.net", "nflxvideo.net", "nflxso.net", "nflxext.com"
+        "netflix.com", "netflix.net", "nflximg.net", "nflxvideo.net", "nflxso.net", "nflxext.com",
+        "aistudiocdn.com", "gemini.google.com", "generativelanguage.googleapis.com", "aistudio.google.com",
+        "ai.google.dev", "notebooklm.google.com", "antigravity.google.com", "aiplatform.googleapis.com"
     )
 
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
