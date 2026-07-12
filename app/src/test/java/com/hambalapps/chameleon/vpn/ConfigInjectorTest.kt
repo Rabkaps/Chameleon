@@ -68,23 +68,23 @@ class ConfigInjectorTest {
                 break
             }
         }
-        assert(warpOutbound == null) { "warp-out outbound should not be present in outbounds array" }
+        assert(warpOutbound != null) { "warp-out outbound should be present in outbounds array" }
+        assert(warpOutbound!!.getString("type") == "selector")
+        assert(warpOutbound.getJSONArray("outbounds").getString(0) == "warp-endpoint")
 
         val endpoints = json.getJSONArray("endpoints")
         var warpEndpoint: org.json.JSONObject? = null
         for (i in 0 until endpoints.length()) {
             val ep = endpoints.getJSONObject(i)
-            if (ep.getString("tag") == "warp-out") {
+            if (ep.getString("tag") == "warp-endpoint") {
                 warpEndpoint = ep
                 break
             }
         }
-        assert(warpEndpoint != null) { "warp-out endpoint not found in endpoints" }
+        assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "wireguard")
-        val addressArr = endpoint.getJSONArray("address")
-        assert(addressArr.getString(0) == "172.16.0.2/32")
-        assert(addressArr.getString(1) == "fd00::5/128")
+        assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
 
@@ -96,7 +96,6 @@ class ConfigInjectorTest {
         assert(peer.getInt("port") == 4500)
         val allowedIps = peer.getJSONArray("allowed_ips")
         assert(allowedIps.getString(0) == "0.0.0.0/0")
-        assert(allowedIps.getString(1) == "::/0")
     }
 
     @Test

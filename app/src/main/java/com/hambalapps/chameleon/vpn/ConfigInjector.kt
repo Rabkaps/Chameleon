@@ -780,6 +780,15 @@ object ConfigInjector {
         }
 
 
+        if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
+            val warpOutbound = JSONObject().apply {
+                put("type", "selector")
+                put("tag", "warp-out")
+                put("outbounds", JSONArray().apply { put("warp-endpoint") })
+            }
+            cleanOutbounds.put(warpOutbound)
+        }
+
         config.put("outbounds", cleanOutbounds)
     }
 
@@ -900,7 +909,7 @@ object ConfigInjector {
         
         for (i in 0 until endpoints.length()) {
             val ep = endpoints.optJSONObject(i) ?: continue
-            if (ep.optString("tag") != "warp-out") {
+            if (ep.optString("tag") != "warp-endpoint") {
                 cleanEndpoints.put(ep)
             }
         }
@@ -908,7 +917,7 @@ object ConfigInjector {
         if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val warpEndpoint = JSONObject().apply {
                 put("type", "wireguard")
-                put("tag", "warp-out")
+                put("tag", "warp-endpoint")
                 
                 val rawIp = settings.warpIpAddress.trim()
                 val formattedIp = if (rawIp.isEmpty()) {
@@ -918,10 +927,7 @@ object ConfigInjector {
                 } else {
                     "$rawIp/32"
                 }
-                put("address", JSONArray().apply {
-                    put(formattedIp)
-                    put("fd00::5/128")
-                })
+                put("address", JSONArray().apply { put(formattedIp) })
                 put("private_key", settings.warpPrivateKey)
                 
                 val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
@@ -931,10 +937,7 @@ object ConfigInjector {
                     put("address", peerAddress)
                     put("port", settings.warpPort.toIntOrNull() ?: 2408)
                     put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
-                    put("allowed_ips", JSONArray().apply {
-                        put("0.0.0.0/0")
-                        put("::/0")
-                    })
+                    put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
                 }
                 put("peers", JSONArray().apply { put(peerObj) })
                 put("detour", "direct") // DETOUR TO DIRECT TO BYPASS PROXY AND PREVENT EPERM ROUTING LOOP!
