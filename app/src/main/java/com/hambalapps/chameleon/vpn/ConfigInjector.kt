@@ -355,6 +355,25 @@ object ConfigInjector {
         dns.put("strategy", "ipv4_only")
         val servers = JSONArray()
 
+        val outboundsList = config.optJSONArray("outbounds")
+        if (outboundsList != null) {
+            for (i in 0 until outboundsList.length()) {
+                val outbound = outboundsList.optJSONObject(i) ?: continue
+                val tag = outbound.optString("tag")
+                val dnsArray = outbound.optJSONArray("_dns_servers")
+                if (dnsArray != null) {
+                    for (j in 0 until dnsArray.length()) {
+                        val dnsIp = dnsArray.optString(j)
+                        if (dnsIp.isNotEmpty()) {
+                            val vpnDns = createDnsServer("dns-vpn-$tag-$j", dnsIp, tag)
+                            servers.put(vpnDns)
+                        }
+                    }
+                    outbound.remove("_dns_servers")
+                }
+            }
+        }
+
         // 1. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
@@ -1721,6 +1740,7 @@ object ConfigInjector {
 
     private fun parseOpenVpnConfDetails(outbound: JSONObject, configText: String) {
         val serversArray = JSONArray()
+        val dnsServersArray = JSONArray()
         var protoVal = "udp"
         var cipherVal = "AES-256-GCM"
         var authVal = "SHA512"
@@ -1817,6 +1837,14 @@ object ConfigInjector {
                         verifyX509NameModeVal = mode
                     }
                 }
+                "dhcp-option" -> {
+                    if (tokens.size >= 3 && tokens[1].lowercase() == "dns") {
+                        val dnsIp = tokens[2].replace("\"", "").replace("'", "")
+                        if (isIpAddress(dnsIp)) {
+                            dnsServersArray.put(dnsIp)
+                        }
+                    }
+                }
             }
         }
         
@@ -1849,6 +1877,12 @@ object ConfigInjector {
             outbound.put("tls_auth", tlsAuthText)
             outbound.put("key_direction", keyDir)
         }
+        if (dnsServersArray.length() == 0) {
+            dnsServersArray.put("10.8.0.1")
+            dnsServersArray.put("172.27.224.1")
+            dnsServersArray.put("10.0.0.1")
+        }
+        outbound.put("_dns_servers", dnsServersArray)
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {
