@@ -74,7 +74,7 @@ class ConfigInjectorTest {
         val endpoint = warpOutbound!!
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getString("tag") == "warp-out")
-        assert(endpoint.getJSONArray("localAddr").getString(0) == "172.16.0.2/32")
+        assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
 
@@ -309,7 +309,7 @@ class ConfigInjectorTest {
         assert(proxyOutbound.getString("private_key") == "my_private_key_base64")
         assert(proxyOutbound.getInt("mtu") == 1360)
 
-        val localAddresses = proxyOutbound.getJSONArray("localAddr")
+        val localAddresses = proxyOutbound.getJSONArray("address")
         assert(localAddresses.length() == 2)
         assert(localAddresses.getString(0) == "10.0.0.2/32")
         assert(localAddresses.getString(1) == "fd00::2/128")
@@ -755,7 +755,7 @@ class ConfigInjectorTest {
         assert(outbound.getString("private_key") == "my_private_key")
         assert(outbound.getInt("mtu") == 1420)
         
-        val localAddress = outbound.getJSONArray("localAddr")
+        val localAddress = outbound.getJSONArray("address")
         assert(localAddress.getString(0) == "10.0.0.2/32")
         assert(localAddress.getString(1) == "fd00::2/128")
         
