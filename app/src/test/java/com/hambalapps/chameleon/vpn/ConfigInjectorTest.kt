@@ -722,6 +722,64 @@ class ConfigInjectorTest {
     }
 
     @Test
+    fun testAntiZapretConfigInjection() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+        
+        val rawOvpn = """
+            client
+            dev tun
+            proto tcp
+            remote v.31337.lol
+            
+            <ca>
+            -----BEGIN CERTIFICATE-----
+            CA_CONTENT
+            -----END CERTIFICATE-----
+            </ca>
+        """.trimIndent()
+        
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+        
+        val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
+        val json = org.json.JSONObject(configStr)
+        
+        // Assert DNS priority (10.224.0.1 must be first)
+        val dnsServers = json.getJSONObject("dns").getJSONArray("servers")
+        assert(dnsServers.getJSONObject(0).getString("tag") == "dns-vpn-proxy-0")
+        assert(dnsServers.getJSONObject(0).getString("server") == "10.224.0.1")
+        assert(dnsServers.getJSONObject(0).getString("detour") == "proxy")
+        
+        // Assert fallback DoH is next
+        assert(dnsServers.getJSONObject(1).getString("tag") == "dns-vpn-fallback-secure")
+        
+        // Assert routing rule for 10.224.0.0/15
+        val rules = json.getJSONObject("route").getJSONArray("rules")
+        var hasAntiZapretRule = false
+        for (i in 0 until rules.length()) {
+            val r = rules.getJSONObject(i)
+            if (r.optString("outbound") == "proxy") {
+                val ipCidr = r.optJSONArray("ip_cidr")
+                if (ipCidr != null && ipCidr.getString(0) == "10.224.0.0/15") {
+                    hasAntiZapretRule = true
+                    break
+                }
+            }
+        }
+        assert(hasAntiZapretRule)
+    }
+
+    @Test
     fun testRawWireGuardConfParsing() {
         val mockContext = Mockito.mock(Context::class.java)
         Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))

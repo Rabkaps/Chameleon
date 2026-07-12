@@ -355,11 +355,7 @@ object ConfigInjector {
         dns.put("strategy", "ipv4_only")
         val servers = JSONArray()
 
-        // 1. Clean secure DoH fallback for the proxy outbound (must be first to ensure fast public internet resolution)
-        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
-        servers.put(fallbackSecureProxy)
-
-        // 2. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options)
+        // 1. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options / AntiZapret) - prioritised first
         val outboundsList = config.optJSONArray("outbounds")
         if (outboundsList != null) {
             for (i in 0 until outboundsList.length()) {
@@ -378,6 +374,10 @@ object ConfigInjector {
                 }
             }
         }
+
+        // 2. Clean secure DoH fallback for the proxy outbound (placed after parsed DNS)
+        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
+        servers.put(fallbackSecureProxy)
 
         // 1. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
@@ -491,6 +491,19 @@ object ConfigInjector {
 
         val newRules = JSONArray()
 
+        // Detect if this is an AntiZapret connection
+        var isAntiZapret = false
+        val outbounds = config.optJSONArray("outbounds")
+        if (outbounds != null) {
+            for (i in 0 until outbounds.length()) {
+                val outbound = outbounds.optJSONObject(i) ?: continue
+                if (outbound.optBoolean("_is_antizapret", false)) {
+                    isAntiZapret = true
+                    outbound.remove("_is_antizapret")
+                }
+            }
+        }
+
         // 1. Sniff Rule (must be at the top to extract hostnames)
         val sniffRule = JSONObject().apply {
             put("action", "sniff")
@@ -509,6 +522,15 @@ object ConfigInjector {
             put("action", "hijack-dns")
         }
         newRules.put(dnsRule)
+
+        // Route AntiZapret fake IP range directly to the proxy (preventing LAN bypass conflicts)
+        if (isAntiZapret) {
+            val antiZapretRouteRule = JSONObject().apply {
+                put("ip_cidr", JSONArray(listOf("10.224.0.0/15")))
+                put("outbound", "proxy")
+            }
+            newRules.put(antiZapretRouteRule)
+        }
 
         // 3. Block Private DNS (DoT) on port 853 to force fallback to standard DNS
         val blockDotRule = JSONObject().apply {
@@ -1893,6 +1915,15 @@ object ConfigInjector {
                 outbound.put("key_direction", keyDir)
             }
         }
+        val lowerProfile = configText.lowercase()
+        val isAntiZapret = lowerProfile.contains("antizapret") || 
+                           lowerProfile.contains("prostovpn") || 
+                           lowerProfile.contains("31337.lol")
+        if (isAntiZapret) {
+            dnsServersArray.put("10.224.0.1")
+            outbound.put("_is_antizapret", true)
+        }
+
         if (dnsServersArray.length() > 0) {
             outbound.put("_dns_servers", dnsServersArray)
         }
