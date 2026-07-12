@@ -4681,6 +4681,30 @@ fun MainScreen(
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
+            } else if (link.startsWith("openvpn://") || link.startsWith("awg://") || link.startsWith("amneziawg://")) {
+                editorMode = "link"
+                val trimmed = link.trim()
+                val fragmentIdx = trimmed.indexOf("#")
+                editRemark = if (fragmentIdx >= 0) {
+                    try { java.net.URLDecoder.decode(trimmed.substring(fragmentIdx + 1), "UTF-8") } catch(e: Exception) { trimmed.substring(fragmentIdx + 1) }
+                } else { "" }
+                
+                val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
+                val queryPrefix = "?config="
+                val configStartIdx = rest.indexOf(queryPrefix)
+                val base64Config = if (configStartIdx >= 0) {
+                    rest.substring(configStartIdx + queryPrefix.length)
+                } else {
+                    ""
+                }
+                
+                val decodedConfig = try {
+                    String(android.util.Base64.decode(base64Config, android.util.Base64.DEFAULT))
+                } catch (e: Exception) {
+                    base64Config
+                }
+                editLinkInput = decodedConfig
+                editType = if (link.startsWith("openvpn://")) "openvpn" else "amneziawg"
             } else {
                 try {
                     val trimmed = link.trim()
@@ -4834,20 +4858,35 @@ fun MainScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    TabRow(
-                        selectedTabIndex = if (editorMode == "form") 0 else 1,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Tab(
-                            selected = editorMode == "form",
-                            onClick = { editorMode = "form" },
-                            text = { Text(stringResource(R.string.form_editor)) }
-                        )
-                        Tab(
-                            selected = editorMode == "link",
-                            onClick = { editorMode = "link" },
-                            text = { Text(stringResource(R.string.raw_config)) }
-                        )
+                    OutlinedTextField(
+                        value = editRemark,
+                        onValueChange = { editRemark = it },
+                        label = { Text(stringResource(R.string.remark_name)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressiveButtonShape,
+                        singleLine = true
+                    )
+
+                    if (editType != "openvpn" && editType != "amneziawg") {
+                        TabRow(
+                            selectedTabIndex = if (editorMode == "form") 0 else 1,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Tab(
+                                selected = editorMode == "form",
+                                onClick = { editorMode = "form" },
+                                text = { Text(stringResource(R.string.form_editor)) }
+                            )
+                            Tab(
+                                selected = editorMode == "link",
+                                onClick = { editorMode = "link" },
+                                text = { Text(stringResource(R.string.raw_config)) }
+                            )
+                        }
+                    } else {
+                        LaunchedEffect(Unit) {
+                            editorMode = "link"
+                        }
                     }
 
                     if (editorMode == "form") {
@@ -4889,14 +4928,6 @@ fun MainScreen(
                             }
                         }
 
-                        // Remark / Name
-                        OutlinedTextField(
-                            value = editRemark,
-                            onValueChange = { editRemark = it },
-                            label = { Text(stringResource(R.string.remark_name)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = ExpressiveButtonShape
-                        )
 
                         // Server & Port
                         Row(
@@ -5218,7 +5249,7 @@ fun MainScreen(
                                 .fillMaxWidth()
                                 .height(160.dp),
                             shape = ExpressiveButtonShape,
-                            placeholder = { Text("vless://... or vmess://... or hysteria2://... or tuic://...") }
+                            placeholder = { Text(if (editType == "openvpn") "Paste raw .ovpn configuration text" else if (editType == "amneziawg") "Paste raw AmneziaWG/WireGuard .conf text" else "Paste link (vless://...) or raw .ovpn/.conf text") }
                         )
                     }
                 }
@@ -5229,7 +5260,19 @@ fun MainScreen(
                         val originalLink = editingNodeLink
                         if (originalLink != null) {
                             val finalLink = if (editorMode == "link") {
-                                editLinkInput.trim()
+                                val text = editLinkInput.trim()
+                                val finalRemark = editRemark.trim()
+                                val fragmentStr = if (finalRemark.isNotEmpty()) "#" + java.net.URLEncoder.encode(finalRemark, "UTF-8") else ""
+                                
+                                if (text.contains("dev tun") || text.lowercase().startsWith("client") || text.lowercase().contains("client\n") || text.lowercase().contains("client\r")) {
+                                    val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
+                                    "openvpn://vpn?config=$b64$fragmentStr"
+                                } else if (text.contains("[Interface]") && text.contains("[Peer]")) {
+                                    val b64 = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.NO_WRAP)
+                                    "awg://vpn?config=$b64$fragmentStr"
+                                } else {
+                                    text
+                                }
                             } else {
                                 try {
                                     val finalUserInfo = editCreds.trim()
