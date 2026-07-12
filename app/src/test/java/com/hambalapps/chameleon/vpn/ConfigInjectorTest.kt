@@ -701,7 +701,6 @@ class ConfigInjectorTest {
         """.trimIndent()
 
         val configStr = ConfigInjector.injectConfig(mockContext, rawOvpn, settings)
-        println("=== GENERATED OPENVPN CONFIG ===\n$configStr\n=================================")
         val json = org.json.JSONObject(configStr)
         val outbound = json.getJSONArray("outbounds").getJSONObject(0)
         
