@@ -717,7 +717,7 @@ class ConfigInjectorTest {
         val tls = outbound.getJSONObject("tls")
         assert(!tls.has("enabled"))
         assert(tls.getString("ca").contains("CA_CONTENT"))
-        assert(tls.getString("cert").contains("CLIENT_CERT_CONTENT"))
+        assert(tls.getString("certificate").contains("CLIENT_CERT_CONTENT"))
         assert(tls.getString("key").contains("CLIENT_KEY_CONTENT"))
     }
 

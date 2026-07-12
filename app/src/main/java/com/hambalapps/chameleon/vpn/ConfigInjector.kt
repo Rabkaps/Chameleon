@@ -1822,7 +1822,7 @@ object ConfigInjector {
         
         val tls = JSONObject().apply {
             if (caText.isNotEmpty()) put("ca", caText)
-            if (certText.isNotEmpty()) put("cert", certText)
+            if (certText.isNotEmpty()) put("certificate", certText)
             if (keyText.isNotEmpty()) put("key", keyText)
             if (verifyX509NameVal.isNotEmpty()) {
                 put("verify_x509_name", verifyX509NameVal)
