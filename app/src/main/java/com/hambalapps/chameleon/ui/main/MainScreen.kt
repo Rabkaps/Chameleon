@@ -824,7 +824,7 @@ fun MainScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.mipmap.ic_launcher),
+                            painter = androidx.compose.ui.res.painterResource(id = com.hambalapps.chameleon.R.drawable.ic_app_logo),
                             contentDescription = "App Logo",
                             modifier = Modifier.size(60.dp)
                         )
