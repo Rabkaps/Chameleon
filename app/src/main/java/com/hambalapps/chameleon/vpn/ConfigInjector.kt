@@ -918,7 +918,10 @@ object ConfigInjector {
                 } else {
                     "$rawIp/32"
                 }
-                put("address", JSONArray().apply { put(formattedIp) })
+                put("address", JSONArray().apply {
+                    put(formattedIp)
+                    put("fd00::5/128")
+                })
                 put("private_key", settings.warpPrivateKey)
                 
                 val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
@@ -928,7 +931,10 @@ object ConfigInjector {
                     put("address", peerAddress)
                     put("port", settings.warpPort.toIntOrNull() ?: 2408)
                     put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
-                    put("allowed_ips", JSONArray().apply { put("0.0.0.0/0") })
+                    put("allowed_ips", JSONArray().apply {
+                        put("0.0.0.0/0")
+                        put("::/0")
+                    })
                 }
                 put("peers", JSONArray().apply { put(peerObj) })
                 put("detour", "direct") // DETOUR TO DIRECT TO BYPASS PROXY AND PREVENT EPERM ROUTING LOOP!

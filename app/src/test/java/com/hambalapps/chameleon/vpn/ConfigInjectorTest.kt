@@ -82,7 +82,9 @@ class ConfigInjectorTest {
         assert(warpEndpoint != null) { "warp-out endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "wireguard")
-        assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
+        val addressArr = endpoint.getJSONArray("address")
+        assert(addressArr.getString(0) == "172.16.0.2/32")
+        assert(addressArr.getString(1) == "fd00::5/128")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
 
@@ -92,6 +94,9 @@ class ConfigInjectorTest {
         val peerAddress = peer.getString("address")
         assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
         assert(peer.getInt("port") == 4500)
+        val allowedIps = peer.getJSONArray("allowed_ips")
+        assert(allowedIps.getString(0) == "0.0.0.0/0")
+        assert(allowedIps.getString(1) == "::/0")
     }
 
     @Test
