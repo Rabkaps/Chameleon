@@ -87,6 +87,10 @@ class ConfigInjectorTest {
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
+        val reserved = endpoint.getJSONArray("reserved")
+        assert(reserved.getInt(0) == 234)
+        assert(reserved.getInt(1) == 17)
+        assert(reserved.getInt(2) == 242)
 
         val peers = endpoint.getJSONArray("peers")
         assert(peers.length() == 1)
