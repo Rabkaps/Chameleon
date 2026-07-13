@@ -68,9 +68,7 @@ class ConfigInjectorTest {
                 break
             }
         }
-        assert(warpOutbound != null) { "warp-out outbound should be present in outbounds array" }
-        assert(warpOutbound!!.getString("type") == "direct")
-        assert(warpOutbound.getString("detour") == "warp-endpoint")
+        assert(warpOutbound == null) { "warp-out outbound should not be present in outbounds array" }
 
         val endpoints = json.getJSONArray("endpoints")
         var warpEndpoint: org.json.JSONObject? = null
@@ -311,16 +309,16 @@ class ConfigInjectorTest {
 
         val json = org.json.JSONObject(configStr)
         val outbounds = json.getJSONArray("outbounds")
-        val proxyOutbound = outbounds.getJSONObject(0)
-
-        assert(proxyOutbound.getString("type") == "direct")
-        assert(proxyOutbound.getString("detour") == "proxy-endpoint")
+        // The first outbound in the cleanOutbounds list should now be the default "direct" outbound, since "proxy" was migrated to endpoints.
+        val firstOutbound = outbounds.getJSONObject(0)
+        assert(firstOutbound.getString("tag") == "direct")
+        assert(firstOutbound.getString("type") == "direct")
 
         val endpoints = json.getJSONArray("endpoints")
         assert(endpoints.length() == 1)
         val endpoint = endpoints.getJSONObject(0)
         assert(endpoint.getString("type") == "wireguard")
-        assert(endpoint.getString("tag") == "proxy-endpoint")
+        assert(endpoint.getString("tag") == "proxy")
         assert(endpoint.getString("private_key") == "my_private_key_base64")
         assert(endpoint.getInt("mtu") == 1360)
 
@@ -766,14 +764,14 @@ class ConfigInjectorTest {
         val configStr = ConfigInjector.injectConfig(mockContext, rawConf, settings)
         val json = org.json.JSONObject(configStr)
         val outbound = json.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound.getString("tag") == "direct")
         assert(outbound.getString("type") == "direct")
-        assert(outbound.getString("detour") == "proxy-endpoint")
         
         val endpoints = json.getJSONArray("endpoints")
         assert(endpoints.length() == 1)
         val endpoint = endpoints.getJSONObject(0)
         assert(endpoint.getString("type") == "wireguard")
-        assert(endpoint.getString("tag") == "proxy-endpoint")
+        assert(endpoint.getString("tag") == "proxy")
         assert(endpoint.getString("private_key") == "my_private_key")
         assert(endpoint.getInt("mtu") == 1420)
         
@@ -841,13 +839,14 @@ class ConfigInjectorTest {
         val configStr2 = ConfigInjector.injectConfig(mockContext, wgUri, settings)
         val json2 = org.json.JSONObject(configStr2)
         val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
+        assert(outbound2.getString("tag") == "direct")
         assert(outbound2.getString("type") == "direct")
-        assert(outbound2.getString("detour") == "proxy-endpoint")
         
         val endpoints2 = json2.getJSONArray("endpoints")
         assert(endpoints2.length() == 1)
         val endpoint2 = endpoints2.getJSONObject(0)
         assert(endpoint2.getString("type") == "wireguard")
+        assert(endpoint2.getString("tag") == "proxy")
         assert(endpoint2.getString("private_key") == "my_private_key")
     }
 

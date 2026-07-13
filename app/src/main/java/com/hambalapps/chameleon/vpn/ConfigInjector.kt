@@ -677,7 +677,7 @@ object ConfigInjector {
         } else if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val aiRouteRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(aiBypassDomains))
-                put("outbound", "warp-out")
+                put("outbound", "warp-endpoint")
             }
             newRules.put(aiRouteRule)
         }
@@ -781,14 +781,7 @@ object ConfigInjector {
         }
 
 
-        if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
-            val warpOutbound = JSONObject().apply {
-                put("type", "direct")
-                put("tag", "warp-out")
-                put("detour", "warp-endpoint")
-            }
-            cleanOutbounds.put(warpOutbound)
-        }
+
 
         config.put("outbounds", cleanOutbounds)
     }
@@ -964,11 +957,10 @@ object ConfigInjector {
             val type = out.optString("type")
             if (type == "wireguard" || type == "amneziawg") {
                 val tag = out.optString("tag")
-                val epTag = "$tag-endpoint"
                 
                 val ep = JSONObject().apply {
                     put("type", "wireguard")
-                    put("tag", epTag)
+                    put("tag", tag)
                     
                     if (out.has("address")) put("address", out.get("address"))
                     if (out.has("private_key")) put("private_key", out.get("private_key"))
@@ -999,13 +991,6 @@ object ConfigInjector {
                     }
                 }
                 endpoints.put(ep)
-                
-                val bridgeOutbound = JSONObject().apply {
-                    put("type", "direct")
-                    put("tag", tag)
-                    put("detour", epTag)
-                }
-                cleanOutbounds.put(bridgeOutbound)
             } else {
                 cleanOutbounds.put(out)
             }
