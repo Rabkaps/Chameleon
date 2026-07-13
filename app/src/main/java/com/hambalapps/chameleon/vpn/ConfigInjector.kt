@@ -30,6 +30,7 @@ data class InjectorSettings(
     val vpnModeTunnelGames: Boolean = false,
     val warpDetourMode: String = "proxy",
     val warpPort: String = "2408",
+    val warpPeerIp: String = "162.159.193.1",
     val shareVpnLan: Boolean = false,
     val shareVpnPort: String = "10808",
     val proxyChains: String = "",
@@ -908,36 +909,55 @@ object ConfigInjector {
         
         if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val warpEndpoint = JSONObject().apply {
-                put("type", "warp")
+                put("type", "wireguard")
                 put("tag", "warp-endpoint")
                 put("system", false)
+                put("mtu", 1280)
                 
-                val clientId = settings.warpClientId.trim()
-                if (clientId.isNotEmpty()) {
-                    try {
-                        val decoded = try {
-                            java.util.Base64.getDecoder().decode(clientId)
-                        } catch (e: Throwable) {
-                            Base64.decode(clientId, Base64.NO_WRAP)
-                        }
-                        val reservedArray = JSONArray()
-                        for (b in decoded) {
-                            reservedArray.put(b.toInt() and 0xFF)
-                        }
-                        put("reserved", reservedArray)
-                    } catch (e: Exception) {
-                        // ignore or log
-                    }
-                }
+                val ipAddress = settings.warpIpAddress.ifEmpty { "172.16.0.2/32" }
+                put("address", JSONArray().apply {
+                    put(ipAddress)
+                    put("fd00:0005:9c40:a1f2:0000:0000:0000:0001/128")
+                })
+                
+                put("private_key", settings.warpPrivateKey)
                 
                 val detourVal = settings.warpDetourMode.ifEmpty { "direct" }
                 put("detour", detourVal)
                 
-                val profileObj = JSONObject().apply {
-                    put("private_key", settings.warpPrivateKey)
-                    put("detour", detourVal)
-                }
-                put("profile", profileObj)
+                val portVal = settings.warpPort.ifEmpty { "2408" }.toIntOrNull() ?: 2408
+                val peerIp = settings.warpPeerIp.ifEmpty { "162.159.193.1" }
+                
+                put("peers", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("address", peerIp)
+                        put("port", portVal)
+                        put("public_key", "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wQr2AES=")
+                        put("allowed_ips", JSONArray().apply {
+                            put("0.0.0.0/0")
+                            put("::/0")
+                        })
+                        put("persistent_keepalive_interval", 30)
+                        
+                        val clientId = settings.warpClientId.trim()
+                        if (clientId.isNotEmpty()) {
+                            try {
+                                val decoded = try {
+                                    java.util.Base64.getDecoder().decode(clientId)
+                                } catch (e: Throwable) {
+                                    Base64.decode(clientId, Base64.NO_WRAP)
+                                }
+                                val reservedArray = JSONArray()
+                                for (b in decoded) {
+                                    reservedArray.put(b.toInt() and 0xFF)
+                                }
+                                put("reserved", reservedArray)
+                            } catch (e: Exception) {
+                                // ignore
+                            }
+                        }
+                    })
+                })
             }
             cleanEndpoints.put(warpEndpoint)
         }

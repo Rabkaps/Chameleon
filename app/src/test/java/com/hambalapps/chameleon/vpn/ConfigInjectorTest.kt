@@ -81,21 +81,25 @@ class ConfigInjectorTest {
         }
         assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
-        assert(endpoint.getString("type") == "warp")
+        assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getBoolean("system") == false)
-        assert(!endpoint.has("client_id")) { "client_id field should not be present" }
+        assert(endpoint.getString("private_key") == "privatekeybase64")
+        assert(endpoint.getString("detour") == "direct")
         
-        val reserved = endpoint.getJSONArray("reserved")
+        val addressArr = endpoint.getJSONArray("address")
+        assert(addressArr.length() == 2)
+        
+        val peers = endpoint.getJSONArray("peers")
+        assert(peers.length() == 1)
+        val peer = peers.getJSONObject(0)
+        assert(peer.getString("address") == "162.159.193.1")
+        assert(peer.getString("public_key") == "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wQr2AES=")
+        
+        val reserved = peer.getJSONArray("reserved")
         assert(reserved.length() == 3)
         assert(reserved.getInt(0) == 234)
         assert(reserved.getInt(1) == 17)
         assert(reserved.getInt(2) == 242)
-
-        assert(endpoint.getString("detour") == "direct")
-        
-        val profile = endpoint.getJSONObject("profile")
-        assert(profile.getString("private_key") == "privatekeybase64")
-        assert(profile.getString("detour") == "direct")
         
         val experimental = json.getJSONObject("experimental")
         val cacheFile = experimental.getJSONObject("cache_file")

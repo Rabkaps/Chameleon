@@ -576,6 +576,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 val vpnModeTunnelGamesVal = settingsManager.vpnModeTunnelGames.first()
                 val warpDetourModeVal = settingsManager.warpDetourMode.first()
                 val warpPortVal = settingsManager.warpPort.first()
+                val warpPeerIpVal = settingsManager.warpPeerIp.first()
                 val shareVpnLanVal = settingsManager.settings.first().shareVpnLan
                 val shareVpnPortVal = settingsManager.settings.first().shareVpnPort
                 val enableMtProxyVal = settingsManager.enableMtProxy.first()
@@ -622,6 +623,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     vpnModeTunnelGames = vpnModeTunnelGamesVal,
                     warpDetourMode = warpDetourModeVal,
                     warpPort = warpPortVal,
+                    warpPeerIp = warpPeerIpVal,
                     shareVpnLan = shareVpnLanVal,
                     shareVpnPort = shareVpnPortVal,
                     proxyChains = proxyChainsVal,

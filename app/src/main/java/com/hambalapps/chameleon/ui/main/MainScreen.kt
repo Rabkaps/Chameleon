@@ -3868,26 +3868,55 @@ fun MainScreen(
                                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                         Spacer(modifier = Modifier.height(16.dp))
 
-                                        // Client ID / Reserved Bytes Customization
-                                        Text(
-                                            text = "Client ID (Reserved Bytes)",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        var clientIdText by remember(settings.warpClientId) { mutableStateOf(settings.warpClientId) }
-                                        OutlinedTextField(
-                                            value = clientIdText,
-                                            onValueChange = {
-                                                clientIdText = it
-                                                scope.launch { settingsManager.setWarpClientId(it) }
-                                            },
-                                            singleLine = true,
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        // Peer IP and Client ID Customization
+                                        Row(
                                             modifier = Modifier.fillMaxWidth(),
-                                            shape = ExpressiveButtonShape
-                                        )
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "WARP Endpoint IP (Peer)",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                var peerIpText by remember(settings.warpPeerIp) { mutableStateOf(settings.warpPeerIp) }
+                                                OutlinedTextField(
+                                                    value = peerIpText,
+                                                    onValueChange = {
+                                                        peerIpText = it
+                                                        scope.launch { settingsManager.setWarpPeerIp(it) }
+                                                    },
+                                                    singleLine = true,
+                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = ExpressiveButtonShape
+                                                )
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Client ID (Reserved Bytes)",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                var clientIdText by remember(settings.warpClientId) { mutableStateOf(settings.warpClientId) }
+                                                OutlinedTextField(
+                                                    value = clientIdText,
+                                                    onValueChange = {
+                                                        clientIdText = it
+                                                        scope.launch { settingsManager.setWarpClientId(it) }
+                                                    },
+                                                    singleLine = true,
+                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = ExpressiveButtonShape
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

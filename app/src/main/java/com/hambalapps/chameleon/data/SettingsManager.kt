@@ -49,6 +49,7 @@ class SettingsManager(private val context: Context) {
         val DELAY_TEST_URL = stringPreferencesKey("delay_test_url")
         val WARP_DETOUR_MODE = stringPreferencesKey("warp_detour_mode")
         val WARP_PORT = stringPreferencesKey("warp_port")
+        val WARP_PEER_IP = stringPreferencesKey("warp_peer_ip")
         val SHARE_VPN_LAN = booleanPreferencesKey("share_vpn_lan")
         val SHARE_VPN_PORT = stringPreferencesKey("share_vpn_port")
         val PROXY_CHAINS = stringPreferencesKey("proxy_chains")
@@ -104,6 +105,7 @@ class SettingsManager(private val context: Context) {
             delayTestUrl = "https://cp.cloudflare.com/generate_204",
             warpDetourMode = "proxy",
             warpPort = "2408",
+            warpPeerIp = "162.159.193.1",
             shareVpnLan = false,
             shareVpnPort = "10808",
             deserializedSubscriptions = emptyList(),
@@ -175,6 +177,7 @@ class SettingsManager(private val context: Context) {
             delayTestUrl = prefs[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204",
             warpDetourMode = prefs[WARP_DETOUR_MODE] ?: "proxy",
             warpPort = prefs[WARP_PORT] ?: "2408",
+            warpPeerIp = prefs[WARP_PEER_IP] ?: "162.159.193.1",
             shareVpnLan = prefs[SHARE_VPN_LAN] ?: false,
             shareVpnPort = prefs[SHARE_VPN_PORT] ?: "10808",
             deserializedSubscriptions = deserialized,
@@ -231,6 +234,7 @@ class SettingsManager(private val context: Context) {
     val delayTestUrl: Flow<String> = context.dataStore.data.map { it[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204" }.distinctUntilChanged()
     val warpDetourMode: Flow<String> = context.dataStore.data.map { it[WARP_DETOUR_MODE] ?: "proxy" }.distinctUntilChanged()
     val warpPort: Flow<String> = context.dataStore.data.map { it[WARP_PORT] ?: "2408" }.distinctUntilChanged()
+    val warpPeerIp: Flow<String> = context.dataStore.data.map { it[WARP_PEER_IP] ?: "162.159.193.1" }.distinctUntilChanged()
     val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
     val camouflageSettings: Flow<String> = context.dataStore.data.map { it[CAMOUFLAGE_SETTINGS] ?: "" }.distinctUntilChanged()
     val rootMode: Flow<Boolean> = context.dataStore.data.map { it[ROOT_MODE] ?: false }.distinctUntilChanged()
@@ -288,6 +292,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setDelayTestUrl(value: String) { context.dataStore.edit { it[DELAY_TEST_URL] = value } }
     suspend fun setWarpDetourMode(value: String) { context.dataStore.edit { it[WARP_DETOUR_MODE] = value } }
     suspend fun setWarpPort(value: String) { context.dataStore.edit { it[WARP_PORT] = value } }
+    suspend fun setWarpPeerIp(value: String) { context.dataStore.edit { it[WARP_PEER_IP] = value } }
     suspend fun setShareVpnLan(value: Boolean) { context.dataStore.edit { it[SHARE_VPN_LAN] = value } }
     suspend fun setShareVpnPort(value: String) { context.dataStore.edit { it[SHARE_VPN_PORT] = value } }
     suspend fun setEnableMtProxy(value: Boolean) { context.dataStore.edit { it[ENABLE_MTPROXY] = value } }
@@ -361,6 +366,7 @@ data class UserSettings(
     val delayTestUrl: String,
     val warpDetourMode: String,
     val warpPort: String,
+    val warpPeerIp: String,
     val shareVpnLan: Boolean,
     val shareVpnPort: String,
     val deserializedSubscriptions: List<Subscription>,
