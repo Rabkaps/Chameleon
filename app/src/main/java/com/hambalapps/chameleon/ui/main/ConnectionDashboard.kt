@@ -594,6 +594,7 @@ fun ConnectionDashboard(
             Card(
                 modifier = Modifier
                     .weight(1f)
+                    .height(100.dp)
                     .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
                     .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
                 shape = ExpressiveCardShape,
@@ -602,8 +603,7 @@ fun ConnectionDashboard(
                 VibrantCardContent(cardStyle) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(90.dp)
+                            .fillMaxSize()
                     ) {
                         val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -682,6 +682,7 @@ fun ConnectionDashboard(
             Card(
                 modifier = Modifier
                     .weight(1f)
+                    .height(100.dp)
                     .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
                     .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
                 shape = ExpressiveCardShape,
@@ -690,8 +691,8 @@ fun ConnectionDashboard(
                 VibrantCardContent(cardStyle) {
                     Column(
                         modifier = Modifier
-                            .padding(14.dp)
-                            .height(90.dp),
+                            .fillMaxSize()
+                            .padding(14.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
