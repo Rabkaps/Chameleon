@@ -915,8 +915,13 @@ object ConfigInjector {
                 put("mtu", 1280)
                 
                 val ipAddress = settings.warpIpAddress.ifEmpty { "172.16.0.2/32" }
+                val formattedIp = when {
+                    ipAddress.contains("/") -> ipAddress
+                    ipAddress.contains(":") -> "$ipAddress/128"
+                    else -> "$ipAddress/32"
+                }
                 put("address", JSONArray().apply {
-                    put(ipAddress)
+                    put(formattedIp)
                     put("fd00:0005:9c40:a1f2:0000:0000:0000:0001/128")
                 })
                 
