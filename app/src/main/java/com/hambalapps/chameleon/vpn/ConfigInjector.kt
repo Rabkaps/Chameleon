@@ -1019,6 +1019,12 @@ object ConfigInjector {
                     put("tag", "proxy") // Fallback direct outbound labeled as proxy
                 })
             })
+            put("experimental", JSONObject().apply {
+                put("cache_file", JSONObject().apply {
+                    put("enabled", true)
+                    put("store_warp_config", true)
+                })
+            })
         }
     }
 

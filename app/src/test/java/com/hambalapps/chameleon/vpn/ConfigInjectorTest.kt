@@ -96,6 +96,11 @@ class ConfigInjectorTest {
         val profile = endpoint.getJSONObject("profile")
         assert(profile.getString("private_key") == "privatekeybase64")
         assert(profile.getString("detour") == "direct")
+        
+        val experimental = json.getJSONObject("experimental")
+        val cacheFile = experimental.getJSONObject("cache_file")
+        assert(cacheFile.getBoolean("enabled") == true)
+        assert(cacheFile.getBoolean("store_warp_config") == true)
     }
 
     @Test
