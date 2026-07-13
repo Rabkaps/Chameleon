@@ -677,7 +677,7 @@ object ConfigInjector {
         } else if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val aiRouteRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(aiBypassDomains))
-                put("outbound", "warp-endpoint")
+                put("outbound", "warp-out")
             }
             newRules.put(aiRouteRule)
         }
@@ -780,8 +780,18 @@ object ConfigInjector {
             })
         }
 
-
-
+        if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
+            val hasWarpOut = (0 until cleanOutbounds.length()).any {
+                cleanOutbounds.optJSONObject(it)?.optString("tag") == "warp-out"
+            }
+            if (!hasWarpOut) {
+                cleanOutbounds.put(JSONObject().apply {
+                    put("type", "direct")
+                    put("tag", "warp-out")
+                    put("detour", "warp-endpoint")
+                })
+            }
+        }
 
         config.put("outbounds", cleanOutbounds)
     }
@@ -917,9 +927,30 @@ object ConfigInjector {
                 
                 val clientId = settings.warpClientId.trim()
                 if (clientId.isNotEmpty()) {
-                    put("client_id", clientId)
+                    try {
+                        val decoded = try {
+                            java.util.Base64.getDecoder().decode(clientId)
+                        } catch (e: Throwable) {
+                            Base64.decode(clientId, Base64.NO_WRAP)
+                        }
+                        val reservedArray = JSONArray()
+                        for (b in decoded) {
+                            reservedArray.put(b.toInt() and 0xFF)
+                        }
+                        put("reserved", reservedArray)
+                    } catch (e: Exception) {
+                        // ignore or log
+                    }
                 }
-                put("detour", settings.warpDetourMode.ifEmpty { "direct" })
+                
+                val detourVal = settings.warpDetourMode.ifEmpty { "direct" }
+                put("detour", detourVal)
+                
+                val profileObj = JSONObject().apply {
+                    put("private_key", settings.warpPrivateKey)
+                    put("detour", detourVal)
+                }
+                put("profile", profileObj)
             }
             cleanEndpoints.put(warpEndpoint)
         }

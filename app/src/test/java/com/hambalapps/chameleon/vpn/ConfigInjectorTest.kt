@@ -68,7 +68,9 @@ class ConfigInjectorTest {
                 break
             }
         }
-        assert(warpOutbound == null) { "warp-out outbound should not be present in outbounds array" }
+        assert(warpOutbound != null) { "warp-out outbound should be present in outbounds array" }
+        assert(warpOutbound!!.getString("type") == "direct")
+        assert(warpOutbound!!.getString("detour") == "warp-endpoint")
 
         val endpoints = json.getJSONArray("endpoints")
         var warpEndpoint: org.json.JSONObject? = null
@@ -83,8 +85,19 @@ class ConfigInjectorTest {
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "warp")
         assert(endpoint.getBoolean("system") == false)
-        assert(endpoint.getString("client_id") == "6hHy")
+        assert(!endpoint.has("client_id")) { "client_id field should not be present" }
+        
+        val reserved = endpoint.getJSONArray("reserved")
+        assert(reserved.length() == 3)
+        assert(reserved.getInt(0) == 234)
+        assert(reserved.getInt(1) == 17)
+        assert(reserved.getInt(2) == 242)
+
         assert(endpoint.getString("detour") == "direct")
+        
+        val profile = endpoint.getJSONObject("profile")
+        assert(profile.getString("private_key") == "privatekeybase64")
+        assert(profile.getString("detour") == "direct")
     }
 
     @Test
