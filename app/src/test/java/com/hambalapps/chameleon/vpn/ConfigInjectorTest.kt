@@ -83,7 +83,6 @@ class ConfigInjectorTest {
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "warp")
         assert(endpoint.getBoolean("system") == false)
-        assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("client_id") == "6hHy")
         assert(endpoint.getString("detour") == "direct")
     }

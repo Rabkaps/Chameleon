@@ -914,7 +914,6 @@ object ConfigInjector {
                 put("type", "warp")
                 put("tag", "warp-endpoint")
                 put("system", false)
-                put("private_key", settings.warpPrivateKey)
                 
                 val clientId = settings.warpClientId.trim()
                 if (clientId.isNotEmpty()) {
