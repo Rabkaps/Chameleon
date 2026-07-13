@@ -677,7 +677,7 @@ object ConfigInjector {
         } else if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val aiRouteRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(aiBypassDomains))
-                put("outbound", "warp-out")
+                put("outbound", "warp-endpoint")
             }
             newRules.put(aiRouteRule)
         }
@@ -778,19 +778,6 @@ object ConfigInjector {
                 put("type", "block")
                 put("tag", "block")
             })
-        }
-
-        if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
-            val hasWarpOut = (0 until cleanOutbounds.length()).any {
-                cleanOutbounds.optJSONObject(it)?.optString("tag") == "warp-out"
-            }
-            if (!hasWarpOut) {
-                cleanOutbounds.put(JSONObject().apply {
-                    put("type", "direct")
-                    put("tag", "warp-out")
-                    put("detour", "warp-endpoint")
-                })
-            }
         }
 
         config.put("outbounds", cleanOutbounds)

@@ -68,9 +68,7 @@ class ConfigInjectorTest {
                 break
             }
         }
-        assert(warpOutbound != null) { "warp-out outbound should be present in outbounds array" }
-        assert(warpOutbound!!.getString("type") == "direct")
-        assert(warpOutbound!!.getString("detour") == "warp-endpoint")
+        assert(warpOutbound == null) { "warp-out outbound should not be present in outbounds array" }
 
         val endpoints = json.getJSONArray("endpoints")
         var warpEndpoint: org.json.JSONObject? = null
