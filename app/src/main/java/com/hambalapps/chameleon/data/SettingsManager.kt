@@ -274,6 +274,16 @@ class SettingsManager(private val context: Context) {
             prefs[WARP_CLIENT_ID] = clientId
         }
     }
+    suspend fun setWarpIpAddress(value: String) { context.dataStore.edit { it[WARP_IP_ADDRESS] = value } }
+    suspend fun setWarpClientId(value: String) { context.dataStore.edit { it[WARP_CLIENT_ID] = value } }
+    suspend fun clearWarpCredentials() {
+        context.dataStore.edit { prefs ->
+            prefs[WARP_PRIVATE_KEY] = ""
+            prefs[WARP_PUBLIC_KEY] = ""
+            prefs[WARP_IP_ADDRESS] = ""
+            prefs[WARP_CLIENT_ID] = ""
+        }
+    }
     suspend fun setVpnModeTunnelGames(value: Boolean) { context.dataStore.edit { it[VPN_MODE_TUNNEL_GAMES] = value } }
     suspend fun setDelayTestUrl(value: String) { context.dataStore.edit { it[DELAY_TEST_URL] = value } }
     suspend fun setWarpDetourMode(value: String) { context.dataStore.edit { it[WARP_DETOUR_MODE] = value } }

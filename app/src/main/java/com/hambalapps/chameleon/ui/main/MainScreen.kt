@@ -69,6 +69,7 @@ import com.hambalapps.chameleon.vpn.measurePingDelay
 import com.hambalapps.chameleon.vpn.getHostAndPortFromLink
 import com.hambalapps.chameleon.vpn.tryBase64Decode
 import com.hambalapps.chameleon.vpn.ProxyNameResolver
+import com.hambalapps.chameleon.vpn.registerWarpAccount
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
@@ -3662,6 +3663,235 @@ fun MainScreen(
                                 }
                             }
                             
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // WARP Management Card
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(brush = primaryCardBrush, shape = ExpressiveCardShape)
+                                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                                shape = ExpressiveCardShape,
+                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                            ) {
+                                VibrantCardContent(settings.cardStyle) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text("Cloudflare WARP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("Manage registration, exit IP, detour and port", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Account Status Section
+                                        val hasWarp = settings.warpPrivateKey.isNotEmpty()
+                                        if (hasWarp) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text("Status: Registered", fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50), style = MaterialTheme.typography.bodyMedium)
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text("Account registration active", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Row {
+                                                    Button(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                isRegisteringWarp = true
+                                                                val creds = registerWarpAccount()
+                                                                isRegisteringWarp = false
+                                                                if (creds != null) {
+                                                                    settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                                                                    if (vpnState == "CONNECTED") startVpnService(context)
+                                                                }
+                                                            }
+                                                        },
+                                                        shape = ExpressiveButtonShape,
+                                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                                        modifier = Modifier.padding(end = 8.dp)
+                                                    ) {
+                                                        if (isRegisteringWarp) {
+                                                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                                                        } else {
+                                                            Text("Change Exit IP", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                                        }
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                settingsManager.clearWarpCredentials()
+                                                                if (vpnState == "CONNECTED") startVpnService(context)
+                                                            }
+                                                        },
+                                                        shape = ExpressiveButtonShape
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text("Status: Not Registered", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text("Requires registration to use WARP features", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Button(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            isRegisteringWarp = true
+                                                            val creds = registerWarpAccount()
+                                                            isRegisteringWarp = false
+                                                            if (creds != null) {
+                                                                settingsManager.setWarpCredentials(creds.privateKey, creds.publicKey, creds.ipAddress, creds.clientId)
+                                                                if (vpnState == "CONNECTED") startVpnService(context)
+                                                            }
+                                                        }
+                                                    },
+                                                    shape = ExpressiveButtonShape
+                                                ) {
+                                                    if (isRegisteringWarp) {
+                                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                                                    } else {
+                                                        Text("Register Account", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Detour Mode Selector
+                                        Text(
+                                            text = "Detour Connection Via",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            listOf("proxy" to "Main Proxy", "direct" to "Direct Connection").forEach { (modeVal, label) ->
+                                                FilterChip(
+                                                    selected = settings.warpDetourMode == modeVal,
+                                                    onClick = {
+                                                        scope.launch {
+                                                            settingsManager.setWarpDetourMode(modeVal)
+                                                            if (vpnState == "CONNECTED") startVpnService(context)
+                                                        }
+                                                    },
+                                                    label = { Text(label) },
+                                                    shape = ExpressiveButtonShape
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Port and IP Customization
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "WARP Port",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                var portText by remember(settings.warpPort) { mutableStateOf(settings.warpPort) }
+                                                OutlinedTextField(
+                                                    value = portText,
+                                                    onValueChange = {
+                                                        portText = it
+                                                        scope.launch { settingsManager.setWarpPort(it) }
+                                                    },
+                                                    singleLine = true,
+                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = ExpressiveButtonShape,
+                                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                                )
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = "Client Local IP",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                var ipText by remember(settings.warpIpAddress) { mutableStateOf(settings.warpIpAddress) }
+                                                OutlinedTextField(
+                                                    value = ipText,
+                                                    onValueChange = {
+                                                        ipText = it
+                                                        scope.launch { settingsManager.setWarpIpAddress(it) }
+                                                    },
+                                                    singleLine = true,
+                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = ExpressiveButtonShape
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Client ID / Reserved Bytes Customization
+                                        Text(
+                                            text = "Client ID (Reserved Bytes)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        var clientIdText by remember(settings.warpClientId) { mutableStateOf(settings.warpClientId) }
+                                        OutlinedTextField(
+                                            value = clientIdText,
+                                            onValueChange = {
+                                                clientIdText = it
+                                                scope.launch { settingsManager.setWarpClientId(it) }
+                                            },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = ExpressiveButtonShape
+                                        )
+                                    }
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Card(
