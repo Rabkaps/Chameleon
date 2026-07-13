@@ -33,6 +33,10 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.hambalapps.chameleon.vpn.ConfigInjector
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -205,6 +209,16 @@ fun ConnectionDashboard(
     val finalScale = if (state == "CONNECTING") pulseScale else scaleFactor
 
     var userIpAddress by remember { mutableStateOf("Detecting...") }
+    var resolvedIpCountryCode by remember { mutableStateOf<String?>(null) }
+    
+    val ipFlagEmoji = remember(resolvedIpCountryCode) {
+        if (!resolvedIpCountryCode.isNullOrEmpty() && resolvedIpCountryCode != "🌐") {
+            getFlagEmojiFromCountryCode(resolvedIpCountryCode!!)
+        } else {
+            "🌐"
+        }
+    }
+
     val fontScale = LocalDensity.current.fontScale
     val ipTextSize = remember(userIpAddress, fontScale) {
         val base = when {
@@ -223,8 +237,10 @@ fun ConnectionDashboard(
     LaunchedEffect(state) {
         if (state == "CONNECTING" || state == "DISCONNECTING") {
             userIpAddress = "Detecting..."
+            resolvedIpCountryCode = null
         } else {
             userIpAddress = "Detecting..."
+            resolvedIpCountryCode = null
             launch(Dispatchers.IO) {
                 var ip = "Unknown"
                 var attempts = 3
@@ -249,8 +265,13 @@ fun ConnectionDashboard(
                         connection?.disconnect()
                     }
                 }
+                var cc: String? = null
+                if (ip != "Unknown" && ip != "Detecting...") {
+                    cc = IpCountryResolver.resolveCountryCode(ip)
+                }
                 withContext(Dispatchers.Main) {
                     userIpAddress = ip
+                    resolvedIpCountryCode = cc
                 }
             }
         }
@@ -569,7 +590,7 @@ fun ConnectionDashboard(
         ) {
             Card(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1.2f)
                     .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
                     .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
                 shape = ExpressiveCardShape,
@@ -578,38 +599,125 @@ fun ConnectionDashboard(
                 VibrantCardContent(cardStyle) {
                     Column(
                         modifier = Modifier
-                            .padding(18.dp)
-                            .height(86.dp),
+                            .padding(14.dp)
+                            .height(90.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.SwapVert,
-                            contentDescription = "Traffic",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "TRAFFIC",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.SwapVert,
+                                    contentDescription = "Traffic",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "TRAFFIC",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                            }
+                            if (state == "CONNECTED") {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF4CAF50))
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDownward,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = "Down",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        text = formatBytes(sessionDownBytes),
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(24.dp)
+                                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                             )
-                            Text(
-                                text = "↓ ${formatBytes(sessionDownBytes)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "↑ ${formatBytes(sessionUpBytes)}",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowUpward,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = "Up",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        text = formatBytes(sessionUpBytes),
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -617,7 +725,7 @@ fun ConnectionDashboard(
 
             Card(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(0.8f)
                     .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
                     .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
                 shape = ExpressiveCardShape,
@@ -626,8 +734,8 @@ fun ConnectionDashboard(
                 VibrantCardContent(cardStyle) {
                     Column(
                         modifier = Modifier
-                            .padding(18.dp)
-                            .height(86.dp),
+                            .padding(14.dp)
+                            .height(90.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
@@ -639,28 +747,35 @@ fun ConnectionDashboard(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = "IP Address",
                                 tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
-                            if (state == "CONNECTED" && flagEmoji != "🌐") {
-                                Text(
-                                    text = flagEmoji,
-                                    style = MaterialTheme.typography.titleLarge
-                                )
+                            if (ipFlagEmoji != "🌐") {
+                                if (ipFlagEmoji == "🇮🇷") {
+                                    Image(
+                                        painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
+                                        contentDescription = "Iran Flag",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = ipFlagEmoji,
+                                        style = MaterialTheme.typography.titleLarge
+                                    )
+                                }
                             }
                         }
                         Column {
                             Text(
                                 text = "IP ADDRESS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = userIpAddress,
                                 fontSize = ipTextSize,
-                                style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                fontWeight = FontWeight.Black,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
