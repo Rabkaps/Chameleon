@@ -153,6 +153,7 @@ object ConfigInjector {
             // 6. Inject endpoints (for sing-box 1.11+ WireGuard)
             injectEndpoints(context, configJson, settings)
 
+            migrateWireGuardToEndpoints(configJson)
             return configJson.toString(2)
         } catch (e: IllegalArgumentException) {
             throw e
@@ -948,6 +949,71 @@ object ConfigInjector {
         
         if (cleanEndpoints.length() > 0) {
             config.put("endpoints", cleanEndpoints)
+        } else {
+            config.remove("endpoints")
+        }
+    }
+
+    private fun migrateWireGuardToEndpoints(config: JSONObject) {
+        val outbounds = config.optJSONArray("outbounds") ?: return
+        val endpoints = config.optJSONArray("endpoints") ?: JSONArray().also { config.put("endpoints", it) }
+        
+        val cleanOutbounds = JSONArray()
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.optJSONObject(i) ?: continue
+            val type = out.optString("type")
+            if (type == "wireguard" || type == "amneziawg") {
+                val tag = out.optString("tag")
+                val epTag = "$tag-endpoint"
+                
+                val ep = JSONObject().apply {
+                    put("type", "wireguard")
+                    put("tag", epTag)
+                    
+                    if (out.has("address")) put("address", out.get("address"))
+                    if (out.has("private_key")) put("private_key", out.get("private_key"))
+                    if (out.has("mtu")) put("mtu", out.get("mtu"))
+                    if (out.has("detour")) put("detour", out.get("detour"))
+                    
+                    val peers = out.optJSONArray("peers")
+                    if (peers != null) {
+                        val newPeers = JSONArray()
+                        for (j in 0 until peers.length()) {
+                            val peer = peers.optJSONObject(j) ?: continue
+                            val newPeer = JSONObject().apply {
+                                if (peer.has("server")) put("address", peer.get("server"))
+                                if (peer.has("server_port")) put("port", peer.get("server_port"))
+                                if (peer.has("public_key")) put("public_key", peer.get("public_key"))
+                                if (peer.has("pre_shared_key")) put("pre_shared_key", peer.get("pre_shared_key"))
+                                if (peer.has("allowed_ips")) put("allowed_ips", peer.get("allowed_ips"))
+                                if (peer.has("persistent_keepalive_interval")) put("persistent_keepalive_interval", peer.get("persistent_keepalive_interval"))
+                                // Omit reserved to prevent unmarshal crashes
+                            }
+                            newPeers.put(newPeer)
+                        }
+                        put("peers", newPeers)
+                    }
+                    
+                    if (out.has("amnezia")) {
+                        put("amnezia", out.get("amnezia"))
+                    }
+                }
+                endpoints.put(ep)
+                
+                val bridgeOutbound = JSONObject().apply {
+                    put("type", "direct")
+                    put("tag", tag)
+                    put("detour", epTag)
+                }
+                cleanOutbounds.put(bridgeOutbound)
+            } else {
+                cleanOutbounds.put(out)
+            }
+        }
+        
+        config.put("outbounds", cleanOutbounds)
+        if (endpoints.length() > 0) {
+            config.put("endpoints", endpoints)
         } else {
             config.remove("endpoints")
         }
