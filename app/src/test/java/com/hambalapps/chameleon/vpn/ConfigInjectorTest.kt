@@ -85,6 +85,7 @@ class ConfigInjectorTest {
         assert(endpoint.getBoolean("system") == false)
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
+        assert(endpoint.getInt("mtu") == 1280)
         assert(endpoint.getString("detour") == "direct")
 
         val peers = endpoint.getJSONArray("peers")
@@ -95,6 +96,7 @@ class ConfigInjectorTest {
         assert(peer.getInt("port") == 4500)
         val allowedIps = peer.getJSONArray("allowed_ips")
         assert(allowedIps.getString(0) == "0.0.0.0/0")
+        assert(allowedIps.getString(1) == "::/0")
         assert(!peer.has("reserved")) { "reserved field should not be present in wireguard peer endpoint to prevent crashes" }
     }
 
