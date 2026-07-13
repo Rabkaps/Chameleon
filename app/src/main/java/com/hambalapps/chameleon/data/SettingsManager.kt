@@ -105,7 +105,7 @@ class SettingsManager(private val context: Context) {
             delayTestUrl = "https://cp.cloudflare.com/generate_204",
             warpDetourMode = "proxy",
             warpPort = "2408",
-            warpPeerIp = "162.159.193.1",
+            warpPeerIp = "engage.cloudflareclient.com",
             shareVpnLan = false,
             shareVpnPort = "10808",
             deserializedSubscriptions = emptyList(),
@@ -177,7 +177,7 @@ class SettingsManager(private val context: Context) {
             delayTestUrl = prefs[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204",
             warpDetourMode = prefs[WARP_DETOUR_MODE] ?: "proxy",
             warpPort = prefs[WARP_PORT] ?: "2408",
-            warpPeerIp = prefs[WARP_PEER_IP] ?: "162.159.193.1",
+            warpPeerIp = prefs[WARP_PEER_IP] ?: "engage.cloudflareclient.com",
             shareVpnLan = prefs[SHARE_VPN_LAN] ?: false,
             shareVpnPort = prefs[SHARE_VPN_PORT] ?: "10808",
             deserializedSubscriptions = deserialized,
@@ -234,7 +234,7 @@ class SettingsManager(private val context: Context) {
     val delayTestUrl: Flow<String> = context.dataStore.data.map { it[DELAY_TEST_URL] ?: "https://cp.cloudflare.com/generate_204" }.distinctUntilChanged()
     val warpDetourMode: Flow<String> = context.dataStore.data.map { it[WARP_DETOUR_MODE] ?: "proxy" }.distinctUntilChanged()
     val warpPort: Flow<String> = context.dataStore.data.map { it[WARP_PORT] ?: "2408" }.distinctUntilChanged()
-    val warpPeerIp: Flow<String> = context.dataStore.data.map { it[WARP_PEER_IP] ?: "162.159.193.1" }.distinctUntilChanged()
+    val warpPeerIp: Flow<String> = context.dataStore.data.map { it[WARP_PEER_IP] ?: "engage.cloudflareclient.com" }.distinctUntilChanged()
     val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
     val camouflageSettings: Flow<String> = context.dataStore.data.map { it[CAMOUFLAGE_SETTINGS] ?: "" }.distinctUntilChanged()
     val rootMode: Flow<Boolean> = context.dataStore.data.map { it[ROOT_MODE] ?: false }.distinctUntilChanged()

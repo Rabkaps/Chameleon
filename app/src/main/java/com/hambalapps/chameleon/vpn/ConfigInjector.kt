@@ -931,7 +931,7 @@ object ConfigInjector {
                 put("detour", detourVal)
                 
                 val portVal = settings.warpPort.ifEmpty { "2408" }.toIntOrNull() ?: 2408
-                val peerIp = settings.warpPeerIp.ifEmpty { "162.159.193.1" }
+                val peerIp = settings.warpPeerIp.ifEmpty { "engage.cloudflareclient.com" }
                 
                 put("peers", JSONArray().apply {
                     put(JSONObject().apply {
