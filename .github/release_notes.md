@@ -1,26 +1,21 @@
-### What's New in v1.7.8
+### What's New in v1.7.9
 
-This release delivers critical fixes for MTProxy (MTProto) stopping reliability and greatly improves OpenVPN configuration parsing and connection support.
-
-#### Added & Improved
-- **Robust OpenVPN Integration**: Restructured the OpenVPN parsing engine to expose `server` and `server_port` at the outbound JSON top level and embedded the raw profile configuration under the required `config` fields. This resolves connection errors when importing custom `.ovpn` profiles.
-- **Reliable Local MTProto Proxy Stopping**: Extended the command server teardown delay to 500ms and added thread blocking in `onDestroy()` to guarantee the native Go/sing-box service completely terminates and releases the listening socket.
-
----
-
-### 🚀 Changelog:
+This release delivers major upgrades to the Cloudflare WARP integration, resolving connection errors, startup crashes, and censorship blocks by transitioning to an offline WireGuard implementation with a customizable settings dashboard.
 
 #### Added & Improved
-- **Clean Standard Branding**: Removed "Standard" branding suffixes to display plain "Chameleon" globally.
-- **Landscape Layout Dashboard**: Redesigned UI to show connection dashboard (left column) and servers list (right column) side-by-side on device rotation, eliminating vertical scrolling to connect in landscape mode.
-- **Quick Settings Tile Long Press**: Re-implemented the tile launcher pending intent to directly open the dashboard on long press.
-- **Batch Actions**: Added Select All, Deselect All, and Batch Delete capabilities to the expanded manual servers list via long press.
+- **Offline WireGuard WARP Transition**: Replaced the API-dependent `"warp"` outbound protocol with a standard, completely offline `"wireguard"` endpoint layout. This bypasses startup HTTP API registration calls to `api.cloudflareclient.com` entirely, resolving connection errors and timeout loops on restricted networks.
+- **Premium WARP Settings Dashboard**: Added a new settings card in the Settings tab enabling users to:
+  - Generate fresh Cloudflare registration credentials on-demand (Change Exit IP).
+  - Delete local WARP accounts and clear credentials.
+  - Customize the WARP port and local interface address.
+  - Toggle detours between the proxy server and a direct connection.
+  - Manually override the WARP endpoint address with custom clean Cloudflare IPs.
+- **Dynamic Anycast IP Default**: Configured the default WARP peer address to `engage.cloudflareclient.com`, allowing the detour proxy to dynamically resolve and route to the closest and most optimal Cloudflare endpoint IP.
 
 #### Fixed
-- **MTProxy Socket Release**: Wrapped local proxy engine teardown inside a `NonCancellable` context to prevent socket leaks on shutdown, freeing port `19999` and `3000` immediately when disabled.
-- **Server Selection & Gestures**: Re-implemented the button press animations using unconsumed initial pass pointer events, resolving the selection and long-press menu lockup in the servers list.
-- **Connect Button Morphing Waves**: Migrated wave animations to `rememberInfiniteTransition` to fix LaunchedEffect coroutine lifecycle bugs and restore the visual morphing shapes.
-- **Root Mode Placement**: Removed the misplaced Root Mode switch from the Telegram Proxy card. Root Mode remains safely inside the settings sheet drawer.
+- **CIDR Suffix Parsing Crash**: Added automatic suffix formatting to client IP addresses to append missing mask prefixes (like `/32` for IPv4 or `/128` for IPv6), preventing the sing-box core from crashing with `no '/'` errors.
+- **Config Decode Crashes**: Completely stripped the unsupported `reserved` field from the WireGuard peer options to prevent configuration decoder crashes.
+- **Base64 Public Key Encoding**: Corrected the base64 public key encoding typo to eliminate startup key decoding crashes.
 
 ---
 
