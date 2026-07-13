@@ -645,32 +645,6 @@ fun ConnectionDashboard(
                             )
                         }
 
-                        // Top-Right: Traffic Header + Connected Dot
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 10.dp, end = 12.dp)
-                        ) {
-                            Text(
-                                text = "TRAFFIC",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            if (state == "CONNECTED") {
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF4CAF50))
-                                )
-                            }
-                        }
-
                         // Bottom-Right: Upload
                         Column(
                             modifier = Modifier
