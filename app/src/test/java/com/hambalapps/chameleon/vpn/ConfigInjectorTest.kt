@@ -82,6 +82,7 @@ class ConfigInjectorTest {
         assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
         assert(endpoint.getString("type") == "wireguard")
+        assert(endpoint.getBoolean("system") == false)
         assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
         assert(endpoint.getString("detour") == "direct")
@@ -318,6 +319,7 @@ class ConfigInjectorTest {
         assert(endpoints.length() == 1)
         val endpoint = endpoints.getJSONObject(0)
         assert(endpoint.getString("type") == "wireguard")
+        assert(endpoint.getBoolean("system") == false)
         assert(endpoint.getString("tag") == "proxy")
         assert(endpoint.getString("private_key") == "my_private_key_base64")
         assert(endpoint.getInt("mtu") == 1360)
@@ -771,6 +773,7 @@ class ConfigInjectorTest {
         assert(endpoints.length() == 1)
         val endpoint = endpoints.getJSONObject(0)
         assert(endpoint.getString("type") == "wireguard")
+        assert(endpoint.getBoolean("system") == false)
         assert(endpoint.getString("tag") == "proxy")
         assert(endpoint.getString("private_key") == "my_private_key")
         assert(endpoint.getInt("mtu") == 1420)
@@ -846,6 +849,7 @@ class ConfigInjectorTest {
         assert(endpoints2.length() == 1)
         val endpoint2 = endpoints2.getJSONObject(0)
         assert(endpoint2.getString("type") == "wireguard")
+        assert(endpoint2.getBoolean("system") == false)
         assert(endpoint2.getString("tag") == "proxy")
         assert(endpoint2.getString("private_key") == "my_private_key")
     }

@@ -913,6 +913,7 @@ object ConfigInjector {
             val warpEndpoint = JSONObject().apply {
                 put("type", "wireguard")
                 put("tag", "warp-endpoint")
+                put("system", false)
                 
                 val rawIp = settings.warpIpAddress.trim()
                 val formattedIp = if (rawIp.isEmpty()) {
@@ -961,6 +962,7 @@ object ConfigInjector {
                 val ep = JSONObject().apply {
                     put("type", "wireguard")
                     put("tag", tag)
+                    put("system", false)
                     
                     if (out.has("address")) put("address", out.get("address"))
                     if (out.has("private_key")) put("private_key", out.get("private_key"))
