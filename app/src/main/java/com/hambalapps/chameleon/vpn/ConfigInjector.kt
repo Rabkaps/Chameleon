@@ -748,14 +748,12 @@ object ConfigInjector {
             if (isProxyOrRelay && settings.enableFragment && !isOpenVpn && !isWireGuard) {
                 injectFragmentToOutbound(out, settings)
             }
-            // Inject multiplexing if enabled (disabled in gaming mode, and for OpenVPN/WireGuard configs; forced for xhttp transport)
+            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp/OpenVPN/WireGuard configs)
             val tls = out.optJSONObject("tls")
             val isReality = tls?.has("reality") ?: false
             val transport = out.optJSONObject("transport")
             val isXhttp = transport?.optString("type") == "xhttp"
-            val shouldEnableMux = settings.enableMux || isXhttp
-            
-            if (isProxyOrRelay && shouldEnableMux && settings.vpnMode != "gaming" && !isOpenVpn && !isWireGuard) {
+            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp && !isOpenVpn && !isWireGuard) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "smux")
@@ -763,7 +761,7 @@ object ConfigInjector {
                     put("min_streams", 4)
                 }
                 out.put("multiplex", mux)
-            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isOpenVpn || isWireGuard)) {
+            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp || isOpenVpn || isWireGuard)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
@@ -913,44 +911,15 @@ object ConfigInjector {
         
         if (settings.vpnMode == "ai_bypass" && settings.warpPrivateKey.isNotEmpty()) {
             val warpEndpoint = JSONObject().apply {
-                put("type", "wireguard")
+                put("type", "warp")
                 put("tag", "warp-endpoint")
                 put("system", false)
-                
-                val addressArray = JSONArray()
-                val rawIp = settings.warpIpAddress.trim()
-                if (rawIp.isEmpty()) {
-                    addressArray.put("172.16.0.2/32")
-                    addressArray.put("fd00::2/128")
-                } else {
-                    rawIp.split(",").forEach { part ->
-                        val trimmed = part.trim()
-                        if (trimmed.isNotEmpty()) {
-                            if (trimmed.contains("/")) {
-                                addressArray.put(trimmed)
-                            } else {
-                                addressArray.put("$trimmed/32")
-                            }
-                        }
-                    }
-                }
-                put("address", addressArray)
                 put("private_key", settings.warpPrivateKey)
-                put("mtu", 1280)
                 
-                val peerAddress = resolveDomainWithFallbacks(context, "engage.cloudflareclient.com", settings) ?: "162.159.192.1"
-                android.util.Log.i("Chameleon", "WARP endpoint peer engage.cloudflareclient.com pre-resolved to: $peerAddress")
-
-                val peerObj = JSONObject().apply {
-                    put("address", peerAddress)
-                    put("port", settings.warpPort.toIntOrNull() ?: 2408)
-                    put("public_key", "bmXOC+F1fxEMDXGggWMuGcIy77Dd1KAD4kURmMyd378=")
-                    put("allowed_ips", JSONArray().apply {
-                        put("0.0.0.0/0")
-                        put("::/0")
-                    })
+                val clientId = settings.warpClientId.trim()
+                if (clientId.isNotEmpty()) {
+                    put("client_id", clientId)
                 }
-                put("peers", JSONArray().apply { put(peerObj) })
                 put("detour", settings.warpDetourMode.ifEmpty { "direct" })
             }
             cleanEndpoints.put(warpEndpoint)

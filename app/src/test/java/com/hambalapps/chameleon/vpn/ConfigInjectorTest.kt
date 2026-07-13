@@ -81,23 +81,11 @@ class ConfigInjectorTest {
         }
         assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
         val endpoint = warpEndpoint!!
-        assert(endpoint.getString("type") == "wireguard")
+        assert(endpoint.getString("type") == "warp")
         assert(endpoint.getBoolean("system") == false)
-        assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
         assert(endpoint.getString("private_key") == "privatekeybase64")
-        assert(endpoint.getInt("mtu") == 1280)
+        assert(endpoint.getString("client_id") == "6hHy")
         assert(endpoint.getString("detour") == "direct")
-
-        val peers = endpoint.getJSONArray("peers")
-        assert(peers.length() == 1)
-        val peer = peers.getJSONObject(0)
-        val peerAddress = peer.getString("address")
-        assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
-        assert(peer.getInt("port") == 4500)
-        val allowedIps = peer.getJSONArray("allowed_ips")
-        assert(allowedIps.getString(0) == "0.0.0.0/0")
-        assert(allowedIps.getString(1) == "::/0")
-        assert(!peer.has("reserved")) { "reserved field should not be present in wireguard peer endpoint to prevent crashes" }
     }
 
     @Test
