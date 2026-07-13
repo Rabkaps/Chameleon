@@ -69,33 +69,34 @@ class ConfigInjectorTest {
             }
         }
         assert(warpOutbound != null) { "warp-out outbound should be present in outbounds array" }
-        assert(warpOutbound!!.getString("type") == "wireguard")
-        assert(warpOutbound.getJSONArray("address").getString(0) == "172.16.0.2/32")
-        assert(warpOutbound.getString("private_key") == "privatekeybase64")
-        assert(warpOutbound.getString("detour") == "direct")
+        assert(warpOutbound!!.getString("type") == "direct")
+        assert(warpOutbound.getString("detour") == "warp-endpoint")
 
-        val peers = warpOutbound.getJSONArray("peers")
-        assert(peers.length() == 1)
-        val peer = peers.getJSONObject(0)
-        val peerAddress = peer.getString("server")
-        assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
-        assert(peer.getInt("server_port") == 4500)
-        val allowedIps = peer.getJSONArray("allowed_ips")
-        assert(allowedIps.getString(0) == "0.0.0.0/0")
-        
-        val reserved = peer.getJSONArray("reserved")
-        assert(reserved.getInt(0) == 234)
-        assert(reserved.getInt(1) == 17)
-        assert(reserved.getInt(2) == 242)
-
-        val endpoints = json.optJSONArray("endpoints")
-        if (endpoints != null) {
-            for (i in 0 until endpoints.length()) {
-                val ep = endpoints.getJSONObject(i)
-                assert(ep.getString("tag") != "warp-endpoint")
-                assert(ep.getString("tag") != "warp-out")
+        val endpoints = json.getJSONArray("endpoints")
+        var warpEndpoint: org.json.JSONObject? = null
+        for (i in 0 until endpoints.length()) {
+            val ep = endpoints.getJSONObject(i)
+            if (ep.getString("tag") == "warp-endpoint") {
+                warpEndpoint = ep
+                break
             }
         }
+        assert(warpEndpoint != null) { "warp-endpoint endpoint not found in endpoints" }
+        val endpoint = warpEndpoint!!
+        assert(endpoint.getString("type") == "wireguard")
+        assert(endpoint.getJSONArray("address").getString(0) == "172.16.0.2/32")
+        assert(endpoint.getString("private_key") == "privatekeybase64")
+        assert(endpoint.getString("detour") == "direct")
+
+        val peers = endpoint.getJSONArray("peers")
+        assert(peers.length() == 1)
+        val peer = peers.getJSONObject(0)
+        val peerAddress = peer.getString("address")
+        assert(peerAddress == "162.159.192.1" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
+        assert(peer.getInt("port") == 4500)
+        val allowedIps = peer.getJSONArray("allowed_ips")
+        assert(allowedIps.getString(0) == "0.0.0.0/0")
+        assert(!peer.has("reserved")) { "reserved field should not be present in wireguard peer endpoint to prevent crashes" }
     }
 
     @Test
