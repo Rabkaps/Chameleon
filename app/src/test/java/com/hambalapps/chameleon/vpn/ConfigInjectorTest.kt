@@ -95,12 +95,6 @@ class ConfigInjectorTest {
         assert(peer.getString("address") == "162.159.193.1")
         assert(peer.getString("public_key") == "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wQr2AES=")
         
-        val reserved = peer.getJSONArray("reserved")
-        assert(reserved.length() == 3)
-        assert(reserved.getInt(0) == 234)
-        assert(reserved.getInt(1) == 17)
-        assert(reserved.getInt(2) == 242)
-        
         val experimental = json.getJSONObject("experimental")
         val cacheFile = experimental.getJSONObject("cache_file")
         assert(cacheFile.getBoolean("enabled") == true)

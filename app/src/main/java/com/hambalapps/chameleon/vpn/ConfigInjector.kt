@@ -943,24 +943,6 @@ object ConfigInjector {
                             put("::/0")
                         })
                         put("persistent_keepalive_interval", 30)
-                        
-                        val clientId = settings.warpClientId.trim()
-                        if (clientId.isNotEmpty()) {
-                            try {
-                                val decoded = try {
-                                    java.util.Base64.getDecoder().decode(clientId)
-                                } catch (e: Throwable) {
-                                    Base64.decode(clientId, Base64.NO_WRAP)
-                                }
-                                val reservedArray = JSONArray()
-                                for (b in decoded) {
-                                    reservedArray.put(b.toInt() and 0xFF)
-                                }
-                                put("reserved", reservedArray)
-                            } catch (e: Exception) {
-                                // ignore
-                            }
-                        }
                     })
                 })
             }
