@@ -887,7 +887,7 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = if (Config.IS_SPECIAL) "Developed with love by Gumball for Sana. Featuring a custom reactive visualizer, Monet adaptive themes, and stable key signing." 
+                        text = if (Config.IS_SPECIAL) "Featuring a custom reactive visualizer, Monet adaptive themes, and stable key signing." 
                                else stringResource(R.string.app_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
