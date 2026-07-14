@@ -16,7 +16,7 @@ android {
         minSdk = 23
         targetSdk = 36
         versionCode = 190
-        versionName = "1.7.9"
+        versionName = "1.7.10"
     }
 
     testOptions {

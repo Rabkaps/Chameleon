@@ -1100,33 +1100,53 @@ fun MainScreen(
             },
             bottomBar = {
                 if (isMultiSelectMode) {
-                    NavigationBar(
+                    Surface(
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .height(64.dp)
                             .clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-                        containerColor = androidx.compose.ui.graphics.lerp(
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f), RoundedCornerShape(24.dp)),
+                        color = androidx.compose.ui.graphics.lerp(
                             MaterialTheme.colorScheme.surfaceContainer,
                             MaterialTheme.colorScheme.error,
-                            0.08f
+                            0.05f
                         ).copy(alpha = 0.95f),
-                        tonalElevation = 8.dp
+                        tonalElevation = 6.dp,
+                        shape = RoundedCornerShape(24.dp)
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "${selectedNodes.size} selected",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Exit Selection Mode",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${selectedNodes.size} selected",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                            
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val allFilteredManuals = remember(filteredServerList, manualServersStr) {
@@ -1152,16 +1172,7 @@ fun MainScreen(
                                     Text(if (isAllSelected) "Deselect All" else "Select All")
                                 }
 
-                                TextButton(
-                                    onClick = {
-                                        isMultiSelectMode = false
-                                        selectedNodes = emptySet()
-                                    },
-                                    modifier = Modifier.pressScaleEffect()
-                                ) {
-                                    Text(stringResource(R.string.cancel))
-                                }
-                                Button(
+                                IconButton(
                                     onClick = {
                                         val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val newManualList = currentManualList.filter { !selectedNodes.contains(it) }
@@ -1171,16 +1182,13 @@ fun MainScreen(
                                         isMultiSelectMode = false
                                         selectedNodes = emptySet()
                                     },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    ),
-                                    shape = ExpressiveButtonShape,
                                     modifier = Modifier.pressScaleEffect()
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Delete")
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Selected",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
@@ -5954,33 +5962,53 @@ fun MainScreen(
             },
             bottomBar = {
                 if (isMultiSelectMode) {
-                    NavigationBar(
+                    Surface(
                         modifier = Modifier
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxWidth()
+                            .height(64.dp)
                             .clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-                        containerColor = androidx.compose.ui.graphics.lerp(
+                            .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f), RoundedCornerShape(24.dp)),
+                        color = androidx.compose.ui.graphics.lerp(
                             MaterialTheme.colorScheme.surfaceContainer,
                             MaterialTheme.colorScheme.error,
-                            0.08f
+                            0.05f
                         ).copy(alpha = 0.95f),
-                        tonalElevation = 8.dp
+                        tonalElevation = 6.dp,
+                        shape = RoundedCornerShape(24.dp)
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "${selectedNodes.size} selected",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        isMultiSelectMode = false
+                                        selectedNodes = emptySet()
+                                    },
+                                    modifier = Modifier.pressScaleEffect()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Exit Selection Mode",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${selectedNodes.size} selected",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                            
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val allFilteredManuals = remember(filteredServerList, manualServersStr) {
@@ -6006,16 +6034,7 @@ fun MainScreen(
                                     Text(if (isAllSelected) "Deselect All" else "Select All")
                                 }
 
-                                TextButton(
-                                    onClick = {
-                                        isMultiSelectMode = false
-                                        selectedNodes = emptySet()
-                                    },
-                                    modifier = Modifier.pressScaleEffect()
-                                ) {
-                                    Text(stringResource(R.string.cancel))
-                                }
-                                Button(
+                                IconButton(
                                     onClick = {
                                         val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                                         val newManualList = currentManualList.filter { !selectedNodes.contains(it) }
@@ -6025,16 +6044,13 @@ fun MainScreen(
                                         isMultiSelectMode = false
                                         selectedNodes = emptySet()
                                     },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    ),
-                                    shape = ExpressiveButtonShape,
                                     modifier = Modifier.pressScaleEffect()
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Delete")
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Selected",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
                                 }
                             }
                         }
