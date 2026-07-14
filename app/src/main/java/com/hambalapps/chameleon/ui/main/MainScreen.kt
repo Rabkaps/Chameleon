@@ -118,42 +118,44 @@ private fun compositeColor(foreground: Color, background: Color): Color {
 @Composable
 fun VibrantCardContent(
     cardStyle: String,
+    isSecondary: Boolean = false,
     content: @Composable () -> Unit
 ) {
     if (cardStyle == "vibrant" || cardStyle == "solid") {
-        val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
-        val cardBackground = MaterialTheme.colorScheme.primaryContainer
+        val originalColorScheme = MaterialTheme.colorScheme
+        val textCol = if (isSecondary) originalColorScheme.onSecondaryContainer else originalColorScheme.onPrimaryContainer
+        val bgCol = if (isSecondary) originalColorScheme.secondaryContainer else originalColorScheme.primaryContainer
         MaterialTheme(
-            colorScheme = MaterialTheme.colorScheme.copy(
-                primary = onPrimaryContainer,
-                onPrimary = cardBackground,
-                primaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
-                onPrimaryContainer = onPrimaryContainer,
+            colorScheme = originalColorScheme.copy(
+                primary = textCol,
+                onPrimary = bgCol,
+                primaryContainer = textCol.copy(alpha = 0.20f),
+                onPrimaryContainer = textCol,
                 
-                secondary = onPrimaryContainer,
-                onSecondary = cardBackground,
-                secondaryContainer = onPrimaryContainer,
-                onSecondaryContainer = cardBackground,
+                secondary = textCol,
+                onSecondary = bgCol,
+                secondaryContainer = textCol.copy(alpha = 0.20f),
+                onSecondaryContainer = textCol,
                 
-                tertiary = onPrimaryContainer,
-                onTertiary = cardBackground,
-                tertiaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
-                onTertiaryContainer = onPrimaryContainer,
+                tertiary = textCol,
+                onTertiary = bgCol,
+                tertiaryContainer = textCol.copy(alpha = 0.20f),
+                onTertiaryContainer = textCol,
                 
-                surface = cardBackground,
-                onSurface = onPrimaryContainer,
-                onSurfaceVariant = onPrimaryContainer.copy(alpha = 0.80f),
-                surfaceVariant = onPrimaryContainer.copy(alpha = 0.15f),
+                surface = bgCol,
+                onSurface = textCol,
+                onSurfaceVariant = textCol.copy(alpha = 0.80f),
+                surfaceVariant = textCol.copy(alpha = 0.15f),
                 
-                outline = onPrimaryContainer.copy(alpha = 0.45f),
-                outlineVariant = onPrimaryContainer.copy(alpha = 0.25f),
+                outline = textCol.copy(alpha = 0.45f),
+                outlineVariant = textCol.copy(alpha = 0.25f),
                 onError = Color.White,
                 
-                surfaceContainerLowest = onPrimaryContainer.copy(alpha = 0.05f),
-                surfaceContainerLow = onPrimaryContainer.copy(alpha = 0.10f),
-                surfaceContainer = onPrimaryContainer.copy(alpha = 0.15f),
-                surfaceContainerHigh = onPrimaryContainer.copy(alpha = 0.20f),
-                surfaceContainerHighest = onPrimaryContainer.copy(alpha = 0.25f)
+                surfaceContainerLowest = textCol.copy(alpha = 0.05f),
+                surfaceContainerLow = textCol.copy(alpha = 0.10f),
+                surfaceContainer = textCol.copy(alpha = 0.15f),
+                surfaceContainerHigh = textCol.copy(alpha = 0.20f),
+                surfaceContainerHighest = textCol.copy(alpha = 0.25f)
             )
         ) {
             CompositionLocalProvider(
@@ -2745,7 +2747,7 @@ fun MainScreen(
                                          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                                          shape = RoundedCornerShape(28.dp)
                                      ) {
-                                         VibrantCardContent(settings.cardStyle) {
+                                         VibrantCardContent(settings.cardStyle, isSecondary = true) {
                                              Column(
                                                  modifier = Modifier
                                                      .fillMaxSize()
@@ -2827,7 +2829,7 @@ fun MainScreen(
                                          colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                                          shape = RoundedCornerShape(28.dp)
                                      ) {
-                                         VibrantCardContent(settings.cardStyle) {
+                                         VibrantCardContent(settings.cardStyle, isSecondary = true) {
                                              Column(
                                                  modifier = Modifier.fillMaxSize().padding(12.dp),
                                                  verticalArrangement = Arrangement.SpaceBetween
