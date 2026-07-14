@@ -41,4 +41,6 @@ app/warp_response.json
 # Library backups
 /app/libs/*-backup.aar
 
-
+# Portable builds
+/Chameleon_Portable/
+/Chameleon_Portable.zip
