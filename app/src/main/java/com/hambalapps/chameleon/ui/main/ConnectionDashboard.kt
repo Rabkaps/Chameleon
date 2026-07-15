@@ -53,6 +53,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -95,6 +96,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hambalapps.chameleon.R
+import com.hambalapps.chameleon.Config
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import com.hambalapps.chameleon.vpn.ProxyNameResolver
 import com.hambalapps.chameleon.data.SettingsManager
 import com.hambalapps.chameleon.data.Subscription
@@ -156,11 +161,20 @@ fun ConnectionDashboard(
     val context = LocalContext.current
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
 
-    val stateText = when (state) {
-        "CONNECTED" -> "SECURED"
-        "CONNECTING" -> "CONNECTING..."
-        "DISCONNECTING" -> "DISCONNECTING..."
-        else -> "UNPROTECTED"
+    val stateText = if (Config.IS_SPECIAL) {
+        when (state) {
+            "CONNECTED" -> "Meow 🐾"
+            "CONNECTING" -> "CONNECTING TO YOUR HEART... 💓"
+            "DISCONNECTING" -> "DISCONNECTING... 💔"
+            else -> "OFFLINE, BUT THINKING OF YOU 💔"
+        }
+    } else {
+        when (state) {
+            "CONNECTED" -> "SECURED"
+            "CONNECTING" -> "CONNECTING..."
+            "DISCONNECTING" -> "DISCONNECTING..."
+            else -> "UNPROTECTED"
+        }
     }
 
     val isVpnActive = state == "CONNECTED" || state == "CONNECTING"
@@ -1245,6 +1259,108 @@ fun ConnectionDashboard(
         }
     }
 
+    @Composable
+    fun LoveNotesCard() {
+        var showLoveNoteDialog by remember { mutableStateOf(false) }
+        var currentLoveNote by remember { mutableStateOf("") }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        currentLoveNote = Config.LOVE_QUOTES.random()
+                        showLoveNoteDialog = true
+                    }
+                    .pressScaleEffect(),
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (isDark) 0.25f else 0.40f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = stringResource(R.string.love_notes),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.love_notes_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            // Peaking Kitty peeking from the top-right of the card itself
+            PeakingKitty(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-32).dp, y = (-20).dp)
+            )
+        }
+
+        if (showLoveNoteDialog) {
+            AlertDialog(
+                onDismissRequest = { showLoveNoteDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = Color.Red
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.note_for_sana), fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Text(
+                        text = currentLoveNote,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showLoveNoteDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+                shape = ExpressiveCardShape,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            )
+        }
+    }
+
     if (isLandscape) {
         Row(
             modifier = Modifier
@@ -1262,6 +1378,9 @@ fun ConnectionDashboard(
             ) {
                 ServerCard()
                 PingProtocolRow()
+                if (Config.IS_SPECIAL) {
+                    LoveNotesCard()
+                }
                 BypassCard()
                 GamingModeCard()
                 TelegramProxyCard()
@@ -1278,6 +1397,9 @@ fun ConnectionDashboard(
             ConnectCard(paddingVertical = 32)
             ServerCard()
             PingProtocolRow()
+            if (Config.IS_SPECIAL) {
+                LoveNotesCard()
+            }
             BypassCard()
             GamingModeCard()
             TelegramProxyCard()

@@ -115,6 +115,8 @@
     <string name="guide_tap_here">اعلان نشان داده نمی‌شود؟ برای مشاهده راهنما ضربه بزنید.</string>
     <string name="adv_mode">حالت پیشرفته</string>
     <string name="adv_mode_desc">باز کردن پارامترهای پروتکل</string>
+    <string name="enable_debug_logging">فعال‌سازی لاگ‌های عیب‌یابی (Debug)</string>
+    <string name="enable_debug_logging_desc">تولید لاگ‌های بسیار دقیق هسته sing-box. هشدار: ممکن است مصرف باتری و پردازنده را افزایش دهد.</string>
     <string name="secure_dns_doh">دی‌ان‌اس امن (DoH)</string>
     <string name="tun_network_stack">پشته شبکه TUN</string>
     <string name="tls_fragmentation">تکه‌تکه کردن بسته‌های TLS</string>

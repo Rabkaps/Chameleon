@@ -51,7 +51,8 @@ data class UserSettings(
     val enableTun: Boolean = false,
     val delayTestUrl: String = "http://cp.cloudflare.com/generate_204",
     val warpDetourMode: String = "proxy",
-    val warpPort: String = "2408"
+    val warpPort: String = "2408",
+    val proxyChains: String = ""
 ) {
     val deserializedSubscriptions: List<Subscription>
         get() {
@@ -67,6 +68,14 @@ data class UserSettings(
             return list
         }
 }
+
+@Serializable
+data class ProxyChain(
+    val id: String,
+    val name: String,
+    val relayLink: String,
+    val exitLink: String
+)
 
 fun deserializeSubscriptions(data: String): List<Subscription> {
     if (data.isEmpty()) return emptyList()
@@ -97,6 +106,30 @@ fun serializeSubscriptions(subs: List<Subscription>): String {
         val totalStr = sub.total?.toString() ?: ""
         val expireStr = sub.expire?.toString() ?: ""
         "${sub.id}\u001f$safeName\u001f$safeUrl\u001f$safeServers\u001f$uploadStr\u001f$downloadStr\u001f$totalStr\u001f$expireStr"
+    }
+}
+
+fun deserializeProxyChains(data: String): List<ProxyChain> {
+    if (data.isEmpty()) return emptyList()
+    return data.split("\u001e").mapNotNull { record ->
+        val fields = record.split("\u001f")
+        if (fields.size >= 4) {
+            ProxyChain(
+                id = fields[0],
+                name = fields[1],
+                relayLink = fields[2],
+                exitLink = fields[3]
+            )
+        } else null
+    }
+}
+
+fun serializeProxyChains(chains: List<ProxyChain>): String {
+    return chains.joinToString("\u001e") { chain ->
+        val safeName = chain.name.replace("\u001e", "").replace("\u001f", "")
+        val safeRelay = chain.relayLink.replace("\u001e", "").replace("\u001f", "")
+        val safeExit = chain.exitLink.replace("\u001e", "").replace("\u001f", "")
+        "${chain.id}\u001f$safeName\u001f$safeRelay\u001f$safeExit"
     }
 }
 
@@ -165,6 +198,7 @@ class SettingsManager {
     fun setDelayTestUrl(value: String) { saveSettings(currentSettings.copy(delayTestUrl = value)) }
     fun setWarpDetourMode(value: String) { saveSettings(currentSettings.copy(warpDetourMode = value)) }
     fun setWarpPort(value: String) { saveSettings(currentSettings.copy(warpPort = value)) }
+    fun setProxyChains(value: String) { saveSettings(currentSettings.copy(proxyChains = value)) }
 
     fun toggleAutoConnectSub(subId: String) {
         val current = currentSettings.autoConnectSubs

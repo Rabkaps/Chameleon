@@ -259,27 +259,29 @@ object SingboxManager {
         statsJob?.cancel()
         statsJob = scope.launch {
             while (isActive) {
-                delay(1000)
                 try {
                     val url = URL("http://127.0.0.1:9090/traffic")
                     val conn = url.openConnection() as HttpURLConnection
                     conn.requestMethod = "GET"
-                    conn.connectTimeout = 500
-                    conn.readTimeout = 500
+                    conn.connectTimeout = 5000
+                    conn.readTimeout = 0 // Stream reader should not timeout
                     
                     if (conn.responseCode == 200) {
-                        val text = conn.inputStream.bufferedReader().use { it.readText() }
-                        // text format: {"up":1234,"down":5678}
-                        val up = text.substringAfter("\"up\":").substringBefore(",").trim().toLongOrNull() ?: 0L
-                        val down = text.substringAfter("\"down\":").substringBefore("}").trim().toLongOrNull() ?: 0L
-                        _trafficStats.value = Pair(up, down)
-                    } else {
-                        _trafficStats.value = Pair(0L, 0L)
+                        conn.inputStream.bufferedReader().use { reader ->
+                            while (isActive) {
+                                val line = reader.readLine() ?: break
+                                // line format: {"up":1234,"down":5678}
+                                val up = line.substringAfter("\"up\":").substringBefore(",").trim().toLongOrNull() ?: 0L
+                                val down = line.substringAfter("\"down\":").substringBefore("}").trim().toLongOrNull() ?: 0L
+                                _trafficStats.value = Pair(up, down)
+                            }
+                        }
                     }
                     conn.disconnect()
                 } catch (e: Exception) {
                     _trafficStats.value = Pair(0L, 0L)
                 }
+                delay(2000) // delay before reconnecting on failure
             }
         }
     }

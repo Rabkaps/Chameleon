@@ -46,15 +46,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
         private val _vpnLogs = MutableStateFlow("")
         val vpnLogs: StateFlow<String> = _vpnLogs
-        var debugLogFile: File? = null
 
         fun log(message: String) {
             android.util.Log.i("Chameleon", message)
-            debugLogFile?.let { file ->
-                try {
-                    file.appendText(message + "\n")
-                } catch (e: Exception) {}
-            }
             val combined = _vpnLogs.value + message + "\n"
             _vpnLogs.value = if (combined.length > 15000) {
                 combined.takeLast(10000).substringAfter("\n", "")
@@ -129,16 +123,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private var rootModeVal = false
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
+    @Volatile
+    private var cachedPhysicalNetworkInfo: PhysicalNetworkInfo? = null
+
     override fun onCreate() {
         super.onCreate()
-        debugLogFile = File(cacheDir, "app_debug.log").apply {
-            try {
-                if (exists()) delete()
-                createNewFile()
-            } catch (e: Exception) {}
-        }
         android.util.Log.i("Chameleon", "VpnServiceWrapper onCreate called")
         createNotificationChannel()
+        
+        val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        cachedPhysicalNetworkInfo = getActivePhysicalNetworkInfo(cm)
         
         serviceScope.launch {
             _vpnState.collect { state ->
@@ -594,6 +588,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 splitTunnelingEnabledVal = settingsManager.splitTunnelingEnabled.first()
                 splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
+                val enableDebugLoggingVal = settingsManager.enableDebugLogging.first()
                 rootModeVal = settingsManager.rootMode.first()
 
                 if (!rootModeVal) {
@@ -605,7 +600,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     )
                     runRootCommands(cleanupCommands)
                 }
- 
+
                 val injectorSettings = InjectorSettings(
                     bypassIran = bypassIranVal,
                     secureDns = secureDnsVal,
@@ -621,6 +616,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     warpIpAddress = warpIpAddressVal,
                     warpClientId = warpClientIdVal,
                     vpnModeTunnelGames = vpnModeTunnelGamesVal,
+                    enableDebugLogging = enableDebugLoggingVal,
                     warpDetourMode = warpDetourModeVal,
                     warpPort = warpPortVal,
                     warpPeerIp = warpPeerIpVal,
@@ -965,9 +961,17 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 while (isActive) {
                     if (logFile.exists()) {
                         val len = logFile.length()
-                        if (len > readOffset) {
+                        val hasSubscribers = _vpnLogs.subscriptionCount.value > 0
+                        
+                        if (hasSubscribers && len > readOffset) {
                             logFile.inputStream().use { stream ->
-                                stream.skip(readOffset)
+                                if (len - readOffset > 30000) {
+                                    val skipPos = len - 30000
+                                    stream.skip(skipPos)
+                                    readOffset = skipPos
+                                } else {
+                                    stream.skip(readOffset)
+                                }
                                 val bytes = stream.readBytes()
                                 if (bytes.isNotEmpty()) {
                                     val newLogs = String(bytes, StandardCharsets.UTF_8)
@@ -978,8 +982,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                                         combined
                                     }
                                 }
-                                readOffset = len
                             }
+                            readOffset = len
                         }
                     }
                     delay(500)
@@ -1303,7 +1307,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     private fun buildLibboxInterface(
         javaIf: java.net.NetworkInterface,
-        cm: android.net.ConnectivityManager?,
         metered: Boolean
     ): io.nekohasekai.libbox.NetworkInterface {
         val libboxIf = io.nekohasekai.libbox.NetworkInterface()
@@ -1350,25 +1353,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
         } catch (e: Exception) {}
         libboxIf.setAddresses(createStringIterator(addrs))
-
-        val dnsList = mutableListOf<String>()
-        if (cm != null) {
-            try {
-                val networks = cm.allNetworks
-                for (net in networks) {
-                    val lp = cm.getLinkProperties(net)
-                    if (lp?.interfaceName == javaIf.name) {
-                        lp.dnsServers.forEach { dnsAddr ->
-                            val dnsHost = dnsAddr.hostAddress
-                            if (dnsHost != null) {
-                                dnsList.add(dnsHost.substringBefore("%"))
-                            }
-                        }
-                        break
-                    }
-                }
-            } catch (e: Exception) {}
-        }
         
         return libboxIf
     }
@@ -1378,6 +1362,23 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         
         try {
+            // Pre-calculate interface metered status to avoid expensive nested binder IPCs
+            val meteredMap = mutableMapOf<String, Boolean>()
+            if (cm != null) {
+                try {
+                    val networks = cm.allNetworks
+                    for (net in networks) {
+                        val lp = cm.getLinkProperties(net)
+                        val ifName = lp?.interfaceName
+                        if (ifName != null) {
+                            val caps = cm.getNetworkCapabilities(net)
+                            val isMetered = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
+                            meteredMap[ifName] = isMetered
+                        }
+                    }
+                } catch (e: Exception) {}
+            }
+
             val enumeration = java.net.NetworkInterface.getNetworkInterfaces()
             if (enumeration != null) {
                 while (enumeration.hasMoreElements()) {
@@ -1386,23 +1387,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                         val isLoopback = try { javaIf.isLoopback } catch (e: Exception) { false }
                         if (isLoopback) continue
                         
-                        // Determine if metered
-                        var isMetered = false
-                        if (cm != null) {
-                            try {
-                                val networks = cm.allNetworks
-                                for (net in networks) {
-                                    val lp = cm.getLinkProperties(net)
-                                    if (lp?.interfaceName == javaIf.name) {
-                                        val caps = cm.getNetworkCapabilities(net)
-                                        isMetered = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
-                                        break
-                                    }
-                                }
-                            } catch (e: Exception) {}
-                        }
-                        
-                        val libboxIf = buildLibboxInterface(javaIf, cm, isMetered)
+                        val isMetered = meteredMap[javaIf.name] ?: false
+                        val libboxIf = buildLibboxInterface(javaIf, isMetered)
                         list.add(libboxIf)
                     } catch (e: Exception) {
                         log("Error processing interface ${javaIf.name}: ${e.message}")
@@ -1412,13 +1398,13 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
             // Always ensure the active physical network interface is in the list
             try {
-                val physicalInfo = getActivePhysicalNetworkInfo(cm)
+                val physicalInfo = cachedPhysicalNetworkInfo ?: getActivePhysicalNetworkInfo(cm)
                 if (physicalInfo != null) {
                     val alreadyInList = list.any { it.getName() == physicalInfo.name }
                     if (!alreadyInList) {
                         val javaIf = getNetworkInterfaceByName(physicalInfo.name)
                         if (javaIf != null) {
-                            val libboxIf = buildLibboxInterface(javaIf, cm, physicalInfo.metered)
+                            val libboxIf = buildLibboxInterface(javaIf, physicalInfo.metered)
                             list.add(libboxIf)
                         }
                     }
@@ -1431,7 +1417,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         }
 
         val nameList = list.map { it.getName() }
-        log("getInterfaces returning list: $nameList")
+        android.util.Log.d("Chameleon", "getInterfaces returning list: $nameList")
 
         return object : NetworkInterfaceIterator {
             private var idx = 0
@@ -1492,6 +1478,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
             private fun updatePhysicalInterface() {
                 val currentInfo = getActivePhysicalNetworkInfo(cm)
+                cachedPhysicalNetworkInfo = currentInfo
                 if (currentInfo != null) {
                     if (currentInfo.name != lastSentPhysicalName || currentInfo.index != lastSentPhysicalIndex) {
                         log("Default physical interface updated: name=${currentInfo.name}, index=${currentInfo.index}, metered=${currentInfo.metered}, constrained=${currentInfo.constrained}")
@@ -1513,16 +1500,16 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         }
         defaultNetworkCallback = callback
         try {
-            val builder = android.net.NetworkRequest.Builder()
-            cm.registerNetworkCallback(builder.build(), callback)
-            log("Successfully registered global network callback")
-        } catch (e: Exception) {
-            log("Failed to register global network callback, falling back to default network callback: ${e.message}")
-            try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                 cm.registerDefaultNetworkCallback(callback)
-            } catch (e2: Exception) {
-                log("Failed to register default network callback: ${e2.message}")
+                log("Successfully registered default network callback")
+            } else {
+                val builder = android.net.NetworkRequest.Builder()
+                cm.registerNetworkCallback(builder.build(), callback)
+                log("Successfully registered global network callback (legacy)")
             }
+        } catch (e: Exception) {
+            log("Failed to register network callback: ${e.message}")
         }
     }
     override fun underNetworkExtension(): Boolean = false
@@ -1548,7 +1535,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
 
     override fun writeDebugMessage(message: String?) {
-        log("Debug: $message")
+        android.util.Log.d("ChameleonCore", message ?: "")
     }
 
     override fun setSystemProxyEnabled(enabled: Boolean) {}

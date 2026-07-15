@@ -226,6 +226,7 @@ fun MainScreen(
     val fragmentLength = settings.fragmentLength
     val fragmentInterval = settings.fragmentInterval
     val enableMux = settings.enableMux
+    val enableDebugLogging = settings.enableDebugLogging
     val activeProfile = settings.activeProfile
     val subscriptionUrl = settings.subscriptionUrl
     val subscriptionListStr = settings.subscriptionList
@@ -887,7 +888,7 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     Text(
-                        text = if (Config.IS_SPECIAL) "Featuring a custom reactive visualizer, Monet adaptive themes, and stable key signing." 
+                        text = if (Config.IS_SPECIAL) "Developed with love by Gumball for Sana. Featuring a custom reactive visualizer, Monet adaptive themes, and stable key signing." 
                                else stringResource(R.string.app_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -962,20 +963,13 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Sana ❤️ Gumball",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.secure_network_engine),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Bold
-                        )
                     }
+                    Text(
+                        text = stringResource(R.string.secure_network_engine),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Bold
+                    )
 
                     if (showUpdateDialog) {
                         AlertDialog(
@@ -2059,8 +2053,8 @@ fun MainScreen(
                                 if (Config.IS_SPECIAL) {
                                     PeakingKitty(
                                         modifier = Modifier
-                                            .align(Alignment.TopStart)
-                                            .offset(x = 28.dp, y = (-22).dp)
+                                            .align(Alignment.TopEnd)
+                                            .offset(x = (-32).dp, y = (-22).dp)
                                     )
                                 }
                                 Card(
@@ -4583,6 +4577,20 @@ fun MainScreen(
                                                          Text(stringResource(R.string.tcp_multiplexing_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                      }
                                                      Switch(checked = enableMux, onCheckedChange = { scope.launch { settingsManager.setEnableMux(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                                 }
+                                                 
+                                                 Spacer(modifier = Modifier.height(12.dp))
+                                                 
+                                                 Row(
+                                                     modifier = Modifier.fillMaxWidth(),
+                                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                                     verticalAlignment = Alignment.CenterVertically
+                                                 ) {
+                                                     Column(modifier = Modifier.weight(1f)) {
+                                                         Text(stringResource(R.string.enable_debug_logging), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                         Text(stringResource(R.string.enable_debug_logging_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                     }
+                                                     Switch(checked = enableDebugLogging, onCheckedChange = { scope.launch { settingsManager.setEnableDebugLogging(it); if (vpnState == "CONNECTED") startVpnService(context) } })
                                                  }
                                              }
                                          }

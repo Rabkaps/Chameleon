@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
@@ -153,7 +154,7 @@ fun PeakingKitty(
                 val height = size.height
 
                 // Head Base
-                val headRadius = height * 0.52f
+                val headRadius = height * 0.55f
                 val headCenterX = width * 0.5f
                 val headCenterY = height
 
@@ -164,58 +165,70 @@ fun PeakingKitty(
                 val rightEarTipY = height - headRadius * 1.45f + Math.abs(earRotation.value) * 0.1f
 
                 // Draw Left Ear
-                val leftEarPath = androidx.compose.ui.graphics.Path().apply {
+                val leftEarPath = Path().apply {
                     moveTo(headCenterX - headRadius * 0.85f, height - headRadius * 0.5f)
                     lineTo(leftEarTipX, leftEarTipY)
                     lineTo(headCenterX - headRadius * 0.25f, height - headRadius * 0.85f)
+                    close()
                 }
                 drawPath(leftEarPath, color = catColor)
                 drawPath(leftEarPath, color = outlineColor, style = Stroke(width = 1.5.dp.toPx()))
 
                 // Left Ear Inner
-                val leftEarInnerPath = androidx.compose.ui.graphics.Path().apply {
+                val leftEarInnerPath = Path().apply {
                     moveTo(headCenterX - headRadius * 0.75f, height - headRadius * 0.6f)
                     lineTo(leftEarTipX + 1.dp.toPx(), leftEarTipY + 2.dp.toPx())
                     lineTo(headCenterX - headRadius * 0.35f, height - headRadius * 0.8f)
+                    close()
                 }
                 drawPath(leftEarInnerPath, color = earInnerColor)
 
                 // Draw Right Ear
-                val rightEarPath = androidx.compose.ui.graphics.Path().apply {
+                val rightEarPath = Path().apply {
                     moveTo(headCenterX + headRadius * 0.25f, height - headRadius * 0.85f)
                     lineTo(rightEarTipX, rightEarTipY)
                     lineTo(headCenterX + headRadius * 0.85f, height - headRadius * 0.5f)
+                    close()
                 }
                 drawPath(rightEarPath, color = catColor)
                 drawPath(rightEarPath, color = outlineColor, style = Stroke(width = 1.5.dp.toPx()))
 
                 // Right Ear Inner
-                val rightEarInnerPath = androidx.compose.ui.graphics.Path().apply {
+                val rightEarInnerPath = Path().apply {
                     moveTo(headCenterX + headRadius * 0.35f, height - headRadius * 0.8f)
                     lineTo(rightEarTipX - 1.dp.toPx(), rightEarTipY + 2.dp.toPx())
                     lineTo(headCenterX + headRadius * 0.75f, height - headRadius * 0.6f)
+                    close()
                 }
                 drawPath(rightEarInnerPath, color = earInnerColor)
 
-                // Head Circle
-                drawCircle(
+                // Head Circle (drawn as a semi-circle from 180 degrees to 360/0 degrees)
+                drawArc(
                     color = catColor,
-                    radius = headRadius,
-                    center = Offset(headCenterX, headCenterY)
+                    startAngle = 180f,
+                    sweepAngle = 180f,
+                    useCenter = true,
+                    topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
+                    size = Size(headRadius * 2, headRadius * 2)
                 )
-                drawCircle(
+                // Head outline (only the top curve, so it blends into the bottom edge)
+                drawArc(
                     color = outlineColor,
-                    radius = headRadius,
-                    center = Offset(headCenterX, headCenterY),
+                    startAngle = 180f,
+                    sweepAngle = 180f,
+                    useCenter = false,
+                    topLeft = Offset(headCenterX - headRadius, headCenterY - headRadius),
+                    size = Size(headRadius * 2, headRadius * 2),
                     style = Stroke(width = 1.5.dp.toPx())
                 )
 
                 // Face coordinates
-                val eyeY = height - headRadius * 0.55f
-                val leftEyeX = headCenterX - headRadius * 0.36f
-                val rightEyeX = headCenterX + headRadius * 0.36f
+                val eyeY = height - headRadius * 0.45f
+                val leftEyeX = headCenterX - headRadius * 0.35f
+                val rightEyeX = headCenterX + headRadius * 0.35f
                 val eyeWidth = headRadius * 0.16f
                 val eyeHeight = headRadius * 0.24f
+                val eyeRadius = 3.dp.toPx()
 
                 // Eyes: Open (anime style with shines) or Blink
                 if (blinkProgress > 0.94f) {
@@ -267,72 +280,95 @@ fun PeakingKitty(
                     )
                 }
 
-                // Cute Nose (pink triangle)
-                val noseY = height - headRadius * 0.38f
-                val noseWidth = headRadius * 0.14f
-                val noseHeight = headRadius * 0.08f
-                val nosePath = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(headCenterX, noseY + noseHeight / 2)
-                    lineTo(headCenterX - noseWidth / 2, noseY - noseHeight / 2)
-                    lineTo(headCenterX + noseWidth / 2, noseY - noseHeight / 2)
+                // Draw Blush (two pink circles under eyes)
+                drawCircle(
+                    color = earInnerColor.copy(alpha = 0.6f),
+                    radius = eyeRadius * 1.5f,
+                    center = Offset(leftEyeX - 2.dp.toPx(), eyeY + 4.dp.toPx())
+                )
+                drawCircle(
+                    color = earInnerColor.copy(alpha = 0.6f),
+                    radius = eyeRadius * 1.5f,
+                    center = Offset(rightEyeX + 2.dp.toPx(), eyeY + 4.dp.toPx())
+                )
+
+                // Draw Nose (small pink triangle)
+                val nosePath = Path().apply {
+                    moveTo(headCenterX - 2.dp.toPx(), headCenterY - headRadius * 0.3f)
+                    lineTo(headCenterX + 2.dp.toPx(), headCenterY - headRadius * 0.3f)
+                    lineTo(headCenterX, headCenterY - headRadius * 0.23f)
                     close()
                 }
-                drawPath(nosePath, color = Color(0xFFFFB7C5))
+                drawPath(nosePath, color = earInnerColor)
                 drawPath(nosePath, color = outlineColor, style = Stroke(width = 1.dp.toPx()))
 
-                // Mouth (W curve shape)
-                val mouthY = height - headRadius * 0.30f
-                val mouthRadius = headRadius * 0.10f
-                drawArc(
+                // Draw Mouth (two small curves w using quadraticTo)
+                val mouthY = headCenterY - headRadius * 0.2f
+                val mouthPath = Path().apply {
+                    moveTo(headCenterX - 4.dp.toPx(), mouthY)
+                    quadraticTo(headCenterX - 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX, mouthY)
+                    quadraticTo(headCenterX + 2.dp.toPx(), mouthY + 2.dp.toPx(), headCenterX + 4.dp.toPx(), mouthY)
+                }
+                drawPath(mouthPath, color = outlineColor, style = Stroke(width = 1.5.dp.toPx()))
+
+                // Draw Whiskers (two lines on each side)
+                drawLine(
                     color = outlineColor,
-                    startAngle = 0f,
-                    sweepAngle = 180f,
-                    useCenter = false,
-                    topLeft = Offset(headCenterX - mouthRadius, mouthY),
-                    size = Size(mouthRadius, mouthRadius),
-                    style = Stroke(width = 1.5.dp.toPx())
+                    start = Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.25f),
+                    end = Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.3f),
+                    strokeWidth = 1.5.dp.toPx()
                 )
-                drawArc(
+                drawLine(
                     color = outlineColor,
-                    startAngle = 0f,
-                    sweepAngle = 180f,
-                    useCenter = false,
-                    topLeft = Offset(headCenterX, mouthY),
-                    size = Size(mouthRadius, mouthRadius),
-                    style = Stroke(width = 1.5.dp.toPx())
+                    start = Offset(headCenterX - headRadius * 0.6f, headCenterY - headRadius * 0.15f),
+                    end = Offset(headCenterX - headRadius * 1.1f, headCenterY - headRadius * 0.15f),
+                    strokeWidth = 1.5.dp.toPx()
                 )
 
-                // Paws (at the bottom, peeking over edge)
-                val pawWidth = width * 0.16f
-                val pawHeight = height * 0.22f
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.25f),
+                    end = Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.3f),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(headCenterX + headRadius * 0.6f, headCenterY - headRadius * 0.15f),
+                    end = Offset(headCenterX + headRadius * 1.1f, headCenterY - headRadius * 0.15f),
+                    strokeWidth = 1.5.dp.toPx()
+                )
+
+                // Draw Paws (at the bottom, peeking over edge)
+                val pawWidth = 8.dp.toPx()
+                val pawHeight = 6.dp.toPx()
 
                 // Left Paw
                 drawRoundRect(
                     color = catColor,
-                    topLeft = Offset(headCenterX - headRadius * 0.68f, height - pawHeight * 0.7f),
-                    size = Size(pawWidth, pawHeight * 1.4f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight * 0.7f)
+                    topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
+                    size = Size(pawWidth, pawHeight * 2),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
                 )
                 drawRoundRect(
                     color = outlineColor,
-                    topLeft = Offset(headCenterX - headRadius * 0.68f, height - pawHeight * 0.7f),
-                    size = Size(pawWidth, pawHeight * 1.4f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight * 0.7f),
+                    topLeft = Offset(headCenterX - headRadius * 0.7f, headCenterY - pawHeight),
+                    size = Size(pawWidth, pawHeight * 2),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
                     style = Stroke(width = 1.5.dp.toPx())
                 )
 
                 // Right Paw
                 drawRoundRect(
                     color = catColor,
-                    topLeft = Offset(headCenterX + headRadius * 0.68f - pawWidth, height - pawHeight * 0.7f),
-                    size = Size(pawWidth, pawHeight * 1.4f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight * 0.7f)
+                    topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
+                    size = Size(pawWidth, pawHeight * 2),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight)
                 )
                 drawRoundRect(
                     color = outlineColor,
-                    topLeft = Offset(headCenterX + headRadius * 0.68f - pawWidth, height - pawHeight * 0.7f),
-                    size = Size(pawWidth, pawHeight * 1.4f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight * 0.7f),
+                    topLeft = Offset(headCenterX + headRadius * 0.7f - pawWidth, headCenterY - pawHeight),
+                    size = Size(pawWidth, pawHeight * 2),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(pawWidth / 2, pawHeight),
                     style = Stroke(width = 1.5.dp.toPx())
                 )
             }
@@ -349,15 +385,15 @@ fun PawPrint(
         val width = size.width
         val height = size.height
 
-        val padRadius = width * 0.25f
-        val padCenterX = width * 0.5f
+        val padRadius = width * 0.28f
+        val padCenterX = width / 2f
         val padCenterY = height * 0.6f
 
         // Main pad
         drawCircle(color = color, radius = padRadius, center = Offset(padCenterX, padCenterY))
 
         // 4 toes
-        val toeRadius = padRadius * 0.35f
+        val toeRadius = width * 0.12f
         // Leftmost toe
         drawCircle(color = color, radius = toeRadius, center = Offset(padCenterX - padRadius * 1.2f, padCenterY - padRadius * 0.8f))
         // Middle left toe

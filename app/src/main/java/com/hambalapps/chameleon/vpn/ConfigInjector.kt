@@ -46,7 +46,8 @@ data class InjectorSettings(
     val enableMtProxy: Boolean = false,
     val mtProxyPort: String = "19999",
     val mtProxySecret: String = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
-    val localProxyOnly: Boolean = false
+    val localProxyOnly: Boolean = false,
+    val enableDebugLogging: Boolean = false
 )
 
 object ConfigInjector {
@@ -124,7 +125,7 @@ object ConfigInjector {
                 if (logFile.exists()) logFile.delete()
             } catch (e: Exception) {}
             val logObj = configJson.optJSONObject("log") ?: JSONObject().also { configJson.put("log", it) }
-            logObj.put("level", "debug")
+            logObj.put("level", if (settings.enableDebugLogging) "debug" else "info")
             logObj.put("output", logFile.absolutePath)
             logObj.put("timestamp", true)
 
@@ -1017,7 +1018,7 @@ object ConfigInjector {
     private fun buildDefaultSkeleton(settings: InjectorSettings): JSONObject {
         return JSONObject().apply {
             put("log", JSONObject().apply {
-                put("level", "debug")
+                put("level", if (settings.enableDebugLogging) "debug" else "info")
                 put("timestamp", true)
             })
             put("outbounds", JSONArray().apply {

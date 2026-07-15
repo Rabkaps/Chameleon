@@ -114,6 +114,8 @@
     <string name="guide_tap_here">Not showing up? Tap here to view the guide.</string>
     <string name="adv_mode">Advanced Mode</string>
     <string name="adv_mode_desc">Unlock protocol parameters</string>
+    <string name="enable_debug_logging">Enable Debug Logging</string>
+    <string name="enable_debug_logging_desc">Generate verbose sing-box core debug logs. Warning: may increase CPU and battery usage.</string>
     <string name="secure_dns_doh">Secure DNS (DoH)</string>
     <string name="tun_network_stack">TUN Network Stack</string>
     <string name="tls_fragmentation">TLS Fragmentation</string>

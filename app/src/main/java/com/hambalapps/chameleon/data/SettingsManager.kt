@@ -14,6 +14,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class SettingsManager(private val context: Context) {
     companion object {
         val IS_ADVANCED_MODE = booleanPreferencesKey("is_advanced_mode")
+        val ENABLE_DEBUG_LOGGING = booleanPreferencesKey("enable_debug_logging")
         val BYPASS_IRAN = booleanPreferencesKey("bypass_iran")
         val SECURE_DNS = stringPreferencesKey("secure_dns")
         val TUN_STACK = stringPreferencesKey("tun_stack")
@@ -70,6 +71,7 @@ class SettingsManager(private val context: Context) {
 
         val defaultSettings = UserSettings(
             isAdvancedMode = false,
+            enableDebugLogging = false,
             bypassIran = true,
             secureDns = "https://1.1.1.1/dns-query",
             tunStack = "mixed",
@@ -142,6 +144,7 @@ class SettingsManager(private val context: Context) {
 
         UserSettings(
             isAdvancedMode = prefs[IS_ADVANCED_MODE] ?: false,
+            enableDebugLogging = prefs[ENABLE_DEBUG_LOGGING] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
             secureDns = prefs[SECURE_DNS] ?: "https://1.1.1.1/dns-query",
             tunStack = prefs[TUN_STACK] ?: "mixed",
@@ -198,6 +201,7 @@ class SettingsManager(private val context: Context) {
     }.distinctUntilChanged()
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }.distinctUntilChanged()
+    val enableDebugLogging: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_DEBUG_LOGGING] ?: false }.distinctUntilChanged()
     val enableMtProxy: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MTPROXY] ?: false }.distinctUntilChanged()
     val mtProxyPort: Flow<String> = context.dataStore.data.map { it[MTPROXY_PORT] ?: "19999" }.distinctUntilChanged()
     val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574" }.distinctUntilChanged()
@@ -244,6 +248,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setRootMode(value: Boolean) { context.dataStore.edit { it[ROOT_MODE] = value } }
 
     suspend fun setAdvancedMode(value: Boolean) { context.dataStore.edit { it[IS_ADVANCED_MODE] = value } }
+    suspend fun setEnableDebugLogging(value: Boolean) { context.dataStore.edit { it[ENABLE_DEBUG_LOGGING] = value } }
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
     suspend fun setSecureDns(value: String) { context.dataStore.edit { it[SECURE_DNS] = value } }
     suspend fun setTunStack(value: String) { context.dataStore.edit { it[TUN_STACK] = value } }
@@ -331,6 +336,7 @@ class SettingsManager(private val context: Context) {
 
 data class UserSettings(
     val isAdvancedMode: Boolean,
+    val enableDebugLogging: Boolean,
     val bypassIran: Boolean,
     val secureDns: String,
     val tunStack: String,

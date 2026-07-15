@@ -19,6 +19,15 @@ object ConfigInjector {
             val trimmedProfile = rawProfile.trim()
             val configJson = if (trimmedProfile.startsWith("{")) {
                 JSONObject(rawProfile)
+            } else if (trimmedProfile.startsWith("chain://")) {
+                val chainId = trimmedProfile.substringAfter("chain://").substringBefore("#")
+                val chains = com.hambalapps.chameleon.desktop.data.deserializeProxyChains(settings.proxyChains)
+                val chainItem = chains.find { it.id == chainId }
+                if (chainItem != null) {
+                    buildConfigFromChain(chainItem, settings)
+                } else {
+                    buildDefaultSkeleton(settings)
+                }
             } else if (trimmedProfile.startsWith("vless://") ||
                 trimmedProfile.startsWith("trojan://") ||
                 trimmedProfile.startsWith("ss://") ||
@@ -371,6 +380,22 @@ object ConfigInjector {
             newRules.put(bypassIpsRule)
         }
 
+        if (settings.splitTunnelingEnabled && settings.splitTunnelingApps.isNotEmpty()) {
+            if (settings.splitTunnelingMode == "bypass") {
+                val bypassRule = JSONObject().apply {
+                    put("process_name", JSONArray(settings.splitTunnelingApps.toList()))
+                    put("outbound", "direct")
+                }
+                newRules.put(bypassRule)
+            } else if (settings.splitTunnelingMode == "only_route" || settings.splitTunnelingMode == "proxy") {
+                val proxyRule = JSONObject().apply {
+                    put("process_name", JSONArray(settings.splitTunnelingApps.toList()))
+                    put("outbound", "proxy")
+                }
+                newRules.put(proxyRule)
+            }
+        }
+
         if (settings.bypassIran) {
             // Inject or update local rule sets declaration
             val ruleSetArray = JSONArray().apply {
@@ -409,6 +434,15 @@ object ConfigInjector {
                 put("outbound", "direct")
             }
             newRules.put(irSuffix)
+        }
+
+        // If split tunneling is set to only route specific apps, everything else must bypass (direct)
+        if (settings.splitTunnelingEnabled && settings.splitTunnelingApps.isNotEmpty() && 
+            (settings.splitTunnelingMode == "only_route" || settings.splitTunnelingMode == "proxy")) {
+            val catchAllDirectRule = JSONObject().apply {
+                put("outbound", "direct")
+            }
+            newRules.put(catchAllDirectRule)
         }
 
         route.put("rules", newRules)
@@ -1012,5 +1046,382 @@ object ConfigInjector {
             return parts.all { it.toIntOrNull() in 0..255 }
         }
         return host.contains(":")
+    }
+
+    private fun buildConfigFromChain(chainItem: com.hambalapps.chameleon.desktop.data.ProxyChain, settings: UserSettings): JSONObject {
+        val config = buildDefaultSkeleton(settings)
+        val outbounds = config.getJSONArray("outbounds")
+        try {
+            val exitOutbound = parseOutboundFromUri(chainItem.exitLink, "proxy", settings)
+            exitOutbound.put("detour", "relay-out")
+            val relayOutbound = parseOutboundFromUri(chainItem.relayLink, "relay-out", settings)
+
+            // Prevent uTLS fingerprint collision
+            val exitTls = exitOutbound.optJSONObject("tls")
+            val relayTls = relayOutbound.optJSONObject("tls")
+            if (exitTls != null && relayTls != null) {
+                val exitUtls = exitTls.optJSONObject("utls")
+                val relayUtls = relayTls.optJSONObject("utls")
+                if (exitUtls != null && relayUtls != null) {
+                    val exitFp = exitUtls.optString("fingerprint", "chrome")
+                    val relayFp = relayUtls.optString("fingerprint", "chrome")
+                    if (exitFp == relayFp) {
+                        val newFp = if (exitFp == "chrome") "firefox" else "chrome"
+                        relayUtls.put("fingerprint", newFp)
+                    }
+                }
+            }
+
+            outbounds.put(0, exitOutbound)
+            outbounds.put(relayOutbound)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return config
+    }
+
+    fun parseOutboundFromUri(uriStr: String, targetTag: String, settings: UserSettings): JSONObject {
+        val outbound = JSONObject()
+        outbound.put("tag", targetTag)
+        try {
+            val trimmed = uriStr.trim()
+            val fragmentIdx = trimmed.indexOf("#")
+            
+            val rest = if (fragmentIdx >= 0) trimmed.substring(0, fragmentIdx) else trimmed
+            val schemeIdx = rest.indexOf("://")
+            if (schemeIdx < 0) return outbound
+            val scheme = rest.substring(0, schemeIdx).lowercase()
+            
+            val content = rest.substring(schemeIdx + 3)
+            val queryIdx = content.indexOf("?")
+            val mainPart = if (queryIdx >= 0) content.substring(0, queryIdx) else content
+            val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
+            
+            val atIdx = mainPart.indexOf("@")
+            val userInfo = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
+            
+            val colonIdx = serverPart.lastIndexOf(":")
+            val host = if (colonIdx >= 0) serverPart.substring(0, colonIdx) else serverPart
+            val portStr = if (colonIdx >= 0) serverPart.substring(colonIdx + 1) else "443"
+            val port = portStr.toIntOrNull() ?: 443
+            
+            val queryParams = parseQueryParams(queryPart)
+
+            if (scheme == "vless") {
+                outbound.put("type", "vless")
+                outbound.put("uuid", userInfo)
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                outbound.put("packet_encoding", "xudp")
+
+                val security = queryParams["security"]?.lowercase()
+                val isReality = security == "reality"
+
+                val type = queryParams["type"]
+                val headerType = queryParams["headerType"] ?: queryParams["header_type"]
+                val isStandardTcp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType != "http"
+                if (isStandardTcp) {
+                    val flow = queryParams["flow"]
+                    if (flow != null && flow.isNotEmpty() && flow != "none") {
+                        outbound.put("flow", flow)
+                    }
+                }
+
+                val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+                if (hasTls) {
+                    val tls = JSONObject()
+                    tls.put("enabled", true)
+                    
+                    val sni = queryParams["sni"] ?: queryParams["host"]
+                    if (sni != null && sni.isNotEmpty()) {
+                        tls.put("server_name", sni)
+                    }
+
+                    if (isReality || queryParams.containsKey("fp")) {
+                        val utls = JSONObject()
+                        utls.put("enabled", true)
+                        val fingerprint = queryParams["fp"] ?: "chrome"
+                        utls.put("fingerprint", fingerprint)
+                        tls.put("utls", utls)
+                    }
+
+                    if (isReality) {
+                        val reality = JSONObject()
+                        reality.put("enabled", true)
+                        queryParams["pbk"]?.let { reality.put("public_key", it) }
+                        queryParams["sid"]?.let { reality.put("short_id", it) }
+                        tls.put("reality", reality)
+                    }
+                    outbound.put("tls", tls)
+                }
+
+                injectTransport(outbound, queryParams)
+            } else if (scheme == "trojan") {
+                outbound.put("type", "trojan")
+                outbound.put("password", userInfo)
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+
+                val tls = JSONObject()
+                tls.put("enabled", true)
+                queryParams["sni"]?.let { tls.put("server_name", it) }
+
+                if (queryParams.containsKey("fp")) {
+                    val utls = JSONObject()
+                    utls.put("enabled", true)
+                    val fingerprint = queryParams["fp"] ?: "chrome"
+                    utls.put("fingerprint", fingerprint)
+                    tls.put("utls", utls)
+                }
+                outbound.put("tls", tls)
+
+                injectTransport(outbound, queryParams)
+            } else if (scheme == "ss") {
+                outbound.put("type", "shadowsocks")
+                if (userInfo.isEmpty()) {
+                    val decoded = String(java.util.Base64.getUrlDecoder().decode(mainPart), StandardCharsets.UTF_8)
+                    if (decoded.contains("@")) {
+                        val parts = decoded.split("@")
+                        val creds = parts[0].split(":")
+                        outbound.put("method", creds[0])
+                        outbound.put("password", creds[1])
+                        
+                        val serverParts = parts[1].split(":")
+                        outbound.put("server", serverParts[0])
+                        outbound.put("server_port", serverParts[1].toInt())
+                    }
+                } else {
+                    val decodedCreds = if (userInfo.contains(":")) {
+                        userInfo
+                    } else {
+                        tryBase64Decode(userInfo) ?: userInfo
+                    }
+                    val creds = decodedCreds.split(":")
+                    outbound.put("method", creds[0])
+                    outbound.put("password", creds[1])
+                    outbound.put("server", host)
+                    outbound.put("server_port", port)
+                }
+            } else if (scheme == "socks" || scheme == "socks5") {
+                outbound.put("type", "socks")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                if (userInfo.isNotEmpty()) {
+                    val creds = userInfo.split(":")
+                    outbound.put("username", creds[0])
+                    if (creds.size > 1) {
+                        outbound.put("password", creds[1])
+                    }
+                }
+            } else if (scheme == "http" || scheme == "https") {
+                outbound.put("type", "http")
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+                if (userInfo.isNotEmpty()) {
+                    val creds = userInfo.split(":")
+                    outbound.put("username", creds[0])
+                    if (creds.size > 1) {
+                        outbound.put("password", creds[1])
+                    }
+                }
+                if (scheme == "https") {
+                    val tls = JSONObject().apply {
+                        put("enabled", true)
+                        queryParams["sni"]?.let { put("server_name", it) } ?: put("server_name", host)
+                    }
+                    outbound.put("tls", tls)
+                }
+            } else if (scheme == "vmess") {
+                val decoded = tryBase64Decode(mainPart)
+                if (decoded != null && decoded.startsWith("{")) {
+                    val vmessJson = JSONObject(decoded)
+                    val add = vmessJson.optString("add")
+                    val portVal = vmessJson.opt("port")
+                    val portNum = when (portVal) {
+                        is Number -> portVal.toInt()
+                        is String -> portVal.toIntOrNull() ?: 443
+                        else -> 443
+                    }
+                    val id = vmessJson.optString("id")
+                    val aidVal = vmessJson.opt("aid")
+                    val aid = when (aidVal) {
+                        is Number -> aidVal.toInt()
+                        is String -> aidVal.toIntOrNull() ?: 0
+                        else -> 0
+                    }
+                    val scy = vmessJson.optString("scy", "auto")
+                    val net = vmessJson.optString("net").lowercase()
+                    val h = vmessJson.optString("host")
+                    val path = vmessJson.optString("path")
+                    val tlsVal = vmessJson.optString("tls").lowercase()
+                    val sni = vmessJson.optString("sni")
+
+                    outbound.put("type", "vmess")
+                    outbound.put("server", add)
+                    outbound.put("server_port", portNum)
+                    outbound.put("uuid", id)
+                    outbound.put("security", if (scy.isEmpty()) "auto" else scy)
+                    outbound.put("alter_id", aid)
+                    outbound.put("packet_encoding", "xudp")
+
+                    val hasTls = tlsVal == "tls" || tlsVal == "true" || tlsVal == "1" || sni.isNotEmpty()
+                    if (hasTls) {
+                        val tls = JSONObject()
+                        tls.put("enabled", true)
+                        if (sni.isNotEmpty()) {
+                            tls.put("server_name", sni)
+                        } else if (h.isNotEmpty() && net != "tcp") {
+                            tls.put("server_name", h)
+                        }
+
+                        val utls = JSONObject()
+                        utls.put("enabled", true)
+                        utls.put("fingerprint", "chrome")
+                        tls.put("utls", utls)
+
+                        val alpnVal = vmessJson.optString("alpn")
+                        if (alpnVal.isNotEmpty()) {
+                            val alpnList = alpnVal.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            if (alpnList.isNotEmpty()) {
+                                tls.put("alpn", JSONArray(alpnList))
+                            }
+                        }
+                        outbound.put("tls", tls)
+                    }
+
+                    if (net == "ws" || net == "grpc" || net == "httpupgrade" || net == "kcp" || net == "mkcp" || net == "h2" || net == "http") {
+                        val transport = JSONObject()
+                        val transType = if (net == "h2") "http" else net
+                        transport.put("type", transType)
+
+                        if (net == "ws") {
+                            transport.put("path", if (path.startsWith("/")) path else "/$path")
+                            if (h.isNotEmpty()) {
+                                val headers = JSONObject()
+                                headers.put("Host", h)
+                                transport.put("headers", headers)
+                            }
+                        } else if (net == "grpc") {
+                            transport.put("service_name", path)
+                        } else if (net == "httpupgrade" || net == "http" || net == "h2") {
+                            transport.put("path", if (path.startsWith("/")) path else "/$path")
+                            if (h.isNotEmpty()) {
+                                transport.put("host", h)
+                                val headers = JSONObject()
+                                headers.put("Host", h)
+                                transport.put("headers", headers)
+                            }
+                        }
+                        outbound.put("transport", transport)
+                    }
+                } else {
+                    outbound.put("type", "vmess")
+                    outbound.put("uuid", userInfo)
+                    outbound.put("server", host)
+                    outbound.put("server_port", port)
+                    outbound.put("security", queryParams["scy"] ?: "auto")
+                    outbound.put("alter_id", queryParams["aid"]?.toIntOrNull() ?: 0)
+                    outbound.put("packet_encoding", "xudp")
+
+                    val security = queryParams["security"]?.lowercase()
+                    val hasTls = security == "tls" || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+                    if (hasTls) {
+                        val tls = JSONObject()
+                        tls.put("enabled", true)
+                        queryParams["sni"]?.let { tls.put("server_name", it) }
+                        val utls = JSONObject().apply {
+                            put("enabled", true)
+                            put("fingerprint", queryParams["fp"] ?: "chrome")
+                        }
+                        tls.put("utls", utls)
+                        outbound.put("tls", tls)
+                    }
+                    injectTransport(outbound, queryParams)
+                }
+            } else if (scheme == "hysteria2" || scheme == "hy2") {
+                outbound.put("type", "hysteria2")
+                outbound.put("password", userInfo)
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+
+                val tls = JSONObject()
+                tls.put("enabled", true)
+
+                val sni = queryParams["sni"] ?: queryParams["peer"] ?: host
+                if (sni.isNotEmpty()) {
+                    tls.put("server_name", sni)
+                }
+
+                val insecure = queryParams["insecure"] == "1" || queryParams["insecure"] == "true" || queryParams["allowInsecure"] == "1" || queryParams["allowInsecure"] == "true"
+                tls.put("insecure", insecure)
+
+                val alpnVal = queryParams["alpn"]
+                if (alpnVal != null && alpnVal.isNotEmpty()) {
+                    val alpnList = alpnVal.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    tls.put("alpn", JSONArray(alpnList))
+                }
+
+                val pinSha256 = queryParams["pinSHA256"] ?: queryParams["pin_sha256"]
+                if (pinSha256 != null && pinSha256.isNotEmpty()) {
+                    tls.put("pin_sha256", JSONArray(listOf(pinSha256)))
+                }
+
+                outbound.put("tls", tls)
+
+                val upStr = queryParams["up"] ?: queryParams["up_mbps"]
+                if (upStr != null && upStr.isNotEmpty()) {
+                    val upClean = upStr.filter { it.isDigit() }.toIntOrNull()
+                    if (upClean != null) {
+                        outbound.put("up_mbps", upClean)
+                    }
+                }
+                val downStr = queryParams["down"] ?: queryParams["down_mbps"]
+                if (downStr != null && downStr.isNotEmpty()) {
+                    val downClean = downStr.filter { it.isDigit() }.toIntOrNull()
+                    if (downClean != null) {
+                        outbound.put("down_mbps", downClean)
+                    }
+                }
+            } else if (scheme == "tuic") {
+                outbound.put("type", "tuic")
+                if (userInfo.contains(":")) {
+                    val parts = userInfo.split(":")
+                    outbound.put("uuid", parts[0])
+                    outbound.put("password", parts[1])
+                } else {
+                    outbound.put("uuid", userInfo)
+                }
+                outbound.put("server", host)
+                outbound.put("server_port", port)
+
+                val tls = JSONObject()
+                tls.put("enabled", true)
+
+                val sni = queryParams["sni"] ?: queryParams["peer"] ?: host
+                if (sni.isNotEmpty()) {
+                    tls.put("server_name", sni)
+                }
+
+                val insecure = queryParams["insecure"] == "1" || queryParams["insecure"] == "true" || queryParams["allowInsecure"] == "1" || queryParams["allowInsecure"] == "true"
+                tls.put("insecure", insecure)
+
+                val alpnVal = queryParams["alpn"]
+                if (alpnVal != null && alpnVal.isNotEmpty()) {
+                    val alpnList = alpnVal.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                    tls.put("alpn", JSONArray(alpnList))
+                }
+                outbound.put("tls", tls)
+
+                val congestionControl = queryParams["congestion_control"] ?: queryParams["congestionControl"] ?: "bbr"
+                outbound.put("congestion_control", congestionControl)
+                
+                val udpRelayMode = queryParams["udp_relay_mode"] ?: queryParams["udpRelayMode"] ?: "native"
+                outbound.put("udp_relay_mode", udpRelayMode)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return outbound
     }
 }
