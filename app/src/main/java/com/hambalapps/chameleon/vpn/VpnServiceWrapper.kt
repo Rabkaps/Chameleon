@@ -1451,25 +1451,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     override fun getInterfaces(): NetworkInterfaceIterator? {
         val list = mutableListOf<io.nekohasekai.libbox.NetworkInterface>()
-        val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         
         try {
-            // Pre-calculate interface metered status to avoid expensive nested binder IPCs
-            val meteredMap = mutableMapOf<String, Boolean>()
-            if (cm != null) {
-                try {
-                    val networks = cm.allNetworks
-                    for (net in networks) {
-                        val lp = cm.getLinkProperties(net)
-                        val ifName = lp?.interfaceName
-                        if (ifName != null) {
-                            val caps = cm.getNetworkCapabilities(net)
-                            val isMetered = caps?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
-                            meteredMap[ifName] = isMetered
-                        }
-                    }
-                } catch (e: Exception) {}
-            }
+            val physicalInfo = cachedPhysicalNetworkInfo
+            val physicalName = physicalInfo?.name
+            val physicalMetered = physicalInfo?.metered ?: false
 
             val enumeration = java.net.NetworkInterface.getNetworkInterfaces()
             if (enumeration != null) {
@@ -1479,7 +1465,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                         val isLoopback = try { javaIf.isLoopback } catch (e: Exception) { false }
                         if (isLoopback) continue
                         
-                        val isMetered = meteredMap[javaIf.name] ?: false
+                        val isMetered = if (javaIf.name == physicalName) physicalMetered else false
                         val libboxIf = buildLibboxInterface(javaIf, isMetered)
                         list.add(libboxIf)
                     } catch (e: Exception) {
@@ -1489,27 +1475,19 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
 
             // Always ensure the active physical network interface is in the list
-            try {
-                val physicalInfo = cachedPhysicalNetworkInfo ?: getActivePhysicalNetworkInfo(cm)
-                if (physicalInfo != null) {
-                    val alreadyInList = list.any { it.getName() == physicalInfo.name }
-                    if (!alreadyInList) {
-                        val javaIf = getNetworkInterfaceByName(physicalInfo.name)
-                        if (javaIf != null) {
-                            val libboxIf = buildLibboxInterface(javaIf, physicalInfo.metered)
-                            list.add(libboxIf)
-                        }
+            if (physicalInfo != null) {
+                val alreadyInList = list.any { it.getName() == physicalInfo.name }
+                if (!alreadyInList) {
+                    val javaIf = getNetworkInterfaceByName(physicalInfo.name)
+                    if (javaIf != null) {
+                        val libboxIf = buildLibboxInterface(javaIf, physicalInfo.metered)
+                        list.add(libboxIf)
                     }
                 }
-            } catch (e: Exception) {
-                log("Error adding active physical interface fallback: ${e.message}")
             }
         } catch (e: Exception) {
             log("Error getting network interfaces: ${e.message}")
         }
-
-        val nameList = list.map { it.getName() }
-        android.util.Log.d("Chameleon", "getInterfaces returning list: $nameList")
 
         return object : NetworkInterfaceIterator {
             private var idx = 0
