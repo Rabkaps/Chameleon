@@ -158,7 +158,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                             val options = CommandClientOptions().apply {
                                 setStatusInterval(1000)
                                 addCommand(Libbox.CommandStatus)
-                                addCommand(Libbox.CommandConnections)
                             }
                             
                             val clientHandler = object : CommandClientHandler {
@@ -172,29 +171,13 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                                 override fun writeLogs(logs: LogIterator?) {}
                                 
                                 override fun writeStatus(status: StatusMessage?) {
-                                    // Core status updates
+                                    if (status != null) {
+                                        _sessionDownBytes.value = status.downlinkTotal
+                                        _sessionUpBytes.value = status.uplinkTotal
+                                    }
                                 }
                                 
-                                override fun writeConnectionEvents(events: ConnectionEvents?) {
-                                    if (events == null) return
-                                    val iterator = events.iterator() ?: return
-                                    var hasDeltas = false
-                                    while (iterator.hasNext()) {
-                                        val event = iterator.next() ?: continue
-                                        val conn = event.connection ?: continue
-                                        val outbound = conn.outbound ?: ""
-                                        val isProxy = outbound != "direct" && outbound != "block" && !outbound.startsWith("dns")
-                                        if (isProxy) {
-                                            accumulatedProxyDown += event.downlinkDelta
-                                            accumulatedProxyUp += event.uplinkDelta
-                                            hasDeltas = true
-                                        }
-                                    }
-                                    if (hasDeltas) {
-                                        _sessionDownBytes.value = accumulatedProxyDown
-                                        _sessionUpBytes.value = accumulatedProxyUp
-                                    }
-                                }
+                                override fun writeConnectionEvents(events: ConnectionEvents?) {}
                             }
                             
                             val client = Libbox.newCommandClient(clientHandler, options)

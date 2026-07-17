@@ -43,23 +43,16 @@ fun PeakingKitty(
     val heartAlpha = remember { Animatable(0f) }
     val heartScale = remember { Animatable(0.5f) }
 
-    // Idle blinking loop (300ms blink every 5 seconds)
-    val infiniteTransition = rememberInfiniteTransition(label = "KittyBlink")
-    val blinkProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = keyframes {
-                durationMillis = 5000
-                0f at 0
-                0f at 4700
-                1f at 4850
-                0f at 5000
-            },
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "BlinkProgress"
-    )
+    // Idle blinking loop (300ms blink every 5 seconds, using a low-overhead coroutine delay to avoid continuous recompositions)
+    var isBlinking by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(4700)
+            isBlinking = true
+            kotlinx.coroutines.delay(300)
+            isBlinking = false
+        }
+    }
 
     val onClick: () -> Unit = {
         coroutineScope.launch {
@@ -231,7 +224,7 @@ fun PeakingKitty(
                 val eyeRadius = 3.dp.toPx()
 
                 // Eyes: Open (anime style with shines) or Blink
-                if (blinkProgress > 0.94f) {
+                if (isBlinking) {
                     // Draw horizontal curved lines representing a blink
                     drawArc(
                         color = outlineColor,
