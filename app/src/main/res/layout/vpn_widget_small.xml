@@ -15,12 +15,13 @@
     <LinearLayout
         android:id="@+id/widget_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
         android:orientation="horizontal"
         android:gravity="center_vertical"
+        android:layout_marginHorizontal="16dp"
         android:background="@drawable/widget_background_pill"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="8dp">
+        android:paddingHorizontal="16dp">
 
         <!-- Circular Action Toggle Button on the Left -->
         <FrameLayout
