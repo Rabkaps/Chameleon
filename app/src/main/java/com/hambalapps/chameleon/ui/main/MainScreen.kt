@@ -38,6 +38,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -101,7 +104,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.selection.SelectionContainer
 
 // Expressive shapes defining Material 3 Expressive aesthetics
-val ExpressiveCardShape = RoundedCornerShape(24.dp)
+val ExpressiveCardShape = RoundedCornerShape(28.dp)
 val ExpressiveButtonShape = RoundedCornerShape(16.dp)
 val ExpressiveChipShape = RoundedCornerShape(12.dp)
 
@@ -302,6 +305,7 @@ fun MainScreen(
                 
                 val shouldUpdate = when (interval) {
                     "startup" -> true
+                    "hourly" -> (currentTime - lastTime) >= currentSettings.autoUpdateIntervalHours * 60 * 60 * 1000L
                     "daily" -> (currentTime - lastTime) >= 24 * 60 * 60 * 1000L
                     "weekly" -> (currentTime - lastTime) >= 7 * 24 * 60 * 60 * 1000L
                     else -> false
@@ -1187,33 +1191,6 @@ fun MainScreen(
                                     )
                                 }
                             }
-                        }
-                    }
-                } else {
-                    NavigationBar(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .border(1.dp, cardBorderBrush, RoundedCornerShape(24.dp)),
-                        containerColor = androidx.compose.ui.graphics.lerp(
-                            MaterialTheme.colorScheme.surfaceContainer,
-                            MaterialTheme.colorScheme.primary,
-                            0.08f
-                        ).copy(alpha = 0.95f),
-                        tonalElevation = 8.dp
-                    ) {
-                        tabs.forEach { (tabId, label, icon) ->
-                            val pageIdx = tabs.indexOfFirst { it.first == tabId }
-                            NavigationBarItem(
-                                selected = if (pageIdx >= 0) pagerState.targetPage == pageIdx else false,
-                                onClick = { 
-                                    if (pageIdx >= 0) {
-                                        scope.launch { pagerState.animateScrollToPage(pageIdx) }
-                                    } 
-                                },
-                                icon = { Icon(icon, contentDescription = label) },
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                            )
                         }
                     }
                 }
@@ -3465,10 +3442,31 @@ fun MainScreen(
                                     .fillMaxWidth()
                                     .weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(110.dp))
                         }
                     }
                     3 -> { // Settings Tab
+                        var showAdvancedSettings by remember { mutableStateOf(false) }
+                        var localMtu by remember(settings.vpnMtu) { mutableStateOf(settings.vpnMtu.toFloat()) }
+                        val animatedMtu by animateFloatAsState(
+                            targetValue = localMtu,
+                            animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                            label = "mtuSpring"
+                        )
+                        val initialFragmentInterval = settings.fragmentInterval.toFloatOrNull() ?: 10f
+                        var localFragmentInterval by remember(settings.fragmentInterval) { mutableStateOf(initialFragmentInterval) }
+                        val animatedFragmentDelay by animateFloatAsState(
+                            targetValue = localFragmentInterval,
+                            animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                            label = "delaySpring"
+                        )
+                        var localUpdateHours by remember(settings.autoUpdateIntervalHours) { mutableStateOf(settings.autoUpdateIntervalHours.toFloat()) }
+                        val animatedUpdateHours by animateFloatAsState(
+                            targetValue = localUpdateHours,
+                            animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                            label = "hoursSpring"
+                        )
+
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -3477,6 +3475,18 @@ fun MainScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Category 1 Header: Connection & Profiles
+                            Text(
+                                text = "Connection & Profiles",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, bottom = 8.dp)
+                            )
                             
                             Card(
                                 modifier = Modifier
@@ -3488,241 +3498,196 @@ fun MainScreen(
                             ) {
                                 VibrantCardContent(settings.cardStyle) {
                                     Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.conn_settings),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.bypass_iran), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.bypass_iran_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = bypassIran, onCheckedChange = { scope.launch { settingsManager.setBypassIran(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Router, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.bypass_lan), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.bypass_lan_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = bypassLan, onCheckedChange = { scope.launch { settingsManager.setBypassLan(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text("Share VPN connection (LAN)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text("Allows other local network devices to connect via proxy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = settings.shareVpnLan, onCheckedChange = { scope.launch { settingsManager.setShareVpnLan(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                    }
-
-                                    AnimatedVisibility(visible = settings.shareVpnLan) {
-                                        Column(modifier = Modifier.fillMaxWidth()) {
-                                            Spacer(modifier = Modifier.height(12.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                                     Spacer(modifier = Modifier.width(28.dp))
-                                                     Column {
-                                                         Text("Proxy Port", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                         Text("Port for HTTP/Socks5 (1024-65535)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                     }
-                                                }
-                                                var portText by remember(settings.shareVpnPort) { mutableStateOf(settings.shareVpnPort) }
-                                                OutlinedTextField(
-                                                    value = portText,
-                                                    onValueChange = {
-                                                        portText = it
-                                                        if (it.toIntOrNull() in 1024..65535) {
-                                                            scope.launch { settingsManager.setShareVpnPort(it) }
-                                                        }
-                                                    },
-                                                    singleLine = true,
-                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                    modifier = Modifier.width(90.dp),
-                                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text("Root Mode", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text("Use root privileges for transparent proxy routing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = rootMode, onCheckedChange = { checked ->
-                                            if (checked) {
-                                                val hasRoot = try {
-                                                    val process = Runtime.getRuntime().exec("su")
-                                                    val os = process.outputStream.bufferedWriter()
-                                                    os.write("exit\n")
-                                                    os.flush()
-                                                    process.waitFor() == 0
-                                                } catch (e: Exception) {
-                                                    false
-                                                }
-                                                if (hasRoot) {
-                                                    scope.launch {
-                                                        settingsManager.setRootMode(true)
-                                                        if (vpnState == "CONNECTED") startVpnService(context)
-                                                    }
-                                                } else {
-                                                    android.widget.Toast.makeText(context, "Root access not available or denied", android.widget.Toast.LENGTH_SHORT).show()
-                                                }
-                                            } else {
-                                                scope.launch {
-                                                    settingsManager.setRootMode(false)
-                                                    if (vpnState == "CONNECTED") startVpnService(context)
-                                                }
-                                            }
-                                        })
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.live_stats), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.live_stats_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = showLiveNotification, onCheckedChange = { scope.launch { settingsManager.setShowLiveNotification(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Terminal, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.show_logs_tab), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.show_logs_tab_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Switch(checked = showLogsTab, onCheckedChange = { scope.launch { settingsManager.setShowLogsTab(it) } })
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        // Bypass Iran
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(Icons.Default.Speed, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.delay_test_url_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.delay_test_url_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text(stringResource(R.string.bypass_iran), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.bypass_iran_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
                                             }
+                                            Switch(checked = bypassIran, onCheckedChange = { scope.launch { settingsManager.setBypassIran(it); if (vpnState == "CONNECTED") startVpnService(context) } })
                                         }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            listOf(
-                                                "https://cp.cloudflare.com/generate_204" to "Cloudflare",
-                                                "https://www.google.com/generate_204" to "Google",
-                                                "https://www.gstatic.com/generate_204" to "GStatic",
-                                                "https://play.googleapis.com/generate_204" to "Google Play"
-                                            ).forEach { (urlVal, label) ->
-                                                FilterChip(
-                                                    selected = delayTestUrl == urlVal,
-                                                    onClick = { scope.launch { settingsManager.setDelayTestUrl(urlVal) } },
-                                                    label = { Text(label) },
-                                                    shape = ExpressiveButtonShape,
-                                                    modifier = Modifier.pressScaleEffect()
-                                                )
-                                            }
-                                        }
-                                    }
 
-                                    if (showLiveNotification) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = stringResource(R.string.guide_tap_here),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier
-                                                .clickable { showLivePromoGuide = true }
-                                                .padding(start = 36.dp, bottom = 8.dp)
-                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Bypass LAN
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Router, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text(stringResource(R.string.bypass_lan), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.bypass_lan_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                            Switch(checked = bypassLan, onCheckedChange = { scope.launch { settingsManager.setBypassLan(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Share VPN Connection (LAN)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text("Share VPN connection (LAN)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("Allows other local network devices to connect via proxy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                            Switch(checked = settings.shareVpnLan, onCheckedChange = { scope.launch { settingsManager.setShareVpnLan(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                        }
+
+                                        AnimatedVisibility(visible = settings.shareVpnLan) {
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                        Spacer(modifier = Modifier.width(28.dp))
+                                                        Column {
+                                                            Text("Proxy Port", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                            Text("Port for HTTP/Socks5 (1024-65535)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                    }
+                                                    var portText by remember(settings.shareVpnPort) { mutableStateOf(settings.shareVpnPort) }
+                                                    OutlinedTextField(
+                                                        value = portText,
+                                                        onValueChange = {
+                                                            portText = it
+                                                            if (it.toIntOrNull() in 1024..65535) {
+                                                                scope.launch { settingsManager.setShareVpnPort(it) }
+                                                            }
+                                                        },
+                                                        singleLine = true,
+                                                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                        modifier = Modifier.width(90.dp),
+                                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        AnimatedVisibility(visible = showAdvancedSettings) {
+                                            Column {
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                // Root Mode
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                        Spacer(modifier = Modifier.width(12.dp))
+                                                        Column {
+                                                            Text("Root Mode", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                            Text("Use root privileges for transparent proxy routing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                    }
+                                                    Switch(checked = rootMode, onCheckedChange = { checked ->
+                                                        if (checked) {
+                                                            val hasRoot = try {
+                                                                val process = Runtime.getRuntime().exec("su")
+                                                                val os = process.outputStream.bufferedWriter()
+                                                                os.write("exit\n")
+                                                                os.flush()
+                                                                process.waitFor() == 0
+                                                            } catch (e: Exception) {
+                                                                false
+                                                            }
+                                                            if (hasRoot) {
+                                                                scope.launch {
+                                                                    settingsManager.setRootMode(true)
+                                                                    if (vpnState == "CONNECTED") startVpnService(context)
+                                                                }
+                                                            } else {
+                                                                android.widget.Toast.makeText(context, "Root access not available or denied", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        } else {
+                                                            scope.launch {
+                                                                settingsManager.setRootMode(false)
+                                                                if (vpnState == "CONNECTED") startVpnService(context)
+                                                            }
+                                                        }
+                                                    })
+                                                }
+
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                // Secure DNS (DOH)
+                                                Column(modifier = Modifier.fillMaxWidth()) {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Default.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                        Spacer(modifier = Modifier.width(12.dp))
+                                                        Column {
+                                                            Text(stringResource(R.string.secure_dns_doh), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                            Text("DNS-over-HTTPS queries to prevent hijacking", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                    }
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                    OutlinedTextField(
+                                                        value = secureDns,
+                                                        onValueChange = { scope.launch { settingsManager.setSecureDns(it) } },
+                                                        label = { Text("DNS-over-HTTPS URL") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        shape = ExpressiveButtonShape
+                                                    )
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    ) {
+                                                        val presets = listOf(
+                                                            Pair("Cloudflare", "https://1.1.1.1/dns-query"),
+                                                            Pair("Google", "https://dns.google/dns-query"),
+                                                            Pair("AdGuard (AdBlock)", "https://dns.adguard-dns.com/dns-query"),
+                                                            Pair("NextDNS", "https://dns.nextdns.io")
+                                                        )
+                                                        presets.forEach { (label, urlVal) ->
+                                                            FilterChip(
+                                                                selected = secureDns == urlVal,
+                                                                onClick = { scope.launch { settingsManager.setSecureDns(urlVal) } },
+                                                                label = { Text(label) },
+                                                                shape = ExpressiveButtonShape,
+                                                                modifier = Modifier.pressScaleEffect()
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-                                }
                                 }
                             }
                             
@@ -4371,8 +4336,19 @@ fun MainScreen(
                                 }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(20.dp))
                             
-                            Spacer(modifier = Modifier.height(16.dp))
+                            // Category 4 Header: System Updates
+                            Text(
+                                text = "System Updates",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, bottom = 8.dp)
+                            )
                             
                             Card(
                                 modifier = Modifier
@@ -4384,222 +4360,332 @@ fun MainScreen(
                             ) {
                                 VibrantCardContent(settings.cardStyle) {
                                     Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Column {
+                                                    Text(stringResource(R.string.auto_update), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.auto_update_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                            }
+                                            Switch(checked = autoUpdateSubs, onCheckedChange = { scope.launch { settingsManager.setAutoUpdateSubs(it) } })
+                                        }
+                                        AnimatedVisibility(visible = autoUpdateSubs) {
                                             Column {
-                                                Text(stringResource(R.string.auto_update), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.auto_update_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                
+                                                Text("Update Frequency", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                
+                                                ConnectedButtonGroup(
+                                                    selectedIndex = when (autoUpdateInterval) {
+                                                        "startup" -> 0
+                                                        "hourly" -> 1
+                                                        "daily" -> 2
+                                                        "weekly" -> 3
+                                                        else -> 2
+                                                    },
+                                                    options = listOf("Startup", "Hourly", "Daily", "Weekly"),
+                                                    containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                    indicatorColor = standardColorScheme.primary,
+                                                    selectedTextColor = standardColorScheme.onPrimary,
+                                                    unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                    onSelect = { index ->
+                                                        val intervalKey = when (index) {
+                                                            0 -> "startup"
+                                                            1 -> "hourly"
+                                                            2 -> "daily"
+                                                            3 -> "weekly"
+                                                            else -> "daily"
+                                                        }
+                                                        scope.launch { settingsManager.setAutoUpdateInterval(intervalKey) }
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+
+                                                AnimatedVisibility(visible = autoUpdateInterval == "hourly") {
+                                                    Column {
+                                                        Spacer(modifier = Modifier.height(16.dp))
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text("Hourly Interval", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                                            Text("Every ${settings.autoUpdateIntervalHours} hour${if (settings.autoUpdateIntervalHours > 1) "s" else ""}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Slider(
+                                                            value = animatedUpdateHours,
+                                                            onValueChange = {
+                                                                localUpdateHours = it
+                                                                scope.launch { settingsManager.setAutoUpdateIntervalHours(it.toInt()) }
+                                                            },
+                                                            valueRange = 1f..24f,
+                                                            steps = 23,
+                                                            colors = SliderDefaults.colors(
+                                                                thumbColor = standardColorScheme.primary,
+                                                                activeTrackColor = standardColorScheme.primary,
+                                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                                                activeTickColor = Color.Transparent,
+                                                                inactiveTickColor = Color.Transparent
+                                                            )
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
-                                        Switch(checked = autoUpdateSubs, onCheckedChange = { scope.launch { settingsManager.setAutoUpdateSubs(it) } })
                                     }
-                                    AnimatedVisibility(
-                                         visible = autoUpdateSubs,
-                                         enter = expandVertically() + fadeIn(),
-                                         exit = shrinkVertically() + fadeOut()
-                                     ) {
-                                         Column {
-                                             Spacer(modifier = Modifier.height(12.dp))
-                                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                             Spacer(modifier = Modifier.height(8.dp))
-                                             Text(stringResource(R.string.interval), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                             Spacer(modifier = Modifier.height(6.dp))
-                                             Row(
-                                                 modifier = Modifier.fillMaxWidth(),
-                                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                             ) {
-                                                 listOf("startup" to stringResource(R.string.startup), "daily" to stringResource(R.string.daily), "weekly" to stringResource(R.string.weekly)).forEach { (intervalKey, label) ->
-                                                     FilterChip(
-                                                         selected = autoUpdateInterval == intervalKey,
-                                                         onClick = { scope.launch { settingsManager.setAutoUpdateInterval(intervalKey) } },
-                                                         label = { Text(label) },
-                                                         shape = ExpressiveChipShape
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
-                                }
                                 }
                             }
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
-                            Card(
+                            // Category 2 Header: Advanced Tweaks (with Switch!)
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(brush = primaryCardBrush, shape = ExpressiveCardShape)
-                                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-                                shape = ExpressiveCardShape,
-                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                                    .padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                VibrantCardContent(settings.cardStyle) {
-                                    Column(modifier = Modifier.animateContentSize()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Tune, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "Advanced Tweaks",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Switch(
+                                    checked = showAdvancedSettings,
+                                    onCheckedChange = { showAdvancedSettings = it }
+                                )
+                            }
+                            
+                            AnimatedVisibility(visible = showAdvancedSettings) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(brush = primaryCardBrush, shape = ExpressiveCardShape)
+                                        .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                                    shape = ExpressiveCardShape,
+                                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                                ) {
+                                    VibrantCardContent(settings.cardStyle) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            // TUN Stack selector
+                                            Text(stringResource(R.string.tun_network_stack), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            ConnectedButtonGroup(
+                                                selectedIndex = when (tunStack) {
+                                                    "mixed" -> 0
+                                                    "gvisor" -> 1
+                                                    "system" -> 2
+                                                    else -> 0
+                                                },
+                                                options = listOf("Mixed", "gVisor", "System"),
+                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                indicatorColor = standardColorScheme.primary,
+                                                selectedTextColor = standardColorScheme.onPrimary,
+                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                onSelect = { index ->
+                                                    val stackVal = when (index) {
+                                                        0 -> "mixed"
+                                                        1 -> "gvisor"
+                                                        2 -> "system"
+                                                        else -> "mixed"
+                                                    }
+                                                    scope.launch { settingsManager.setTunStack(stackVal); if (vpnState == "CONNECTED") startVpnService(context) }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // VPN MTU Slider
                                             Column {
-                                                Text(stringResource(R.string.adv_mode), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.adv_mode_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text("VPN MTU", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("${settings.vpnMtu} bytes", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Slider(
+                                                    value = animatedMtu,
+                                                    onValueChange = {
+                                                        localMtu = it
+                                                        scope.launch { settingsManager.setVpnMtu(it.toInt()) }
+                                                    },
+                                                    valueRange = 1200f..1500f,
+                                                    steps = 300,
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = standardColorScheme.primary,
+                                                        activeTrackColor = standardColorScheme.primary,
+                                                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                                        activeTickColor = Color.Transparent,
+                                                        inactiveTickColor = Color.Transparent
+                                                    )
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(12.dp))
+
+                                            // TLS Fragmentation Toggle
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.tls_fragmentation), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.tls_fragmentation_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = enableFragment, onCheckedChange = { scope.launch { settingsManager.setEnableFragment(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                            }
+
+                                            AnimatedVisibility(visible = enableFragment) {
+                                                Column(modifier = Modifier.fillMaxWidth()) {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    // Fragment Length Input
+                                                    OutlinedTextField(
+                                                        value = fragmentLength,
+                                                        onValueChange = { scope.launch { settingsManager.setFragmentLength(it) } },
+                                                        label = { Text("Fragment Packet Length (e.g. 10-20)") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        shape = ExpressiveButtonShape
+                                                    )
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    // Fragment Interval Slider
+                                                    val intervalVal = fragmentInterval.toIntOrNull() ?: 10
+                                                    Column {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween
+                                                        ) {
+                                                            Text("Fragment Delay Interval", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                                            Text("${intervalVal} ms", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Slider(
+                                                            value = animatedFragmentDelay,
+                                                            onValueChange = {
+                                                                localFragmentInterval = it
+                                                                scope.launch { settingsManager.setFragmentInterval(it.toInt().toString()) }
+                                                            },
+                                                            valueRange = 1f..100f,
+                                                            steps = 100,
+                                                            colors = SliderDefaults.colors(
+                                                                thumbColor = standardColorScheme.primary,
+                                                                activeTrackColor = standardColorScheme.primary,
+                                                                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                                                activeTickColor = Color.Transparent,
+                                                                inactiveTickColor = Color.Transparent
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // TCP Multiplexing
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.tcp_multiplexing), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.tcp_multiplexing_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = enableMux, onCheckedChange = { scope.launch { settingsManager.setEnableMux(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Enable Debug Logging
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.enable_debug_logging), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.enable_debug_logging_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = enableDebugLogging, onCheckedChange = { scope.launch { settingsManager.setEnableDebugLogging(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Reset to Defaults Button
+                                            OutlinedButton(
+                                                onClick = {
+                                                    scope.launch {
+                                                        settingsManager.setTunStack("mixed")
+                                                        settingsManager.setVpnMtu(1280)
+                                                        localMtu = 1280f
+                                                        settingsManager.setEnableFragment(false)
+                                                        settingsManager.setFragmentLength("10-20")
+                                                        settingsManager.setFragmentInterval("10")
+                                                        localFragmentInterval = 10f
+                                                        settingsManager.setEnableMux(false)
+                                                        settingsManager.setEnableDebugLogging(false)
+                                                        settingsManager.setRootMode(false)
+                                                        settingsManager.setSecureDns("https://8.8.8.8/dns-query")
+                                                        
+                                                        if (vpnState == "CONNECTED") startVpnService(context)
+                                                        
+                                                        android.widget.Toast.makeText(context, "Advanced settings reset to defaults", android.widget.Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth().pressScaleEffect(),
+                                                shape = ExpressiveButtonShape,
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                                            ) {
+                                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Reset Advanced Tweaks", fontWeight = FontWeight.Bold)
                                             }
                                         }
-                                        Switch(checked = isAdvancedMode, onCheckedChange = { scope.launch { settingsManager.setAdvancedMode(it) } })
                                     }
-                                    AnimatedVisibility(
-                                         visible = isAdvancedMode,
-                                         enter = expandVertically() + fadeIn(),
-                                         exit = shrinkVertically() + fadeOut()
-                                     ) {
-                                         Column {
-                                             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                                             Column(modifier = Modifier.padding(16.dp)) {
-                                                 OutlinedTextField(
-                                                     value = secureDns,
-                                                     onValueChange = { scope.launch { settingsManager.setSecureDns(it) } },
-                                                     label = { Text(stringResource(R.string.secure_dns_doh)) },
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     shape = ExpressiveButtonShape
-                                                 )
-                                                 
-                                                 Spacer(modifier = Modifier.height(6.dp))
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                 ) {
-                                                     val presets = listOf(
-                                                         Pair("Cloudflare", "https://1.1.1.1/dns-query"),
-                                                         Pair("Google", "https://dns.google/dns-query"),
-                                                         Pair("AdGuard (AdBlock)", "https://dns.adguard-dns.com/dns-query"),
-                                                         Pair("NextDNS", "https://dns.nextdns.io")
-                                                     )
-                                                     presets.forEach { (label, urlVal) ->
-                                                         FilterChip(
-                                                             selected = secureDns == urlVal,
-                                                             onClick = { scope.launch { settingsManager.setSecureDns(urlVal) } },
-                                                             label = { Text(label) },
-                                                             shape = ExpressiveButtonShape,
-                                                             modifier = Modifier.pressScaleEffect()
-                                                         )
-                                                     }
-                                                 }
-                                                 
-                                                 Spacer(modifier = Modifier.height(12.dp))
-                                                 
-                                                 OutlinedTextField(
-                                                     value = delayTestUrl,
-                                                     onValueChange = { scope.launch { settingsManager.setDelayTestUrl(it) } },
-                                                     label = { Text("Ping Delay Test URL") },
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     shape = ExpressiveButtonShape
-                                                 )
-                                                 
-                                                 Spacer(modifier = Modifier.height(12.dp))
-                                                 
-                                                 Text(stringResource(R.string.tun_network_stack), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                 Spacer(modifier = Modifier.height(4.dp))
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                                 ) {
-                                                     listOf("mixed", "gvisor", "system").forEach { stackOption ->
-                                                         FilterChip(
-                                                             selected = tunStack == stackOption,
-                                                             onClick = { scope.launch { settingsManager.setTunStack(stackOption); if (vpnState == "CONNECTED") startVpnService(context) } },
-                                                             label = { Text(stackOption) },
-                                                             shape = ExpressiveButtonShape
-                                                         )
-                                                     }
-                                                 }
-                                                 
-                                                 Spacer(modifier = Modifier.height(12.dp))
-                                                 
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                                     verticalAlignment = Alignment.CenterVertically
-                                                 ) {
-                                                     Column(modifier = Modifier.weight(1f)) {
-                                                         Text(stringResource(R.string.tls_fragmentation), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                         Text(stringResource(R.string.tls_fragmentation_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                     }
-                                                     Switch(checked = enableFragment, onCheckedChange = { scope.launch { settingsManager.setEnableFragment(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                                 }
-                                                 
-                                                 AnimatedVisibility(
-                                                     visible = enableFragment,
-                                                     enter = expandVertically() + fadeIn(),
-                                                     exit = shrinkVertically() + fadeOut()
-                                                 ) {
-                                                     Column {
-                                                         Spacer(modifier = Modifier.height(8.dp))
-                                                         Row(
-                                                             modifier = Modifier.fillMaxWidth(),
-                                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                                         ) {
-                                                             OutlinedTextField(
-                                                                 value = fragmentLength,
-                                                                 onValueChange = { scope.launch { settingsManager.setFragmentLength(it) } },
-                                                                 label = { Text(stringResource(R.string.length)) },
-                                                                 modifier = Modifier.weight(1f),
-                                                                 shape = ExpressiveButtonShape
-                                                             )
-                                                             OutlinedTextField(
-                                                                 value = fragmentInterval,
-                                                                 onValueChange = { scope.launch { settingsManager.setFragmentInterval(it) } },
-                                                                 label = { Text(stringResource(R.string.interval)) },
-                                                                 modifier = Modifier.weight(1f),
-                                                                 shape = ExpressiveButtonShape
-                                                             )
-                                                         }
-                                                     }
-                                                 }
-                                                 
-                                                 Spacer(modifier = Modifier.height(12.dp))
-                                                 
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                                     verticalAlignment = Alignment.CenterVertically
-                                                 ) {
-                                                     Column(modifier = Modifier.weight(1f)) {
-                                                         Text(stringResource(R.string.tcp_multiplexing), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                         Text(stringResource(R.string.tcp_multiplexing_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                     }
-                                                     Switch(checked = enableMux, onCheckedChange = { scope.launch { settingsManager.setEnableMux(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                                 }
-                                                 
-                                                 Spacer(modifier = Modifier.height(12.dp))
-                                                 
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                                     verticalAlignment = Alignment.CenterVertically
-                                                 ) {
-                                                     Column(modifier = Modifier.weight(1f)) {
-                                                         Text(stringResource(R.string.enable_debug_logging), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                         Text(stringResource(R.string.enable_debug_logging_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                     }
-                                                     Switch(checked = enableDebugLogging, onCheckedChange = { scope.launch { settingsManager.setEnableDebugLogging(it); if (vpnState == "CONNECTED") startVpnService(context) } })
-                                                 }
-                                             }
-                                         }
-                                     }
-                                }
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            // Category 3 Header: Preferences & Style
+                            Text(
+                                text = "Preferences & Style",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, bottom = 8.dp)
+                            )
                             
                             if (true) {
                                 val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
@@ -4615,129 +4701,171 @@ fun MainScreen(
                                 ) {
                                     VibrantCardContent(settings.cardStyle) {
                                         Column(modifier = Modifier.padding(16.dp)) {
-                                        // Row 1: Dark Mode Toggle
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                                Icon(
-                                                    imageVector = when (themeMode) {
-                                                        "light" -> Icons.Default.LightMode
-                                                        "dark" -> Icons.Default.DarkMode
-                                                        else -> Icons.Default.SettingsSuggest
-                                                    },
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                                Spacer(modifier = Modifier.width(12.dp))
-                                                Column {
-                                                    Text(stringResource(R.string.dark_mode_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                    Text(stringResource(R.string.dark_mode_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                                            // Live Notification Toggle
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.live_stats), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.live_stats_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = showLiveNotification, onCheckedChange = { scope.launch { settingsManager.setShowLiveNotification(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Logs Tab Toggle
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(stringResource(R.string.show_logs_tab), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text(stringResource(R.string.show_logs_tab_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = showLogsTab, onCheckedChange = { scope.launch { settingsManager.setShowLogsTab(it) } })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Ping Delay Test URL custom field
+                                            OutlinedTextField(
+                                                value = delayTestUrl,
+                                                onValueChange = { scope.launch { settingsManager.setDelayTestUrl(it) } },
+                                                label = { Text("Ping Delay Test URL") },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = ExpressiveButtonShape
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                listOf(
+                                                    "https://cp.cloudflare.com/generate_204" to "Cloudflare",
+                                                    "https://www.google.com/generate_204" to "Google",
+                                                    "https://www.gstatic.com/generate_204" to "GStatic",
+                                                    "https://play.googleapis.com/generate_204" to "Google Play"
+                                                ).forEach { (urlVal, label) ->
+                                                    FilterChip(
+                                                        selected = delayTestUrl == urlVal,
+                                                        onClick = { scope.launch { settingsManager.setDelayTestUrl(urlVal) } },
+                                                        label = { Text(label) },
+                                                        shape = ExpressiveButtonShape,
+                                                        modifier = Modifier.pressScaleEffect()
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Theme Mode Connected Button Group
+                                            Text(stringResource(R.string.dark_mode_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            ConnectedButtonGroup(
+                                                selectedIndex = when (themeMode) {
+                                                    "system" -> 0
+                                                    "light" -> 1
+                                                    "dark" -> 2
+                                                    else -> 0
+                                                },
+                                                options = listOf("System", "Light", "Dark"),
+                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                indicatorColor = standardColorScheme.primary,
+                                                selectedTextColor = standardColorScheme.onPrimary,
+                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                onSelect = { index ->
+                                                    val modeVal = when (index) {
+                                                        0 -> "system"
+                                                        1 -> "light"
+                                                        2 -> "dark"
+                                                        else -> "system"
+                                                    }
+                                                    scope.launch { settingsManager.setThemeMode(modeVal) }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Card Style Connected Button Group
+                                            Text(stringResource(R.string.style_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            ConnectedButtonGroup(
+                                                selectedIndex = when (cardStyle) {
+                                                    "glass" -> 0
+                                                    "solid" -> 1
+                                                    "vibrant" -> 2
+                                                    else -> 2
+                                                },
+                                                options = listOf("Glass", "Solid", "Vibrant"),
+                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                indicatorColor = standardColorScheme.primary,
+                                                selectedTextColor = standardColorScheme.onPrimary,
+                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                onSelect = { index ->
+                                                    val styleVal = when (index) {
+                                                        0 -> "glass"
+                                                        1 -> "solid"
+                                                        2 -> "vibrant"
+                                                        else -> "vibrant"
+                                                    }
+                                                    scope.launch { settingsManager.setCardStyle(styleVal) }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // Theme Palette Selection
+                                            Text(stringResource(R.string.app_theme), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                listOf(
+                                                    "dynamic" to R.string.theme_dynamic,
+                                                    "cherry_blossom" to R.string.theme_cherry,
+                                                    "lavender_dreams" to R.string.theme_lavender,
+                                                    "rose_gold" to R.string.theme_rosegold,
+                                                    "midnight_blue" to R.string.theme_midnight,
+                                                    "forest_green" to R.string.theme_forest,
+                                                    "sunset_orange" to R.string.theme_sunset,
+                                                    "ocean_teal" to R.string.theme_teal,
+                                                    "royal_amethyst" to R.string.theme_amethyst,
+                                                    "nordic_slate" to R.string.theme_slate
+                                                ).filter { (themeKey, _) ->
+                                                    Config.IS_SPECIAL || (themeKey != "cherry_blossom" && themeKey != "lavender_dreams" && themeKey != "rose_gold")
+                                                }.forEach { (themeKey, stringId) ->
+                                                    FilterChip(
+                                                        selected = currentTheme == themeKey,
+                                                        onClick = { scope.launch { settingsManager.setSpecialTheme(themeKey) } },
+                                                        label = { Text(stringResource(stringId)) },
+                                                        shape = ExpressiveButtonShape
+                                                    )
                                                 }
                                             }
                                         }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            listOf(
-                                                "system" to R.string.theme_mode_system,
-                                                "light" to R.string.theme_mode_light,
-                                                "dark" to R.string.theme_mode_dark
-                                            ).forEach { (modeKey, stringId) ->
-                                                FilterChip(
-                                                    selected = themeMode == modeKey,
-                                                    onClick = { scope.launch { settingsManager.setThemeMode(modeKey) } },
-                                                    label = { Text(stringResource(stringId)) },
-                                                    shape = ExpressiveButtonShape
-                                                )
-                                            }
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        // Row 2: Theme Palette Selector
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.app_theme), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.select_style), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            listOf(
-                                                "dynamic" to R.string.theme_dynamic,
-                                                "cherry_blossom" to R.string.theme_cherry,
-                                                "lavender_dreams" to R.string.theme_lavender,
-                                                "rose_gold" to R.string.theme_rosegold,
-                                                "midnight_blue" to R.string.theme_midnight,
-                                                "forest_green" to R.string.theme_forest,
-                                                "sunset_orange" to R.string.theme_sunset,
-                                                "ocean_teal" to R.string.theme_teal,
-                                                "royal_amethyst" to R.string.theme_amethyst,
-                                                "nordic_slate" to R.string.theme_slate
-                                            ).filter { (themeKey, _) ->
-                                                Config.IS_SPECIAL || (themeKey != "cherry_blossom" && themeKey != "lavender_dreams" && themeKey != "rose_gold")
-                                            }.forEach { (themeKey, stringId) ->
-                                                FilterChip(
-                                                    selected = currentTheme == themeKey,
-                                                    onClick = { scope.launch { settingsManager.setSpecialTheme(themeKey) } },
-                                                    label = { Text(stringResource(stringId)) },
-                                                    shape = ExpressiveButtonShape
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        Spacer(modifier = Modifier.height(12.dp))
-
-                                        // Row 3: Card Style Selector
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Layers, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column {
-                                                Text(stringResource(R.string.style_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(stringResource(R.string.style_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            listOf(
-                                                "glass" to R.string.style_glass,
-                                                "solid" to R.string.style_solid,
-                                                "vibrant" to R.string.style_vibrant
-                                            ).forEach { (styleKey, stringId) ->
-                                                FilterChip(
-                                                    selected = cardStyle == styleKey,
-                                                    onClick = { scope.launch { settingsManager.setCardStyle(styleKey) } },
-                                                    label = { Text(stringResource(stringId)) },
-                                                    shape = ExpressiveButtonShape
-                                                )
-                                            }
-                                        }
-                                    }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(16.dp))
                             }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
                             
                             Card(
                                 modifier = Modifier
@@ -4763,11 +4891,129 @@ fun MainScreen(
                                 }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(32.dp))
+                            Spacer(modifier = Modifier.height(110.dp))
                         }
                     }
                 }
                 }
+                }
+
+                if (!isMultiSelectMode) {
+                    val glassBorderBrush = remember(isDark) {
+                        val topColor = if (isDark) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.45f)
+                        val bottomColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.12f)
+                        Brush.verticalGradient(listOf(topColor, bottomColor))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 24.dp)
+                            .width(LocalConfiguration.current.screenWidthDp.dp * 0.68f)
+                            .height(58.dp)
+                            .shadow(elevation = 12.dp, shape = CircleShape, clip = false)
+                            .clip(CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Background layer containing blurred dynamic gradient copy in dark mode, or solid background in light mode
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (cardStyle == "glass") {
+                                        Modifier
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f))
+                                            .blur(radius = 16.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                                    } else if (isDark) {
+                                        Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    } else {
+                                        Modifier.background(MaterialTheme.colorScheme.background)
+                                    }
+                                )
+                        )
+                        
+                        // Main content container
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .border(1.dp, glassBorderBrush, CircleShape)
+                                .padding(4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                val totalWidth = maxWidth
+                                val count = tabs.size
+                                if (count > 0) {
+                                    val itemWidth = totalWidth / count
+                                    val targetOffset = itemWidth * (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                                    
+                                    val animatedOffset by animateDpAsState(
+                                        targetValue = targetOffset,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.65f, // moderate bounce
+                                            stiffness = Spring.StiffnessMediumLow
+                                        ),
+                                        label = "navIndicatorOffset"
+                                    )
+                                    
+                                    // Sliding tab background pill (solid primary!)
+                                    Box(
+                                        modifier = Modifier
+                                            .offset(x = animatedOffset)
+                                            .width(itemWidth)
+                                            .fillMaxHeight()
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                    
+                                    // Tabs Row
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        tabs.forEachIndexed { index, (tabId, label, icon) ->
+                                            val isSelected = pagerState.currentPage == index
+                                            val activeColor = MaterialTheme.colorScheme.onPrimary
+                                            val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                            val color by animateColorAsState(
+                                                targetValue = if (isSelected) activeColor else inactiveColor,
+                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                label = "navColor"
+                                            )
+                                            
+                                            Column(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clip(CircleShape)
+                                                    .clickable {
+                                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                                    }
+                                                    .pressScaleEffect(),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = icon,
+                                                    contentDescription = label,
+                                                    tint = color,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = label,
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                        fontSize = 9.sp
+                                                    ),
+                                                    color = color
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

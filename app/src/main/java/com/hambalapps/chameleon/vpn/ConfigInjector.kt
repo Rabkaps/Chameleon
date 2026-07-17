@@ -47,7 +47,8 @@ data class InjectorSettings(
     val mtProxyPort: String = "19999",
     val mtProxySecret: String = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
     val localProxyOnly: Boolean = false,
-    val enableDebugLogging: Boolean = false
+    val enableDebugLogging: Boolean = false,
+    val vpnMtu: Int = 1280
 )
 
 object ConfigInjector {
@@ -185,7 +186,7 @@ object ConfigInjector {
             put("tag", "tun-in")
             put("interface_name", "tun0")
             put("stack", if (settings.vpnMode == "gaming") "system" else (settings.run { if (tunStack.isEmpty()) "mixed" else tunStack }))
-            put("mtu", 1280) // 1280 MTU ensures compatibility and avoids packet drops on mobile/encapsulated links
+            put("mtu", settings.vpnMtu)
             put("auto_route", true)
             put("strict_route", true)
             put("address", JSONArray(listOf("172.19.0.1/30")))
@@ -382,33 +383,39 @@ object ConfigInjector {
             }
         }
 
-        // 2. Clean secure DoH fallback for the proxy outbound (placed after parsed DNS)
-        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", "https://1.1.1.1/dns-query", "proxy")
-        servers.put(fallbackSecureProxy)
-
         // 1. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
-        // 2. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
+        // 2. Clean secure DoH fallback for the proxy outbound (placed after primary secure DNS)
+        val fallbackDnsUrl = if (settings.secureDns.contains("1.1.1.1") || settings.secureDns.contains("cloudflare")) {
+            "https://8.8.8.8/dns-query" // Google DoH if primary is Cloudflare
+        } else {
+            "https://1.1.1.1/dns-query" // Cloudflare DoH otherwise
+        }
+        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", fallbackDnsUrl, "proxy")
+
+        // 3. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
         val directDnsAddr = getSystemDnsAddress(context)
 
         android.util.Log.i("Chameleon", "Direct DNS set to: $directDnsAddr")
 
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
 
-        // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
+        // 4. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
         val bootstrapServer = createDnsServer("dns-bootstrap", "https://1.1.1.1/dns-query", "direct")
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
             val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
             servers.put(secureServer)
+            servers.put(fallbackSecureProxy)
             servers.put(radarServer)
             servers.put(shecanServer)
             servers.put(directServer)
             servers.put(bootstrapServer)
         } else {
             servers.put(secureServer)
+            servers.put(fallbackSecureProxy)
             servers.put(directServer)
             servers.put(bootstrapServer)
         }
@@ -689,6 +696,24 @@ object ConfigInjector {
             newRules.put(originalRules.getJSONObject(i))
         }
 
+        // 8. Catch-all rule to route remaining traffic to the proxy endpoint if it was migrated from outbounds to endpoints
+        val endpointsList = config.optJSONArray("endpoints")
+        var hasProxyEndpoint = false
+        if (endpointsList != null) {
+            for (i in 0 until endpointsList.length()) {
+                if (endpointsList.optJSONObject(i)?.optString("tag") == "proxy") {
+                    hasProxyEndpoint = true
+                    break
+                }
+            }
+        }
+        if (hasProxyEndpoint) {
+            val catchAllRule = JSONObject().apply {
+                put("outbound", "proxy")
+            }
+            newRules.put(catchAllRule)
+        }
+
         route.put("rules", newRules)
         route.put("auto_detect_interface", true)
         route.put("override_android_vpn", !settings.rootMode)
@@ -913,7 +938,7 @@ object ConfigInjector {
                 put("type", "wireguard")
                 put("tag", "warp-endpoint")
                 put("system", false)
-                put("mtu", 1280)
+                put("mtu", settings.vpnMtu)
                 
                 val ipAddress = settings.warpIpAddress.ifEmpty { "172.16.0.2/32" }
                 val formattedIp = when {
@@ -1083,7 +1108,8 @@ object ConfigInjector {
             val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
             
             val atIdx = mainPart.indexOf("@")
-            val userInfo = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val userInfoRaw = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val userInfo = try { URLDecoder.decode(userInfoRaw.replace("+", "%2B"), "UTF-8") } catch (e: Exception) { userInfoRaw }
             val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
             
             val colonIdx = serverPart.lastIndexOf(":")
@@ -1516,7 +1542,7 @@ object ConfigInjector {
                     val peer = JSONObject().apply {
                         put("server", host)
                         put("server_port", port)
-                        put("public_key", queryParams["public_key"] ?: queryParams["pk"] ?: "")
+                        put("public_key", queryParams["public_key"] ?: queryParams["publickey"] ?: queryParams["pk"] ?: "")
                         queryParams["preshared_key"]?.let { put("pre_shared_key", it) }
                         queryParams["psk"]?.let { put("pre_shared_key", it) }
                         

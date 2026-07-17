@@ -38,6 +38,8 @@ class SettingsManager(private val context: Context) {
         val BYPASS_LAN = booleanPreferencesKey("bypass_lan")
         val AUTO_UPDATE_SUBS = booleanPreferencesKey("auto_update_subs")
         val AUTO_UPDATE_INTERVAL = stringPreferencesKey("auto_update_interval")
+        val VPN_MTU = intPreferencesKey("vpn_mtu")
+        val AUTO_UPDATE_INTERVAL_HOURS = intPreferencesKey("auto_update_interval_hours")
         val LAST_SUBS_UPDATE_TIME = longPreferencesKey("last_subs_update_time")
         val AUTO_CONNECT_SUBS = stringSetPreferencesKey("auto_connect_subs")
         val SHOW_LOGS_TAB = booleanPreferencesKey("show_logs_tab")
@@ -73,12 +75,14 @@ class SettingsManager(private val context: Context) {
             isAdvancedMode = false,
             enableDebugLogging = false,
             bypassIran = true,
-            secureDns = "https://1.1.1.1/dns-query",
+            secureDns = "https://8.8.8.8/dns-query",
             tunStack = "mixed",
             enableFragment = false,
             fragmentLength = "10-20",
             fragmentInterval = "10-20",
             enableMux = false,
+            vpnMtu = 1280,
+            autoUpdateIntervalHours = 1,
             activeProfile = "",
             subscriptionUrl = "",
             subscriptionServers = "",
@@ -146,12 +150,14 @@ class SettingsManager(private val context: Context) {
             isAdvancedMode = prefs[IS_ADVANCED_MODE] ?: false,
             enableDebugLogging = prefs[ENABLE_DEBUG_LOGGING] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
-            secureDns = prefs[SECURE_DNS] ?: "https://1.1.1.1/dns-query",
+            secureDns = prefs[SECURE_DNS] ?: "https://8.8.8.8/dns-query",
             tunStack = prefs[TUN_STACK] ?: "mixed",
             enableFragment = prefs[ENABLE_FRAGMENT] ?: false,
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10-20",
             enableMux = prefs[ENABLE_MUX] ?: false,
+            vpnMtu = prefs[VPN_MTU] ?: 1280,
+            autoUpdateIntervalHours = prefs[AUTO_UPDATE_INTERVAL_HOURS] ?: 1,
             activeProfile = prefs[ACTIVE_PROFILE] ?: "",
             subscriptionUrl = prefs[SUBSCRIPTION_URL] ?: "",
             subscriptionServers = prefs[SUBSCRIPTION_SERVERS] ?: "",
@@ -206,12 +212,14 @@ class SettingsManager(private val context: Context) {
     val mtProxyPort: Flow<String> = context.dataStore.data.map { it[MTPROXY_PORT] ?: "19999" }.distinctUntilChanged()
     val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574" }.distinctUntilChanged()
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
-    val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://1.1.1.1/dns-query" }.distinctUntilChanged()
+    val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://8.8.8.8/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: false }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
     val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
+    val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1280 }.distinctUntilChanged()
+    val autoUpdateIntervalHours: Flow<Int> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL_HOURS] ?: 1 }.distinctUntilChanged()
     val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }.distinctUntilChanged()
     val subscriptionUrl: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_URL] ?: "" }.distinctUntilChanged()
     val subscriptionServers: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_SERVERS] ?: "" }.distinctUntilChanged()
@@ -256,6 +264,8 @@ class SettingsManager(private val context: Context) {
     suspend fun setFragmentLength(value: String) { context.dataStore.edit { it[FRAGMENT_LENGTH] = value } }
     suspend fun setFragmentInterval(value: String) { context.dataStore.edit { it[FRAGMENT_INTERVAL] = value } }
     suspend fun setEnableMux(value: Boolean) { context.dataStore.edit { it[ENABLE_MUX] = value } }
+    suspend fun setVpnMtu(value: Int) { context.dataStore.edit { it[VPN_MTU] = value } }
+    suspend fun setAutoUpdateIntervalHours(value: Int) { context.dataStore.edit { it[AUTO_UPDATE_INTERVAL_HOURS] = value } }
     suspend fun setActiveProfile(value: String) { context.dataStore.edit { it[ACTIVE_PROFILE] = value } }
     suspend fun setSubscriptionUrl(value: String) { context.dataStore.edit { it[SUBSCRIPTION_URL] = value } }
     suspend fun setSubscriptionServers(value: String) { context.dataStore.edit { it[SUBSCRIPTION_SERVERS] = value } }
@@ -344,6 +354,8 @@ data class UserSettings(
     val fragmentLength: String,
     val fragmentInterval: String,
     val enableMux: Boolean,
+    val vpnMtu: Int,
+    val autoUpdateIntervalHours: Int,
     val activeProfile: String,
     val subscriptionUrl: String,
     val subscriptionServers: String,

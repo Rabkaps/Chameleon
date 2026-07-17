@@ -95,6 +95,103 @@
             android:alpha="0.2"
             android:layout_marginVertical="10dp" />
 
+        <!-- Quick Select Servers Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="QUICK SELECT SERVERS"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Servers Selector Row (4 Slots) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
+
+            <!-- Server Slot 1 -->
+            <TextView
+                android:id="@+id/btn_server_1"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:background="@drawable/widget_node_badge_background"
+                android:text="Slot 1"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingHorizontal="4dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Server Slot 2 -->
+            <TextView
+                android:id="@+id/btn_server_2"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:background="@drawable/widget_node_badge_background"
+                android:text="Slot 2"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingHorizontal="4dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Server Slot 3 -->
+            <TextView
+                android:id="@+id/btn_server_3"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="2dp"
+                android:background="@drawable/widget_node_badge_background"
+                android:text="Slot 3"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingHorizontal="4dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Server Slot 4 -->
+            <TextView
+                android:id="@+id/btn_server_4"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:background="@drawable/widget_node_badge_background"
+                android:text="Slot 4"
+                android:textColor="@color/widget_text_primary"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:paddingHorizontal="4dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+
         <!-- Modes Selector Header -->
         <TextView
             android:layout_width="wrap_content"
@@ -111,7 +208,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="12dp"
             android:gravity="center_vertical">
 
             <!-- Standard Mode -->
@@ -159,83 +255,6 @@
                 android:textSize="10sp"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:clickable="true"
-                android:focusable="true" />
-
-        </LinearLayout>
-
-        <!-- Quick Select Servers Header -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="QUICK SELECT SERVERS"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="9sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.08"
-            android:layout_marginBottom="6dp" />
-
-        <!-- Servers Selector Row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <!-- Server Slot 1 -->
-            <TextView
-                android:id="@+id/btn_server_1"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/widget_node_badge_background"
-                android:text="Slot 1"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:paddingHorizontal="4dp"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <!-- Server Slot 2 -->
-            <TextView
-                android:id="@+id/btn_server_2"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginHorizontal="2dp"
-                android:background="@drawable/widget_node_badge_background"
-                android:text="Slot 2"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:paddingHorizontal="4dp"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <!-- Server Slot 3 -->
-            <TextView
-                android:id="@+id/btn_server_3"
-                android:layout_width="0dp"
-                android:layout_height="32dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/widget_node_badge_background"
-                android:text="Slot 3"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:paddingHorizontal="4dp"
                 android:clickable="true"
                 android:focusable="true" />
 

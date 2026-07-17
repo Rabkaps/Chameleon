@@ -50,11 +50,23 @@ object IpCountryResolver {
         return cache[host]
     }
 
+    private fun isPrivateIp(ip: String): Boolean {
+        if (ip.startsWith("127.") || ip.startsWith("10.") || ip.startsWith("192.168.")) return true
+        if (ip.startsWith("172.")) {
+            val parts = ip.split(".")
+            if (parts.size >= 2) {
+                val secondOctet = parts[1].toIntOrNull()
+                if (secondOctet != null && secondOctet in 16..31) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
     fun resolveCountryCode(host: String): String {
         val trimmed = host.trim()
-        if (trimmed.isEmpty() || trimmed.equals("localhost", ignoreCase = true) || 
-            trimmed.startsWith("127.") || trimmed.startsWith("10.") || 
-            trimmed.startsWith("192.168.") || trimmed.startsWith("172.")) {
+        if (trimmed.isEmpty() || trimmed.equals("localhost", ignoreCase = true) || isPrivateIp(trimmed)) {
             return "🌐"
         }
 
@@ -72,8 +84,7 @@ object IpCountryResolver {
         }
 
         // Check if the resolved IP is local/private
-        if (ipToResolve.startsWith("127.") || ipToResolve.startsWith("10.") || 
-            ipToResolve.startsWith("192.168.") || ipToResolve.startsWith("172.")) {
+        if (isPrivateIp(ipToResolve)) {
             return "🌐"
         }
 

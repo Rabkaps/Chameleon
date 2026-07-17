@@ -123,7 +123,12 @@ class VPNWidgetProvider : AppWidgetProvider() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val settingsManager = SettingsManager(context.applicationContext)
-                        settingsManager.setActiveSubId("manual")
+                        val settings = settingsManager.settings.first()
+                        val targetSub = settings.deserializedSubscriptions.find { sub ->
+                            sub.servers.split("\n").map { it.trim() }.contains(serverLink.trim())
+                        }
+                        val subId = targetSub?.id ?: "manual"
+                        settingsManager.setActiveSubId(subId)
                         settingsManager.setActiveProfile(serverLink)
                         
                         val showLiveNotification = settingsManager.showLiveNotification.first()
@@ -155,17 +160,30 @@ class VPNWidgetProvider : AppWidgetProvider() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                lastVpnState = VpnServiceWrapper.vpnState.value
                 val settingsManager = SettingsManager(context.applicationContext)
-                val activeProfile = settingsManager.activeProfile.first()
-                val currentVpnMode = settingsManager.vpnMode.first()
-                val manualServersStr = settingsManager.manualServers.first()
-                val manualList = manualServersStr.split("\n").filter { it.trim().isNotEmpty() }
+                val settings = settingsManager.settings.first()
+                val activeProfile = settings.activeProfile
+                val currentVpnMode = settings.vpnMode
                 
+                val allServers = mutableListOf<String>()
+                for (sub in settings.deserializedSubscriptions) {
+                    val serversOfSub = sub.servers.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    allServers.addAll(serversOfSub)
+                }
+
                 val stateText = when (lastVpnState) {
                     "CONNECTED" -> "SECURED"
                     "CONNECTING" -> "SHIELD ACTIVE..."
                     "DISCONNECTING" -> "DISCONNECTING..."
                     else -> "UNPROTECTED"
+                }
+
+                val smallStateText = when (lastVpnState) {
+                    "CONNECTED" -> "Protected"
+                    "CONNECTING" -> "Connecting..."
+                    "DISCONNECTING" -> "Disconnecting..."
+                    else -> "Not Protected"
                 }
 
                 val colorPrimary = resolveCustomThemeColor(context, "colorPrimary", androidx.core.content.ContextCompat.getColor(context, R.color.widget_toggle_connected))
@@ -218,11 +236,25 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT
                 }
 
-                // Toggle Intent (Broadcast receiver)
-                val toggleIntent = Intent(context, VPNWidgetProvider::class.java).apply {
-                    action = ACTION_TOGGLE
+                // Toggle Intent (direct start/stop service command)
+                val toggleIntent = Intent(context, VpnServiceWrapper::class.java).apply {
+                    action = if (lastVpnState == "CONNECTED") {
+                        VpnServiceWrapper.ACTION_STOP
+                    } else {
+                        VpnServiceWrapper.ACTION_START
+                    }
+                    putExtra("active_profile", activeProfile)
+                    putExtra("show_live_notification", settings.showLiveNotification)
                 }
-                val piToggle = PendingIntent.getBroadcast(context, 0, toggleIntent, flag)
+                val piToggle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (lastVpnState == "CONNECTED") {
+                        PendingIntent.getService(context, 0, toggleIntent, flag)
+                    } else {
+                        PendingIntent.getForegroundService(context, 0, toggleIntent, flag)
+                    }
+                } else {
+                    PendingIntent.getService(context, 0, toggleIntent, flag)
+                }
 
                 // App launch Intent (Open MainActivity)
                 val mainIntent = Intent(context, com.hambalapps.chameleon.MainActivity::class.java).apply {
@@ -237,10 +269,8 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     val viewsLarge = RemoteViews(context.packageName, R.layout.vpn_widget_large)
 
                     // 1. Bind viewsSmall
-                    viewsSmall.setTextViewText(R.id.widget_status, stateText)
+                    viewsSmall.setTextViewText(R.id.widget_status, smallStateText)
                     viewsSmall.setTextColor(R.id.widget_status, statusColor)
-                    viewsSmall.setTextViewText(R.id.widget_node_name, if (lastVpnState == "CONNECTED") nodeName else "Tap to secure")
-                    viewsSmall.setTextColor(R.id.widget_node_name, textSecondary)
                     viewsSmall.setInt(R.id.widget_container, "setBackgroundResource", bgPillDrawable)
                     setViewBackgroundTint(viewsSmall, R.id.widget_container, colorSurface)
                     
@@ -292,11 +322,22 @@ class VPNWidgetProvider : AppWidgetProvider() {
                         Triple(R.id.btn_mode_ai, "ai_bypass", 12)
                     )
                     for ((btnId, mName, pCode) in modes) {
-                        val mIntent = Intent(context, VPNWidgetProvider::class.java).apply {
-                            action = ACTION_SET_MODE
-                            putExtra(EXTRA_MODE, mName)
+                        val mIntent = if (lastVpnState == "CONNECTED") {
+                            Intent(context, VpnServiceWrapper::class.java).apply {
+                                action = VpnServiceWrapper.ACTION_SET_MODE
+                                putExtra(EXTRA_MODE, mName)
+                            }
+                        } else {
+                            Intent(context, VPNWidgetProvider::class.java).apply {
+                                action = ACTION_SET_MODE
+                                putExtra(EXTRA_MODE, mName)
+                            }
                         }
-                        val piMode = PendingIntent.getBroadcast(context, pCode, mIntent, flag)
+                        val piMode = if (lastVpnState == "CONNECTED") {
+                            PendingIntent.getService(context, pCode, mIntent, flag)
+                        } else {
+                            PendingIntent.getBroadcast(context, pCode, mIntent, flag)
+                        }
                         viewsLarge.setOnClickPendingIntent(btnId, piMode)
 
                         if (currentVpnMode == mName) {
@@ -310,20 +351,31 @@ class VPNWidgetProvider : AppWidgetProvider() {
                         }
                     }
 
-                    // Bind server slots in viewsLarge
-                    val serverBtns = listOf(R.id.btn_server_1, R.id.btn_server_2, R.id.btn_server_3)
+                    // Bind server slots in viewsLarge (4 Slots from allServers)
+                    val serverBtns = listOf(R.id.btn_server_1, R.id.btn_server_2, R.id.btn_server_3, R.id.btn_server_4)
                     for (i in serverBtns.indices) {
                         val btnId = serverBtns[i]
-                        if (i < manualList.size) {
-                            val serverLink = manualList[i]
+                        if (i < allServers.size) {
+                            val serverLink = allServers[i]
                             val sName = extractServerName(serverLink)
                             viewsLarge.setTextViewText(btnId, sName)
                             
-                            val sIntent = Intent(context, VPNWidgetProvider::class.java).apply {
-                                action = ACTION_SET_SERVER
-                                putExtra(EXTRA_SERVER_LINK, serverLink)
+                            val sIntent = if (lastVpnState == "CONNECTED") {
+                                Intent(context, VpnServiceWrapper::class.java).apply {
+                                    action = VpnServiceWrapper.ACTION_SET_SERVER
+                                    putExtra(EXTRA_SERVER_LINK, serverLink)
+                                }
+                            } else {
+                                Intent(context, VPNWidgetProvider::class.java).apply {
+                                    action = ACTION_SET_SERVER
+                                    putExtra(EXTRA_SERVER_LINK, serverLink)
+                                }
                             }
-                            val piServer = PendingIntent.getBroadcast(context, 100 + i, sIntent, flag)
+                            val piServer = if (lastVpnState == "CONNECTED") {
+                                PendingIntent.getService(context, 100 + i, sIntent, flag)
+                            } else {
+                                PendingIntent.getBroadcast(context, 100 + i, sIntent, flag)
+                            }
                             viewsLarge.setOnClickPendingIntent(btnId, piServer)
 
                             if (activeProfile == serverLink) {
@@ -352,14 +404,14 @@ class VPNWidgetProvider : AppWidgetProvider() {
                     val selectedViews = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val viewMapping = mapOf(
                             android.util.SizeF(120f, 40f) to viewsSmall,
-                            android.util.SizeF(120f, 90f) to viewsMedium,
+                            android.util.SizeF(120f, 120f) to viewsMedium,
                             android.util.SizeF(220f, 170f) to viewsLarge
                         )
                         RemoteViews(viewMapping)
                     } else {
                         if (minWidth >= 220 && minHeight >= 170) {
                             viewsLarge
-                        } else if (minHeight < 90) {
+                        } else if (minHeight < 120) {
                             viewsSmall
                         } else {
                             viewsMedium

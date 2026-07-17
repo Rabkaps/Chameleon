@@ -5,12 +5,14 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.updateTransition
@@ -37,6 +39,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.draw.blur
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.background
@@ -47,6 +50,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -159,6 +164,7 @@ fun ConnectionDashboard(
     activeCountryCode: String? = null
 ) {
     val context = LocalContext.current
+    val standardColorScheme = MaterialTheme.colorScheme
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
 
     val stateText = if (Config.IS_SPECIAL) {
@@ -428,6 +434,33 @@ fun ConnectionDashboard(
                     .fillMaxWidth()
                     .padding(vertical = paddingVertical.dp, horizontal = 16.dp)
             ) {
+                val buttonCornerRadius by animateDpAsState(
+                    targetValue = if (state == "CONNECTED") 32.dp else 58.dp,
+                    animationSpec = spring(
+                        dampingRatio = 0.55f,
+                        stiffness = Spring.StiffnessMediumLow
+                    ),
+                    label = "ButtonShapeMorph"
+                )
+                val buttonShape = RoundedCornerShape(buttonCornerRadius)
+
+                val auraScale by animateFloatAsState(
+                    targetValue = if (state == "CONNECTED") 1.25f else 0.8f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "AuraScale"
+                )
+                val auraAlpha by animateFloatAsState(
+                    targetValue = if (state == "CONNECTED") 0.25f else 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "AuraAlpha"
+                )
+
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(180.dp)
@@ -454,6 +487,19 @@ fun ConnectionDashboard(
                         )
                     }
 
+                    // Ambient glowing aura behind the button
+                    Box(
+                        modifier = Modifier
+                            .size(116.dp)
+                            .graphicsLayer {
+                                scaleX = auraScale
+                                scaleY = auraScale
+                                alpha = auraAlpha
+                            }
+                            .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                            .blur(24.dp)
+                    )
+
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -463,7 +509,7 @@ fun ConnectionDashboard(
                                 scaleY = finalScale
                             }
                             .pressScaleEffect()
-                            .clip(CircleShape)
+                            .clip(buttonShape)
                             .background(buttonColor)
                             .border(
                                 width = 4.dp,
@@ -472,7 +518,7 @@ fun ConnectionDashboard(
                                 } else {
                                     MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
                                 },
-                                shape = CircleShape
+                                shape = buttonShape
                             )
                     ) {
                         if (state == "CONNECTING") {
@@ -956,41 +1002,47 @@ fun ConnectionDashboard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SportsEsports,
-                                contentDescription = "Gaming Mode",
+                                contentDescription = "Routing Mode",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    text = "Gaming Mode",
+                                    text = "Routing Mode",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Lowest latency routing",
+                                    text = "Select active VPN tunnel routing style",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        Switch(
-                            checked = vpnMode == "gaming",
-                            onCheckedChange = { checked ->
-                                scope.launch {
-                                    if (checked) {
-                                        settingsManager.setVpnMode("gaming")
-                                    } else {
-                                        settingsManager.setVpnMode("standard")
-                                    }
-                                    if (state == "CONNECTED") {
-                                        startVpnService(context)
-                                    }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    ConnectedButtonGroup(
+                        selectedIndex = if (vpnMode == "gaming") 1 else 0,
+                        options = listOf("Standard Mode", "Gaming Mode"),
+                        containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
+                        indicatorColor = standardColorScheme.primary,
+                        selectedTextColor = standardColorScheme.onPrimary,
+                        unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        onSelect = { index ->
+                            scope.launch {
+                                val targetMode = if (index == 1) "gaming" else "standard"
+                                settingsManager.setVpnMode(targetMode)
+                                if (state == "CONNECTED") {
+                                    startVpnService(context)
                                 }
                             }
-                        )
-                    }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                     AnimatedVisibility(
                         visible = vpnMode == "gaming",
@@ -1406,3 +1458,83 @@ fun ConnectionDashboard(
         }
     }
 }
+
+@androidx.compose.runtime.Composable
+fun ConnectedButtonGroup(
+    selectedIndex: Int,
+    options: List<String>,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+    indicatorColor: Color = MaterialTheme.colorScheme.primary,
+    selectedTextColor: Color = MaterialTheme.colorScheme.onPrimary,
+    unselectedTextColor: Color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+) {
+    BoxWithConstraints(
+        modifier = modifier
+            .height(42.dp)
+            .clip(CircleShape)
+            .background(containerColor)
+            .border(1.dp, indicatorColor.copy(alpha = 0.25f), CircleShape)
+            .padding(4.dp)
+    ) {
+        val totalWidth = maxWidth
+        val count = options.size
+        if (count > 0) {
+            val itemWidth = totalWidth / count
+            val targetOffset = itemWidth * selectedIndex
+            
+            val animatedOffset by animateDpAsState(
+                targetValue = targetOffset,
+                animationSpec = spring(
+                    dampingRatio = 0.65f, // moderate bounce
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "indicatorOffset"
+            )
+            
+            // Sliding background capsule
+            Box(
+                modifier = Modifier
+                    .offset(x = animatedOffset)
+                    .width(itemWidth)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(indicatorColor)
+            )
+            
+            // Buttons Row
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                options.forEachIndexed { index, text ->
+                    val isSelected = index == selectedIndex
+                    val textColor by animateColorAsState(
+                        targetValue = if (isSelected) selectedTextColor else unselectedTextColor,
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        label = "textColor"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .clickable { onSelect(index) }
+                            .pressScaleEffect(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = textColor,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

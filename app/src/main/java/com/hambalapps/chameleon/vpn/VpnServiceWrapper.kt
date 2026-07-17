@@ -32,6 +32,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         const val ACTION_START = "com.hambalapps.chameleon.START"
         const val ACTION_START_PROXY = "com.hambalapps.chameleon.START_PROXY"
         const val ACTION_STOP = "com.hambalapps.chameleon.STOP"
+        const val ACTION_SET_MODE = "com.hambalapps.chameleon.SET_MODE"
+        const val ACTION_SET_SERVER = "com.hambalapps.chameleon.SET_SERVER"
         private const val CHANNEL_ID = "vpn_service_channel_v2"
         private const val NOTIFICATION_ID = 101
 
@@ -109,6 +111,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var logReaderJob: Job? = null
     private var trafficMonitorJob: Job? = null
+    private var commandClient: CommandClient? = null
+    private var accumulatedProxyDown = 0L
+    private var accumulatedProxyUp = 0L
     private var defaultInterfaceListener: InterfaceUpdateListener? = null
     private var defaultNetworkCallback: android.net.ConnectivityManager.NetworkCallback? = null
     private var lastSentPhysicalName: String? = null
@@ -143,26 +148,91 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 
                 if (state == "CONNECTED") {
                     trafficMonitorJob?.cancel()
+                    accumulatedProxyDown = 0L
+                    accumulatedProxyUp = 0L
+                    _sessionDownBytes.value = 0L
+                    _sessionUpBytes.value = 0L
+                    
                     trafficMonitorJob = serviceScope.launch {
-                        val uid = Process.myUid()
-                        val rxBaseline = TrafficStats.getUidRxBytes(uid)
-                        val txBaseline = TrafficStats.getUidTxBytes(uid)
-                        while (isActive) {
-                            val currentRx = TrafficStats.getUidRxBytes(uid)
-                            val currentTx = TrafficStats.getUidTxBytes(uid)
-                            val down = if (currentRx != TrafficStats.UNSUPPORTED.toLong() && rxBaseline != TrafficStats.UNSUPPORTED.toLong()) {
-                                (currentRx - rxBaseline).coerceAtLeast(0L)
-                            } else {
-                                0L
+                        try {
+                            val options = CommandClientOptions().apply {
+                                setStatusInterval(1000)
+                                addCommand(Libbox.CommandStatus)
+                                addCommand(Libbox.CommandConnections)
                             }
-                            val up = if (currentTx != TrafficStats.UNSUPPORTED.toLong() && txBaseline != TrafficStats.UNSUPPORTED.toLong()) {
-                                (currentTx - txBaseline).coerceAtLeast(0L)
-                            } else {
-                                0L
+                            
+                            val clientHandler = object : CommandClientHandler {
+                                override fun clearLogs() {}
+                                override fun connected() {}
+                                override fun disconnected(message: String?) {}
+                                override fun initializeClashMode(modes: StringIterator?, currentMode: String?) {}
+                                override fun setDefaultLogLevel(level: Int) {}
+                                override fun updateClashMode(mode: String?) {}
+                                override fun writeGroups(groups: OutboundGroupIterator?) {}
+                                override fun writeLogs(logs: LogIterator?) {}
+                                
+                                override fun writeStatus(status: StatusMessage?) {
+                                    // Core status updates
+                                }
+                                
+                                override fun writeConnectionEvents(events: ConnectionEvents?) {
+                                    if (events == null) return
+                                    val iterator = events.iterator() ?: return
+                                    var hasDeltas = false
+                                    while (iterator.hasNext()) {
+                                        val event = iterator.next() ?: continue
+                                        val conn = event.connection ?: continue
+                                        val outbound = conn.outbound ?: ""
+                                        val isProxy = outbound != "direct" && outbound != "block" && !outbound.startsWith("dns")
+                                        if (isProxy) {
+                                            accumulatedProxyDown += event.downlinkDelta
+                                            accumulatedProxyUp += event.uplinkDelta
+                                            hasDeltas = true
+                                        }
+                                    }
+                                    if (hasDeltas) {
+                                        _sessionDownBytes.value = accumulatedProxyDown
+                                        _sessionUpBytes.value = accumulatedProxyUp
+                                    }
+                                }
                             }
-                            _sessionDownBytes.value = down
-                            _sessionUpBytes.value = up
-                            delay(1000)
+                            
+                            val client = Libbox.newCommandClient(clientHandler, options)
+                            commandClient = client
+                            client.connect()
+                            
+                            // Keep coroutine alive
+                            while (isActive) {
+                                delay(1000)
+                            }
+                        } catch (e: Exception) {
+                            log("Traffic monitor client error: ${e.message}")
+                            // Fallback to TrafficStats if command client fails
+                            val uid = Process.myUid()
+                            val rxBaseline = TrafficStats.getUidRxBytes(uid)
+                            val txBaseline = TrafficStats.getUidTxBytes(uid)
+                            while (isActive) {
+                                val currentRx = TrafficStats.getUidRxBytes(uid)
+                                val currentTx = TrafficStats.getUidTxBytes(uid)
+                                val down = if (currentRx != TrafficStats.UNSUPPORTED.toLong() && rxBaseline != TrafficStats.UNSUPPORTED.toLong()) {
+                                    (currentRx - rxBaseline).coerceAtLeast(0L)
+                                } else {
+                                    0L
+                                }
+                                val up = if (currentTx != TrafficStats.UNSUPPORTED.toLong() && txBaseline != TrafficStats.UNSUPPORTED.toLong()) {
+                                    (currentTx - txBaseline).coerceAtLeast(0L)
+                                } else {
+                                    0L
+                                }
+                                _sessionDownBytes.value = down
+                                _sessionUpBytes.value = up
+                                delay(1000)
+                            }
+                        } finally {
+                            try {
+                                commandClient?.disconnect()
+                            } catch (e: Exception) {}
+                            commandClient = null
                         }
                     }
                 } else if (state == "DISCONNECTED") {
@@ -230,7 +300,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
         } else if (action == ACTION_STOP) {
             val settingsManager = SettingsManager(applicationContext)
-            val forceStop = intent?.getBooleanExtra("force_stop", false) ?: false
+            val forceStop = intent.getBooleanExtra("force_stop", false)
             val enableMtProxyVal = if (forceStop) false else kotlinx.coroutines.runBlocking { settingsManager.enableMtProxy.first() }
             if (enableMtProxyVal) {
                 log("VPN stopped, but MTProxy is enabled. Switching to Local Proxy Mode...")
@@ -240,6 +310,43 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 reloadVpnEngine()
             } else {
                 stopVpnEngine()
+            }
+        } else if (action == ACTION_SET_MODE) {
+            val mode = intent.getStringExtra("extra_mode") ?: "standard"
+            serviceScope.launch {
+                val settingsManager = SettingsManager(applicationContext)
+                settingsManager.setVpnMode(mode)
+                reloadVpnEngine()
+                
+                // Notify widget
+                val updateIntent = Intent("com.hambalapps.chameleon.widget.ACTION_STATE_CHANGED").apply {
+                    putExtra("state", _vpnState.value)
+                    setPackage(packageName)
+                }
+                sendBroadcast(updateIntent)
+            }
+        } else if (action == ACTION_SET_SERVER) {
+            val serverLink = intent.getStringExtra("extra_server_link")
+            if (serverLink != null) {
+                serviceScope.launch {
+                    val settingsManager = SettingsManager(applicationContext)
+                    val settings = settingsManager.settings.first()
+                    val targetSub = settings.deserializedSubscriptions.find { sub ->
+                        sub.servers.split("\n").map { it.trim() }.contains(serverLink.trim())
+                    }
+                    val subId = targetSub?.id ?: "manual"
+                    settingsManager.setActiveSubId(subId)
+                    settingsManager.setActiveProfile(serverLink)
+                    activeProfileVal = serverLink
+                    reloadVpnEngine()
+                    
+                    // Notify widget
+                    val updateIntent = Intent("com.hambalapps.chameleon.widget.ACTION_STATE_CHANGED").apply {
+                        putExtra("state", _vpnState.value)
+                        setPackage(packageName)
+                    }
+                    sendBroadcast(updateIntent)
+                }
             }
         }
         return START_NOT_STICKY
@@ -589,6 +696,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 splitTunnelingModeVal = settingsManager.splitTunnelingMode.first()
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
                 val enableDebugLoggingVal = settingsManager.enableDebugLogging.first()
+                val vpnMtuVal = settingsManager.vpnMtu.first()
                 rootModeVal = settingsManager.rootMode.first()
 
                 if (!rootModeVal) {
@@ -617,6 +725,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     warpClientId = warpClientIdVal,
                     vpnModeTunnelGames = vpnModeTunnelGamesVal,
                     enableDebugLogging = enableDebugLoggingVal,
+                    vpnMtu = vpnMtuVal,
                     warpDetourMode = warpDetourModeVal,
                     warpPort = warpPortVal,
                     warpPeerIp = warpPeerIpVal,
