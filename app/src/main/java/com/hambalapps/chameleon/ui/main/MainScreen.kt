@@ -2961,10 +2961,7 @@ fun MainScreen(
                                  }
 
                                 // Row with Speed Test & Fullscreen Buttons
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.End,
-                                 // Row with Speed Test, Chain & Fullscreen Buttons
+// Row with Speed Test, Chain & Fullscreen Buttons
                                  AnimatedContent(
                                      targetState = isSearchVisible,
                                      transitionSpec = {
