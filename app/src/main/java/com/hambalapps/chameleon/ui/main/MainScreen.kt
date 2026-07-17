@@ -2643,7 +2643,7 @@ fun MainScreen(
                                      Card(
                                          modifier = Modifier
                                              .weight(1f)
-                                             .height(80.dp)
+                                             .height(68.dp)
                                              .clip(RoundedCornerShape(28.dp))
                                              .clickable {
                                                  scanResultCallback = { result ->
@@ -2710,7 +2710,7 @@ fun MainScreen(
                                      Card(
                                          modifier = Modifier
                                              .weight(1f)
-                                             .height(80.dp)
+                                             .height(68.dp)
                                              .clip(RoundedCornerShape(28.dp))
                                              .clickable { showSubManagerDialog = true }
                                              .background(brush = secondaryCardBrush, shape = RoundedCornerShape(28.dp))
@@ -2754,7 +2754,7 @@ fun MainScreen(
                                      Card(
                                          modifier = Modifier
                                              .weight(1f)
-                                             .height(80.dp)
+                                             .height(68.dp)
                                              .clip(RoundedCornerShape(28.dp))
                                              .clickable { showImportDialog = true }
                                              .background(brush = primaryCardBrush, shape = RoundedCornerShape(28.dp))
@@ -2790,7 +2790,7 @@ fun MainScreen(
                                      Card(
                                          modifier = Modifier
                                              .weight(1f)
-                                             .height(80.dp)
+                                             .height(68.dp)
                                              .clip(RoundedCornerShape(28.dp))
                                              .clickable {
                                                  isSearchVisible = true
@@ -2964,71 +2964,172 @@ fun MainScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.End,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Ping/Speed test button
-                                    FilledIconButton(
-                                        onClick = {
-                                            if (!isTestingPings) {
-                                                scope.launch {
-                                                    isTestingPings = true
-                                                    val jobs = serverList.map { link ->
-                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                            val hostPort = getHostAndPortFromLink(link)
-                                                            val ping = if (hostPort != null) {
-                                                                measurePingDelay(hostPort.first, hostPort.second)
-                                                            } else {
-                                                                -1
-                                                            }
-                                                            link to ping
-                                                        }
-                                                    }
-                                                    val results = jobs.awaitAll()
-                                                    pingsMap = pingsMap + results.toMap()
-                                                    isTestingPings = false
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        shape = CircleShape,
-                                        enabled = !isTestingPings
-                                    ) {
-                                        if (isTestingPings) {
-                                            LoadingIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Speed,
-                                                contentDescription = stringResource(R.string.test_pings),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    FilledIconButton(
-                                        onClick = { isNodesExpanded = true },
-                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        ),
-                                        shape = CircleShape
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Fullscreen,
-                                            contentDescription = "Expand Card",
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
+                                 // Row with Speed Test, Chain & Fullscreen Buttons
+                                 AnimatedContent(
+                                     targetState = isSearchVisible,
+                                     transitionSpec = {
+                                         fadeIn(animationSpec = tween(200)) togetherWith
+                                         fadeOut(animationSpec = tween(150))
+                                     },
+                                     label = "SearchOrActionsTransition"
+                                 ) { searchActive ->
+                                     if (searchActive) {
+                                         Card(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .height(42.dp),
+                                             shape = RoundedCornerShape(21.dp),
+                                             colors = CardDefaults.cardColors(
+                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                             ),
+                                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                         ) {
+                                             Row(
+                                                 modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+                                                 verticalAlignment = Alignment.CenterVertically
+                                             ) {
+                                                 IconButton(
+                                                     onClick = {
+                                                         isSearchVisible = false
+                                                         searchQuery = ""
+                                                     },
+                                                     modifier = Modifier.size(32.dp)
+                                                 ) {
+                                                     Icon(
+                                                         imageVector = Icons.Default.ArrowBack,
+                                                         contentDescription = "Close Search",
+                                                         tint = MaterialTheme.colorScheme.primary,
+                                                         modifier = Modifier.size(18.dp)
+                                                     )
+                                                 }
+                                                 
+                                                 androidx.compose.foundation.text.BasicTextField(
+                                                     value = searchQuery,
+                                                     onValueChange = { searchQuery = it },
+                                                     modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                                     singleLine = true,
+                                                     textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                         color = MaterialTheme.colorScheme.onSurface
+                                                     ),
+                                                     decorationBox = { innerTextField ->
+                                                         Box(modifier = Modifier.fillMaxWidth()) {
+                                                             if (searchQuery.isEmpty()) {
+                                                                 Text(
+                                                                     text = "Search servers...",
+                                                                     style = MaterialTheme.typography.bodyMedium,
+                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                                 )
+                                                             }
+                                                             innerTextField()
+                                                         }
+                                                     }
+                                                 )
+                                                 
+                                                 if (searchQuery.isNotEmpty()) {
+                                                     IconButton(
+                                                         onClick = { searchQuery = "" },
+                                                         modifier = Modifier.size(32.dp)
+                                                     ) {
+                                                         Icon(
+                                                             imageVector = Icons.Default.Clear,
+                                                             contentDescription = "Clear",
+                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                             modifier = Modifier.size(18.dp)
+                                                         )
+                                                     }
+                                                 }
+                                             }
+                                         }
+                                     } else {
+                                         Row(
+                                             modifier = Modifier.fillMaxWidth(),
+                                             horizontalArrangement = Arrangement.End,
+                                             verticalAlignment = Alignment.CenterVertically
+                                         ) {
+                                             // Ping/Speed test button
+                                             FilledIconButton(
+                                                 onClick = {
+                                                     if (!isTestingPings) {
+                                                         scope.launch {
+                                                             isTestingPings = true
+                                                             val jobs = serverList.map { link ->
+                                                                 scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                                                                     val hostPort = getHostAndPortFromLink(link)
+                                                                     val ping = if (hostPort != null) {
+                                                                         measurePingDelay(hostPort.first, hostPort.second)
+                                                                     } else {
+                                                                         -1
+                                                                     }
+                                                                     link to ping
+                                                                 }
+                                                             }
+                                                             val results = jobs.awaitAll()
+                                                             pingsMap = pingsMap + results.toMap()
+                                                             isTestingPings = false
+                                                         }
+                                                     }
+                                                 },
+                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                 colors = IconButtonDefaults.filledIconButtonColors(
+                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                 ),
+                                                 shape = CircleShape,
+                                                 enabled = !isTestingPings
+                                             ) {
+                                                 if (isTestingPings) {
+                                                     LoadingIndicator(
+                                                         modifier = Modifier.size(16.dp),
+                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                     )
+                                                 } else {
+                                                     Icon(
+                                                         imageVector = Icons.Default.Speed,
+                                                         contentDescription = stringResource(R.string.test_pings),
+                                                         modifier = Modifier.size(16.dp)
+                                                     )
+                                                 }
+                                             }
+                                             
+                                             Spacer(modifier = Modifier.width(8.dp))
+                                             
+                                             // Chain/Proxy Chain Button next to Ping button
+                                             FilledIconButton(
+                                                 onClick = { editingNodeLink = "new_chain" },
+                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                 colors = IconButtonDefaults.filledIconButtonColors(
+                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                 ),
+                                                 shape = CircleShape
+                                             ) {
+                                                 Icon(
+                                                     imageVector = Icons.Default.Link,
+                                                     contentDescription = "Create Proxy Chain",
+                                                     modifier = Modifier.size(18.dp)
+                                                 )
+                                             }
+                                             
+                                             Spacer(modifier = Modifier.width(8.dp))
+                                             
+                                             FilledIconButton(
+                                                 onClick = { isNodesExpanded = true },
+                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                 colors = IconButtonDefaults.filledIconButtonColors(
+                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                 ),
+                                                 shape = CircleShape
+                                             ) {
+                                                 Icon(
+                                                     imageVector = Icons.Default.Fullscreen,
+                                                     contentDescription = "Expand Card",
+                                                     modifier = Modifier.size(18.dp)
+                                                 )
+                                             }
+                                         }
+                                     }
+                                 }
 
                                 // Servers List
                                 if (filteredServerList.isEmpty()) {
@@ -3288,114 +3389,7 @@ fun MainScreen(
                                 }
                             }
 
-                             AnimatedVisibility(
-                                 visible = !isSearchVisible,
-                                 enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
-                                 exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
-                                 modifier = Modifier
-                                     .align(Alignment.BottomEnd)
-                                     .padding(16.dp)
-                                     .navigationBarsPadding()
-                             ) {
-                                 androidx.compose.material3.ExtendedFloatingActionButton(
-                                     onClick = { editingNodeLink = "new_chain" },
-                                     modifier = Modifier.pressScaleEffect(),
-                                     containerColor = MaterialTheme.colorScheme.primary,
-                                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                                     shape = ExpressiveButtonShape
-                                 ) {
-                                     Icon(imageVector = Icons.Default.Link, contentDescription = null)
-                                     Spacer(modifier = Modifier.width(8.dp))
-                                     Text(stringResource(R.string.chain_str))
-                                 }
-                             }
 
-                             // One UI 8.5 Style Floating Search Bar
-                             Box(
-                                 modifier = Modifier
-                                     .align(Alignment.BottomStart)
-                                     .padding(start = 16.dp, bottom = 16.dp)
-                                     .navigationBarsPadding()
-                             ) {
-                                 AnimatedContent(
-                                     targetState = isSearchVisible,
-                                     transitionSpec = {
-                                         fadeIn(animationSpec = tween(250)) togetherWith
-                                         fadeOut(animationSpec = tween(200)) using
-                                         SizeTransform { _, _ ->
-                                             tween(250)
-                                         }
-                                     },
-                                     label = "SearchExpandAnimation"
-                                 ) { expanded ->
-                                     if (expanded) {
-                                         Card(
-                                             modifier = Modifier
-                                                 .fillMaxWidth()
-                                                 .padding(end = 16.dp)
-                                                 .height(56.dp)
-                                                 .pressScaleEffect(),
-                                             shape = RoundedCornerShape(28.dp),
-                                             colors = CardDefaults.cardColors(
-                                                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                                             ),
-                                             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                                         ) {
-                                             Row(
-                                                 modifier = Modifier
-                                                     .fillMaxSize()
-                                                     .padding(horizontal = 8.dp),
-                                                 verticalAlignment = Alignment.CenterVertically
-                                             ) {
-                                                 IconButton(onClick = {
-                                                     isSearchVisible = false
-                                                     searchQuery = ""
-                                                 }) {
-                                                     Icon(
-                                                         imageVector = Icons.Default.ArrowBack,
-                                                         contentDescription = "Collapse Search",
-                                                         tint = MaterialTheme.colorScheme.primary
-                                                     )
-                                                 }
-                                                 
-                                                 androidx.compose.foundation.text.BasicTextField(
-                                                     value = searchQuery,
-                                                     onValueChange = { searchQuery = it },
-                                                     modifier = Modifier.weight(1f),
-                                                     singleLine = true,
-                                                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                         color = MaterialTheme.colorScheme.onSurface
-                                                     ),
-                                                     decorationBox = { innerTextField ->
-                                                         Box(modifier = Modifier.fillMaxWidth()) {
-                                                             if (searchQuery.isEmpty()) {
-                                                                 Text(
-                                                                     text = "Search servers...",
-                                                                     style = MaterialTheme.typography.bodyMedium,
-                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                                 )
-                                                             }
-                                                             innerTextField()
-                                                         }
-                                                     }
-                                                 )
-                                                 
-                                                 if (searchQuery.isNotEmpty()) {
-                                                     IconButton(onClick = { searchQuery = "" }) {
-                                                         Icon(
-                                                             imageVector = Icons.Default.Clear,
-                                                             contentDescription = "Clear",
-                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                                         )
-                                                     }
-                                                 }
-                                             }
-                                         }
-                                     } else {
-                                         Spacer(modifier = Modifier.size(0.dp))
-                                     }
-                                 }
-                             }
 
                                if (showSubManagerDialog) {
                                     androidx.compose.ui.window.Dialog(onDismissRequest = { showSubManagerDialog = false }) {
