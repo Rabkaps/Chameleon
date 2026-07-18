@@ -440,52 +440,52 @@ private fun generateColorSchemeFromSeed(seed: Color, isDark: Boolean): androidx.
     return if (isDark) {
         // Dark Mode Color Scheme
         darkColorScheme(
-            primary = colorFromHsl(hue, saturation.coerceIn(0.68f, 0.92f), 0.76f),
-            onPrimary = colorFromHsl(hue, saturation.coerceAtMost(0.4f), 0.15f),
-            primaryContainer = colorFromHsl(hue, saturation.coerceIn(0.60f, 0.85f), 0.35f),
-            onPrimaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.3f), 0.92f),
+            primary = colorFromHsl(hue, saturation.coerceIn(0.60f, 0.85f), 0.76f),
+            onPrimary = colorFromHsl(hue, saturation.coerceAtMost(0.3f), 0.12f),
+            primaryContainer = colorFromHsl(hue, saturation.coerceIn(0.50f, 0.75f), 0.28f),
+            onPrimaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.2f), 0.90f),
             
-            secondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceIn(0.55f, 0.80f), 0.72f),
-            onSecondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.3f), 0.15f),
-            secondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceIn(0.50f, 0.75f), 0.30f),
-            onSecondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.2f), 0.88f),
+            secondary = colorFromHsl(hue, (saturation * 0.35f).coerceIn(0.12f, 0.30f), 0.70f), // Cohesive same hue
+            onSecondary = colorFromHsl(hue, (saturation * 0.35f).coerceAtMost(0.2f), 0.12f),
+            secondaryContainer = colorFromHsl(hue, (saturation * 0.35f).coerceIn(0.10f, 0.25f), 0.25f),
+            onSecondaryContainer = colorFromHsl(hue, (saturation * 0.20f).coerceAtMost(0.15f), 0.85f),
             
-            tertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceIn(0.60f, 0.85f), 0.74f),
-            onTertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.4f), 0.15f),
-            tertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceIn(0.50f, 0.80f), 0.30f),
-            onTertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.3f), 0.88f),
+            tertiary = colorFromHsl((hue + 10f) % 360f, (saturation * 0.45f).coerceIn(0.15f, 0.35f), 0.72f), // Muted, minor shift
+            onTertiary = colorFromHsl((hue + 10f) % 360f, (saturation * 0.45f).coerceAtMost(0.2f), 0.12f),
+            tertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.40f).coerceIn(0.12f, 0.30f), 0.26f),
+            onTertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.25f).coerceAtMost(0.15f), 0.86f),
             
-            background = Color.Black,
+            background = Color(0xFF0C0A0E), // Rich dark background
             onBackground = Color(0xFFEAE5E9),
-            surface = Color.Black,
+            surface = Color(0xFF141218), // Dark surface
             onSurface = Color(0xFFEAE5E9),
-            surfaceVariant = colorFromHsl(hue, saturation.coerceIn(0.35f, 0.60f), 0.16f),
-            onSurfaceVariant = colorFromHsl(hue, saturation.coerceIn(0.30f, 0.50f), 0.85f),
+            surfaceVariant = colorFromHsl(hue, (saturation * 0.15f).coerceIn(0.04f, 0.12f), 0.18f), // Premium dark muted tint
+            onSurfaceVariant = Color(0xFFCAC4D0),
             outline = Color(0xFF9E99A3)
         )
     } else {
         // Light Mode Color Scheme
         lightColorScheme(
-            primary = colorFromHsl(hue, saturation.coerceAtLeast(0.4f), 0.4f),
+            primary = colorFromHsl(hue, saturation.coerceIn(0.55f, 0.85f), 0.40f),
             onPrimary = Color.White,
-            primaryContainer = colorFromHsl(hue, saturation.coerceAtMost(0.3f), 0.9f),
-            onPrimaryContainer = colorFromHsl(hue, saturation.coerceAtLeast(0.5f), 0.15f),
+            primaryContainer = colorFromHsl(hue, (saturation * 0.45f).coerceIn(0.15f, 0.35f), 0.90f),
+            onPrimaryContainer = colorFromHsl(hue, saturation.coerceIn(0.55f, 0.85f), 0.10f),
             
-            secondary = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.3f), 0.45f),
+            secondary = colorFromHsl(hue, (saturation * 0.30f).coerceIn(0.10f, 0.25f), 0.45f),
             onSecondary = Color.White,
-            secondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtMost(0.2f), 0.92f),
-            onSecondaryContainer = colorFromHsl((hue + 15f) % 360f, saturation.coerceAtLeast(0.4f), 0.2f),
+            secondaryContainer = colorFromHsl(hue, (saturation * 0.20f).coerceIn(0.08f, 0.20f), 0.92f),
+            onSecondaryContainer = colorFromHsl(hue, (saturation * 0.35f).coerceIn(0.12f, 0.30f), 0.15f),
             
-            tertiary = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.4f), 0.45f),
+            tertiary = colorFromHsl((hue + 10f) % 360f, (saturation * 0.40f).coerceIn(0.12f, 0.30f), 0.42f),
             onTertiary = Color.White,
-            tertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtMost(0.2f), 0.92f),
-            onTertiaryContainer = colorFromHsl((hue + 60f) % 360f, saturation.coerceAtLeast(0.4f), 0.2f),
+            tertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.25f).coerceIn(0.10f, 0.25f), 0.92f),
+            onTertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.40f).coerceIn(0.15f, 0.35f), 0.15f),
             
-            background = colorFromHsl(hue, saturation.coerceAtMost(0.1f), 0.98f),
+            background = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.06f), 0.98f),
             onBackground = Color(0xFF1D1B20),
-            surface = colorFromHsl(hue, saturation.coerceAtMost(0.1f), 0.98f),
+            surface = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.06f), 0.98f),
             onSurface = Color(0xFF1D1B20),
-            surfaceVariant = colorFromHsl(hue, saturation.coerceAtMost(0.15f), 0.9f),
+            surfaceVariant = colorFromHsl(hue, (saturation * 0.12f).coerceIn(0.04f, 0.10f), 0.90f),
             onSurfaceVariant = Color(0xFF49454F),
             outline = Color(0xFF79747E)
         )
@@ -568,46 +568,59 @@ fun ChameleonTheme(
 
         // Material Expressive Color & Surface Strategy
         if (cardStyle == "tonal") {
-            baseScheme
+            if (isDark) {
+                baseScheme.copy(
+                    background = Color(0xFF0C0A0E),
+                    surface = Color(0xFF0C0A0E),
+                    surfaceVariant = tintColor(Color(0xFF18151D), baseScheme.primary, ratio = 0.12f),
+                    surfaceContainerLowest = Color(0xFF060507),
+                    surfaceContainerLow = tintColor(Color(0xFF100E14), baseScheme.primary, ratio = 0.06f),
+                    surfaceContainer = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.10f),
+                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), baseScheme.primary, ratio = 0.15f),
+                    surfaceContainerHighest = tintColor(Color(0xFF28232F), baseScheme.primary, ratio = 0.20f)
+                )
+            } else {
+                baseScheme
+            }
         } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
-                    background = Color.Black,
-                    surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, lightPrimary, ratio = 0.35f),
-                    surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, lightPrimary, ratio = 0.20f),
-                    surfaceContainer = tintColor(Color.Black, lightPrimary, ratio = 0.28f),
-                    surfaceContainerHigh = tintColor(Color.Black, lightPrimary, ratio = 0.38f),
-                    surfaceContainerHighest = tintColor(Color.Black, lightPrimary, ratio = 0.48f),
+                    background = Color(0xFF0C0A0E), // Rich dark background
+                    surface = Color(0xFF0C0A0E),
+                    surfaceVariant = tintColor(Color(0xFF18151D), lightPrimary, ratio = 0.08f), // Subtle tint to prevent muddy/orange-brown cards
+                    surfaceContainerLowest = Color(0xFF060507),
+                    surfaceContainerLow = tintColor(Color(0xFF100E14), lightPrimary, ratio = 0.03f),
+                    surfaceContainer = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.05f),
+                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), lightPrimary, ratio = 0.08f),
+                    surfaceContainerHighest = tintColor(Color(0xFF28232F), lightPrimary, ratio = 0.12f),
                     primary = lightPrimary,
                     onPrimary = Color.White,
-                    primaryContainer = tintColor(Color.Black, lightPrimary, ratio = 0.55f),
+                    primaryContainer = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.20f), // Cleaner, darker container background
                     onPrimaryContainer = Color.White,
                     secondary = lightSecondary,
                     onSecondary = Color.White,
-                    secondaryContainer = tintColor(Color.Black, lightSecondary, ratio = 0.55f),
+                    secondaryContainer = tintColor(Color(0xFF141218), lightSecondary, ratio = 0.20f),
                     onSecondaryContainer = Color.White,
                     tertiary = lightTertiary,
                     onTertiary = Color.White,
-                    tertiaryContainer = tintColor(Color.Black, lightTertiary, ratio = 0.55f),
+                    tertiaryContainer = tintColor(Color(0xFF141218), lightTertiary, ratio = 0.20f),
                     onTertiaryContainer = Color.White,
                     onSurface = Color.White,
-                    onSurfaceVariant = tintColor(Color.White, lightPrimary, ratio = 0.75f),
+                    onSurfaceVariant = tintColor(Color.White, lightPrimary, ratio = 0.85f),
                     onBackground = Color.White,
-                    outline = tintColor(Color.White, lightPrimary, ratio = 0.45f),
-                    outlineVariant = tintColor(Color.Black, lightPrimary, ratio = 0.70f)
+                    outline = tintColor(Color.White, lightPrimary, ratio = 0.40f),
+                    outlineVariant = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.30f)
                 )
             } else {
                 baseScheme.copy(
-                    background = Color.Black,
-                    surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f),
-                    surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.06f),
-                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.10f),
-                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.16f),
-                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.22f)
+                    background = Color(0xFF0C0A0E),
+                    surface = Color(0xFF0C0A0E),
+                    surfaceVariant = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.06f),
+                    surfaceContainerLowest = Color(0xFF060507),
+                    surfaceContainerLow = tintColor(Color(0xFF100E13), baseScheme.primary, ratio = 0.03f),
+                    surfaceContainer = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.05f),
+                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerHighest = tintColor(Color(0xFF28232E), baseScheme.primary, ratio = 0.12f)
                 )
             }
         } else {
