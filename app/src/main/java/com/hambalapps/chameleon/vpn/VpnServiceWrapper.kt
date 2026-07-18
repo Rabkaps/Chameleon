@@ -131,6 +131,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     @Volatile
     private var cachedPhysicalNetworkInfo: PhysicalNetworkInfo? = null
 
+    @Volatile
+    private var cachedLibboxInterfaces: List<io.nekohasekai.libbox.NetworkInterface>? = null
+    @Volatile
+    private var lastInterfacesUpdateTime = 0L
+
     override fun onCreate() {
         super.onCreate()
         android.util.Log.i("Chameleon", "VpnServiceWrapper onCreate called")
@@ -1449,9 +1454,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         return libboxIf
     }
 
-    override fun getInterfaces(): NetworkInterfaceIterator? {
+    private fun rebuildInterfacesList(): List<io.nekohasekai.libbox.NetworkInterface> {
         val list = mutableListOf<io.nekohasekai.libbox.NetworkInterface>()
-        
         try {
             val physicalInfo = cachedPhysicalNetworkInfo
             val physicalName = physicalInfo?.name
@@ -1486,15 +1490,32 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
             }
         } catch (e: Exception) {
-            log("Error getting network interfaces: ${e.message}")
+            log("Error rebuilding network interfaces list: ${e.message}")
+        }
+        return list
+    }
+
+    override fun getInterfaces(): NetworkInterfaceIterator? {
+        val now = System.currentTimeMillis()
+        val cacheDuration = 4000L // 4 seconds TTL cache
+        
+        val finalList: List<io.nekohasekai.libbox.NetworkInterface>
+        synchronized(this) {
+            var cached = cachedLibboxInterfaces
+            if (cached == null || now - lastInterfacesUpdateTime > cacheDuration) {
+                cached = rebuildInterfacesList()
+                cachedLibboxInterfaces = cached
+                lastInterfacesUpdateTime = now
+            }
+            finalList = cached
         }
 
         return object : NetworkInterfaceIterator {
             private var idx = 0
-            override fun hasNext(): Boolean = idx < list.size
+            override fun hasNext(): Boolean = idx < finalList.size
             override fun next(): io.nekohasekai.libbox.NetworkInterface? {
-                if (idx >= list.size) return null
-                return list[idx++]
+                if (idx >= finalList.size) return null
+                return finalList[idx++]
             }
         }
     }
@@ -1535,11 +1556,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
 
             override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) {
-                updatePhysicalInterface()
+                // Ignore to avoid high CPU binder calls on signal strength updates
             }
 
             override fun onLinkPropertiesChanged(network: android.net.Network, lp: android.net.LinkProperties) {
-                updatePhysicalInterface()
+                // Ignore to avoid high CPU binder calls on link property changes
             }
 
             override fun onLost(network: android.net.Network) {
@@ -1549,6 +1570,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             private fun updatePhysicalInterface() {
                 val currentInfo = getActivePhysicalNetworkInfo(cm)
                 cachedPhysicalNetworkInfo = currentInfo
+                synchronized(this@VpnServiceWrapper) {
+                    cachedLibboxInterfaces = null
+                }
                 if (currentInfo != null) {
                     if (currentInfo.name != lastSentPhysicalName || currentInfo.index != lastSentPhysicalIndex) {
                         log("Default physical interface updated: name=${currentInfo.name}, index=${currentInfo.index}, metered=${currentInfo.metered}, constrained=${currentInfo.constrained}")
