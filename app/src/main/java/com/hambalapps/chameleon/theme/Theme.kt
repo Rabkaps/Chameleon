@@ -570,14 +570,14 @@ fun ChameleonTheme(
         if (cardStyle == "tonal") {
             if (isDark) {
                 baseScheme.copy(
-                    background = Color(0xFF0C0A0E),
-                    surface = Color(0xFF0C0A0E),
-                    surfaceVariant = tintColor(Color(0xFF18151D), baseScheme.primary, ratio = 0.12f),
-                    surfaceContainerLowest = Color(0xFF060507),
-                    surfaceContainerLow = tintColor(Color(0xFF100E14), baseScheme.primary, ratio = 0.06f),
-                    surfaceContainer = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.10f),
-                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), baseScheme.primary, ratio = 0.15f),
-                    surfaceContainerHighest = tintColor(Color(0xFF28232F), baseScheme.primary, ratio = 0.20f)
+                    background = Color.Black,
+                    surface = Color.Black,
+                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.04f),
+                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.09f),
+                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f)
                 )
             } else {
                 baseScheme
@@ -585,42 +585,42 @@ fun ChameleonTheme(
         } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
-                    background = Color(0xFF0C0A0E), // Rich dark background
-                    surface = Color(0xFF0C0A0E),
-                    surfaceVariant = tintColor(Color(0xFF18151D), lightPrimary, ratio = 0.08f), // Subtle tint to prevent muddy/orange-brown cards
-                    surfaceContainerLowest = Color(0xFF060507),
-                    surfaceContainerLow = tintColor(Color(0xFF100E14), lightPrimary, ratio = 0.03f),
-                    surfaceContainer = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.05f),
-                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), lightPrimary, ratio = 0.08f),
-                    surfaceContainerHighest = tintColor(Color(0xFF28232F), lightPrimary, ratio = 0.12f),
+                    background = Color.Black, // True AMOLED Black background
+                    surface = Color.Black,
+                    surfaceVariant = tintColor(Color.Black, lightPrimary, ratio = 0.06f), // Subtle tint on black to prevent muddy/orange-brown cards
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = tintColor(Color.Black, lightPrimary, ratio = 0.03f),
+                    surfaceContainer = tintColor(Color.Black, lightPrimary, ratio = 0.04f),
+                    surfaceContainerHigh = tintColor(Color.Black, lightPrimary, ratio = 0.06f),
+                    surfaceContainerHighest = tintColor(Color.Black, lightPrimary, ratio = 0.09f),
                     primary = lightPrimary,
                     onPrimary = Color.White,
-                    primaryContainer = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.20f), // Cleaner, darker container background
+                    primaryContainer = tintColor(Color.Black, lightPrimary, ratio = 0.15f), // Darker container background
                     onPrimaryContainer = Color.White,
                     secondary = lightSecondary,
                     onSecondary = Color.White,
-                    secondaryContainer = tintColor(Color(0xFF141218), lightSecondary, ratio = 0.20f),
+                    secondaryContainer = tintColor(Color.Black, lightSecondary, ratio = 0.15f),
                     onSecondaryContainer = Color.White,
                     tertiary = lightTertiary,
                     onTertiary = Color.White,
-                    tertiaryContainer = tintColor(Color(0xFF141218), lightTertiary, ratio = 0.20f),
+                    tertiaryContainer = tintColor(Color.Black, lightTertiary, ratio = 0.15f),
                     onTertiaryContainer = Color.White,
                     onSurface = Color.White,
                     onSurfaceVariant = tintColor(Color.White, lightPrimary, ratio = 0.85f),
                     onBackground = Color.White,
                     outline = tintColor(Color.White, lightPrimary, ratio = 0.40f),
-                    outlineVariant = tintColor(Color(0xFF141218), lightPrimary, ratio = 0.30f)
+                    outlineVariant = tintColor(Color.Black, lightPrimary, ratio = 0.25f)
                 )
             } else {
                 baseScheme.copy(
-                    background = Color(0xFF0C0A0E),
-                    surface = Color(0xFF0C0A0E),
-                    surfaceVariant = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.06f),
-                    surfaceContainerLowest = Color(0xFF060507),
-                    surfaceContainerLow = tintColor(Color(0xFF100E13), baseScheme.primary, ratio = 0.03f),
-                    surfaceContainer = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.05f),
-                    surfaceContainerHigh = tintColor(Color(0xFF1E1A23), baseScheme.primary, ratio = 0.08f),
-                    surfaceContainerHighest = tintColor(Color(0xFF28232E), baseScheme.primary, ratio = 0.12f)
+                    background = Color.Black,
+                    surface = Color.Black,
+                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.03f),
+                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.05f),
+                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f)
                 )
             }
         } else {
