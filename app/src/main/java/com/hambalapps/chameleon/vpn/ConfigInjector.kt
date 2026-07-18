@@ -268,14 +268,19 @@ object ConfigInjector {
         }
     }
 
+
     private fun getSystemDnsServers(context: Context): List<String> {
         val dnsList = mutableListOf<String>()
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         if (cm != null) {
             try {
-                val activeNetwork = cm.activeNetwork
-                if (activeNetwork != null) {
-                    val lp = cm.getLinkProperties(activeNetwork)
+                val networks = cm.allNetworks
+                for (network in networks) {
+                    val capabilities = cm.getNetworkCapabilities(network) ?: continue
+                    if (capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) {
+                        continue // Skip VPN networks
+                    }
+                    val lp = cm.getLinkProperties(network)
                     lp?.dnsServers?.forEach { dnsAddr ->
                         val dnsHost = dnsAddr.hostAddress
                         if (dnsHost != null) {
@@ -292,6 +297,7 @@ object ConfigInjector {
         }
         return dnsList
     }
+
     private fun getSystemDnsAddress(context: Context): String {
         val systemDnsList = getSystemDnsServers(context)
         var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
