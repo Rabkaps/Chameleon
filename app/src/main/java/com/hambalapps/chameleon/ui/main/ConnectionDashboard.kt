@@ -160,8 +160,8 @@ fun ConnectionDashboard(
     scope: CoroutineScope,
     onConnectToggle: () -> Unit,
     onNavigateToServers: () -> Unit,
-    sessionDownBytes: Long = 0L,
-    sessionUpBytes: Long = 0L,
+    sessionDownBytesProvider: () -> Long = { 0L },
+    sessionUpBytesProvider: () -> Long = { 0L },
     activeCountryCode: String? = null
 ) {
     val context = LocalContext.current
@@ -710,7 +710,7 @@ fun ConnectionDashboard(
                             }
                             Spacer(modifier = Modifier.height(1.dp))
                             Text(
-                                text = formatBytes(sessionDownBytes),
+                                text = formatBytes(sessionDownBytesProvider()),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
@@ -726,7 +726,7 @@ fun ConnectionDashboard(
                             horizontalAlignment = Alignment.End
                         ) {
                             Text(
-                                text = formatBytes(sessionUpBytes),
+                                text = formatBytes(sessionUpBytesProvider()),
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,

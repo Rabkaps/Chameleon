@@ -140,7 +140,7 @@ fun WaveVisualizer(
     val path2 = remember { Path() }
     val path3 = remember { Path() }
     
-    val waveCache = remember { WaveCache(80) }
+    val waveCache = remember { WaveCache(40) }
     
     Canvas(modifier = modifier) {
         val width = size.width
@@ -160,7 +160,7 @@ fun WaveVisualizer(
             
             // Draw Wave 1 (Main Circle)
             path1.reset()
-            val points1 = 80
+            val points1 = 40
             for (i in 0..points1) {
                 val s4 = waveCache.sin4a[i] * cosP1 + waveCache.cos4a[i] * sinP1
                 val c6 = waveCache.cos6a[i] * cosP2 + waveCache.sin6a[i] * sinP2
@@ -186,7 +186,7 @@ fun WaveVisualizer(
             
             // Draw Wave 2 (Middle Stripe)
             path2.reset()
-            val points2 = 80
+            val points2 = 40
             for (i in 0..points2) {
                 val s5 = waveCache.sin5a[i] * cosP2 - waveCache.cos5a[i] * sinP2
                 val c3 = waveCache.cos3a[i] * cosP1 - waveCache.sin3a[i] * sinP1
@@ -212,7 +212,7 @@ fun WaveVisualizer(
             
             // Draw Wave 3 (Outer Stripe)
             path3.reset()
-            val points3 = 80
+            val points3 = 40
             for (i in 0..points3) {
                 val c3 = waveCache.cos3a[i] * cosP1 - waveCache.sin3a[i] * sinP1
                 val s7 = waveCache.sin7a[i] * cosP2 - waveCache.cos7a[i] * sinP2

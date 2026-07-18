@@ -1252,8 +1252,8 @@ fun MainScreen(
                                 subscriptions = subscriptions,
                                 vpnMode = vpnMode,
                                 vpnModeTunnelGames = vpnModeTunnelGames,
-                                sessionDownBytes = sessionDownBytes,
-                                sessionUpBytes = sessionUpBytes,
+                                sessionDownBytesProvider = { sessionDownBytes },
+                                sessionUpBytesProvider = { sessionUpBytes },
                                 settingsManager = settingsManager,
                                 scope = scope,
                                 onConnectToggle = {
