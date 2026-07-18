@@ -567,7 +567,9 @@ fun ChameleonTheme(
         }
 
         // Material Expressive Color & Surface Strategy
-        if (isDark) {
+        if (cardStyle == "tonal") {
+            baseScheme
+        } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
                     background = Color.Black,

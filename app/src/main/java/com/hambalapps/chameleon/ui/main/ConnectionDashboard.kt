@@ -1500,8 +1500,8 @@ fun ConnectedButtonGroup(
             val animatedOffset by animateDpAsState(
                 targetValue = targetOffset,
                 animationSpec = spring(
-                    dampingRatio = 0.65f, // moderate bounce
-                    stiffness = Spring.StiffnessMediumLow
+                    dampingRatio = 0.65f, // moderate bounce (expressive spatial)
+                    stiffness = Spring.StiffnessLow
                 ),
                 label = "indicatorOffset"
             )
@@ -1525,7 +1525,10 @@ fun ConnectedButtonGroup(
                     val isSelected = index == selectedIndex
                     val textColor by animateColorAsState(
                         targetValue = if (isSelected) selectedTextColor else unselectedTextColor,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy, // expressive effects (no overshoot)
+                            stiffness = Spring.StiffnessLow
+                        ),
                         label = "textColor"
                     )
                     

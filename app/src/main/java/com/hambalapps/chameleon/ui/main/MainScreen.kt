@@ -698,7 +698,7 @@ fun MainScreen(
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid") {
+        if (cardStyle == "solid" || cardStyle == "tonal") {
             SolidColor(outlineVariant)
         } else {
             val colors = listOf(
@@ -710,7 +710,7 @@ fun MainScreen(
     }
 
     val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid") {
+        if (cardStyle == "solid" || cardStyle == "tonal") {
             SolidColor(primaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
@@ -735,7 +735,7 @@ fun MainScreen(
     }
 
     val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, secondaryContainer, tertiaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid") {
+        if (cardStyle == "solid" || cardStyle == "tonal") {
             SolidColor(secondaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
@@ -760,7 +760,7 @@ fun MainScreen(
     }
 
     val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, tertiaryContainer, primaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid") {
+        if (cardStyle == "solid" || cardStyle == "tonal") {
             SolidColor(tertiaryContainer)
         } else if (cardStyle == "vibrant") {
             val colors = listOf(
@@ -815,7 +815,7 @@ fun MainScreen(
     val flowOffset = flowOffsetState.value
 
     val activeCardBackgroundBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, tertiaryColor, primaryContainer, flowOffset) {
-        if (cardStyle == "solid") {
+        if (cardStyle == "solid" || cardStyle == "tonal") {
             SolidColor(primaryContainer)
         } else if (cardStyle == "vibrant") {
             Brush.linearGradient(
@@ -4396,10 +4396,10 @@ fun MainScreen(
                                                         else -> 2
                                                     },
                                                     options = listOf("Startup", "Hourly", "Daily", "Weekly"),
-                                                    containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
-                                                    indicatorColor = standardColorScheme.primary,
-                                                    selectedTextColor = standardColorScheme.onPrimary,
-                                                    unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                    indicatorColor = MaterialTheme.colorScheme.primary,
+                                                    selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                                     onSelect = { index ->
                                                         val intervalKey = when (index) {
                                                             0 -> "startup"
@@ -4493,10 +4493,10 @@ fun MainScreen(
                                                     else -> 0
                                                 },
                                                 options = listOf("Mixed", "gVisor", "System"),
-                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
-                                                indicatorColor = standardColorScheme.primary,
-                                                selectedTextColor = standardColorScheme.onPrimary,
-                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                                 onSelect = { index ->
                                                     val stackVal = when (index) {
                                                         0 -> "mixed"
@@ -4783,10 +4783,10 @@ fun MainScreen(
                                                     else -> 0
                                                 },
                                                 options = listOf("System", "Light", "Dark"),
-                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
-                                                indicatorColor = standardColorScheme.primary,
-                                                selectedTextColor = standardColorScheme.onPrimary,
-                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                                 onSelect = { index ->
                                                     val modeVal = when (index) {
                                                         0 -> "system"
@@ -4811,18 +4811,20 @@ fun MainScreen(
                                                     "glass" -> 0
                                                     "solid" -> 1
                                                     "vibrant" -> 2
+                                                    "tonal" -> 3
                                                     else -> 2
                                                 },
-                                                options = listOf("Glass", "Solid", "Vibrant"),
-                                                containerColor = standardColorScheme.primaryContainer.copy(alpha = 0.5f),
-                                                indicatorColor = standardColorScheme.primary,
-                                                selectedTextColor = standardColorScheme.onPrimary,
-                                                unselectedTextColor = standardColorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                options = listOf("Glass", "Solid", "Vibrant", "Tonal"),
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                                                 onSelect = { index ->
                                                     val styleVal = when (index) {
                                                         0 -> "glass"
                                                         1 -> "solid"
                                                         2 -> "vibrant"
+                                                        3 -> "tonal"
                                                         else -> "vibrant"
                                                     }
                                                     scope.launch { settingsManager.setCardStyle(styleVal) }
@@ -4952,8 +4954,8 @@ fun MainScreen(
                                     val animatedOffset by animateDpAsState(
                                         targetValue = targetOffset,
                                         animationSpec = spring(
-                                            dampingRatio = 0.65f, // moderate bounce
-                                            stiffness = Spring.StiffnessMediumLow
+                                            dampingRatio = 0.65f, // moderate bounce (expressive spatial)
+                                            stiffness = Spring.StiffnessLow
                                         ),
                                         label = "navIndicatorOffset"
                                     )
@@ -4982,6 +4984,14 @@ fun MainScreen(
                                                 animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                                                 label = "navColor"
                                             )
+                                            val scale by animateFloatAsState(
+                                                targetValue = if (isSelected) 1.18f else 1.0f,
+                                                animationSpec = spring(
+                                                    dampingRatio = 0.55f, // bouncy spatial spring
+                                                    stiffness = Spring.StiffnessMediumLow
+                                                ),
+                                                label = "navScale"
+                                            )
                                             
                                             Column(
                                                 modifier = Modifier
@@ -4999,7 +5009,12 @@ fun MainScreen(
                                                     imageVector = icon,
                                                     contentDescription = label,
                                                     tint = color,
-                                                    modifier = Modifier.size(20.dp)
+                                                    modifier = Modifier
+                                                        .size(20.dp)
+                                                        .graphicsLayer {
+                                                            scaleX = scale
+                                                            scaleY = scale
+                                                        }
                                                 )
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Text(
