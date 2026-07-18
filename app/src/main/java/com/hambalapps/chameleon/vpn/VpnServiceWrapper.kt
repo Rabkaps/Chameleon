@@ -779,7 +779,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 if (commandServer != null) {
                     hadPreviousServer = true
                     try {
-                        commandServer?.closeService()
+                        withContext(Dispatchers.IO) {
+                            commandServer?.closeService()
+                        }
                     } catch (e: Exception) {}
                     try {
                         commandServer?.close()
@@ -881,7 +883,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     }
                 }
                 val startTime = System.currentTimeMillis()
-                while (closeJob.isAlive && System.currentTimeMillis() - startTime < 500) {
+                while (closeJob.isAlive && System.currentTimeMillis() - startTime < 5000) {
                     delay(50)
                 }
                 
@@ -942,7 +944,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                         }
                     }
                     val startTime = System.currentTimeMillis()
-                    while (closeJob.isAlive && System.currentTimeMillis() - startTime < 500) {
+                    while (closeJob.isAlive && System.currentTimeMillis() - startTime < 5000) {
                         delay(50)
                     }
                     
