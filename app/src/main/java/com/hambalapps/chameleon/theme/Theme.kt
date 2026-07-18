@@ -455,11 +455,11 @@ private fun generateColorSchemeFromSeed(seed: Color, isDark: Boolean): androidx.
             tertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.40f).coerceIn(0.12f, 0.30f), 0.26f),
             onTertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.25f).coerceAtMost(0.15f), 0.86f),
             
-            background = Color(0xFF0C0A0E), // Rich dark background
+            background = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.05f), 0.06f), // Rich dynamic dark background
             onBackground = Color(0xFFEAE5E9),
-            surface = Color(0xFF141218), // Dark surface
+            surface = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.05f), 0.08f), // Rich dynamic dark surface
             onSurface = Color(0xFFEAE5E9),
-            surfaceVariant = colorFromHsl(hue, (saturation * 0.15f).coerceIn(0.04f, 0.12f), 0.18f), // Premium dark muted tint
+            surfaceVariant = colorFromHsl(hue, (saturation * 0.15f).coerceIn(0.04f, 0.10f), 0.14f), // Muted tint
             onSurfaceVariant = Color(0xFFCAC4D0),
             outline = Color(0xFF9E99A3)
         )
@@ -568,20 +568,7 @@ fun ChameleonTheme(
 
         // Material Expressive Color & Surface Strategy
         if (cardStyle == "tonal") {
-            if (isDark) {
-                baseScheme.copy(
-                    background = Color.Black,
-                    surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.08f),
-                    surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.04f),
-                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.06f),
-                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.09f),
-                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f)
-                )
-            } else {
-                baseScheme
-            }
+            baseScheme
         } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
