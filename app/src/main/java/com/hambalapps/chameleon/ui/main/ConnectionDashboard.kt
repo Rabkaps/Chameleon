@@ -84,6 +84,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -167,6 +168,18 @@ fun ConnectionDashboard(
     val standardColorScheme = MaterialTheme.colorScheme
     val transition = updateTransition(targetState = state, label = "VPNStateTransition")
 
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    var isActivityResumed by remember { mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) }
+    DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            isActivityResumed = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+        }
+    }
+
     val stateText = if (Config.IS_SPECIAL) {
         when (state) {
             "CONNECTED" -> "Meow 🐾"
@@ -206,7 +219,7 @@ fun ConnectionDashboard(
     }
 
     val pulseScaleState = remember { androidx.compose.animation.core.Animatable(1.0f) }
-    val isPulseActive = state == "CONNECTING" || state == "DISCONNECTING"
+    val isPulseActive = (state == "CONNECTING" || state == "DISCONNECTING") && isActivityResumed
     LaunchedEffect(isPulseActive) {
         if (isPulseActive) {
             pulseScaleState.animateTo(
@@ -465,7 +478,7 @@ fun ConnectionDashboard(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(180.dp)
                 ) {
-                    if (state == "CONNECTED" || state == "CONNECTING") {
+                    if (isActivityResumed && (state == "CONNECTED" || state == "CONNECTING")) {
                         WaveVisualizer(
                             state = state,
                             primaryColor = MaterialTheme.colorScheme.primary,

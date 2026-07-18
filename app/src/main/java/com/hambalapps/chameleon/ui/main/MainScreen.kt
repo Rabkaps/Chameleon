@@ -784,9 +784,21 @@ fun MainScreen(
         }
     }
 
-    // Active Card background animation (only runs when connected/connecting to save CPU)
+    // Active Card background animation (only runs when connected/connecting and in foreground to save CPU)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    var isActivityResumed by remember { mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) }
+    DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            isActivityResumed = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+        }
+    }
+
     val flowOffsetState = remember { androidx.compose.animation.core.Animatable(0f) }
-    val isVpnActive = vpnState == "CONNECTED" || vpnState == "CONNECTING"
+    val isVpnActive = (vpnState == "CONNECTED" || vpnState == "CONNECTING") && isActivityResumed
     LaunchedEffect(isVpnActive) {
         if (isVpnActive) {
             flowOffsetState.animateTo(
