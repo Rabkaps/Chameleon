@@ -738,8 +738,13 @@ object ConfigInjector {
             if (type == "dns" || tag == "dns-out") {
                 continue // Remove deprecated DNS outbounds
             }
-            if (tag == "direct") hasDirect = true
-            if (tag == "block") hasBlock = true
+            if (type == "direct" || tag == "direct") {
+                hasDirect = true
+                out.remove("detour")
+            }
+            if (type == "block" || tag == "block") {
+                hasBlock = true
+            }
 
             // Resolve and apply Stealth Camouflage if configured
             val detour = out.optString("detour")
@@ -998,7 +1003,43 @@ object ConfigInjector {
                     put("tag", tag)
                     put("system", false)
                     
-                    if (out.has("address")) put("address", out.get("address"))
+                    if (out.has("address")) {
+                        val addrObj = out.get("address")
+                        val cleanArray = JSONArray()
+                        if (addrObj is JSONArray) {
+                            for (k in 0 until addrObj.length()) {
+                                val a = addrObj.optString(k, "")
+                                if (a.isNotEmpty()) {
+                                    if (a.contains("/")) {
+                                        cleanArray.put(a)
+                                    } else {
+                                        if (a.contains(":")) {
+                                            cleanArray.put("$a/128")
+                                        } else {
+                                            cleanArray.put("$a/32")
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            val addrStr = addrObj?.toString() ?: ""
+                            addrStr.split(",").forEach { a ->
+                                val trimmed = a.trim()
+                                if (trimmed.isNotEmpty()) {
+                                    if (trimmed.contains("/")) {
+                                        cleanArray.put(trimmed)
+                                    } else {
+                                        if (trimmed.contains(":")) {
+                                            cleanArray.put("$trimmed/128")
+                                        } else {
+                                            cleanArray.put("$trimmed/32")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        put("address", cleanArray)
+                    }
                     if (out.has("private_key")) put("private_key", out.get("private_key"))
                     if (out.has("mtu")) put("mtu", out.get("mtu"))
                     if (out.has("detour")) put("detour", out.get("detour"))
