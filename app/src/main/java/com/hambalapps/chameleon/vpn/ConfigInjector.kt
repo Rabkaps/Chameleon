@@ -302,9 +302,14 @@ object ConfigInjector {
         val systemDnsList = getSystemDnsServers(context)
         var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
         for (dnsIp in systemDnsList) {
-            // Filter out well-known hijacked public DNS servers in Iran
-            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
-                directDnsAddr = dnsIp
+            val trimmed = dnsIp.trim()
+            // Filter out well-known hijacked public DNS servers in Iran, localhost, and VPN local interface addresses (prevent looping)
+            if (trimmed != "8.8.8.8" && trimmed != "8.8.4.4" && 
+                trimmed != "1.1.1.1" && trimmed != "1.0.0.1" && 
+                trimmed != "9.9.9.9" && trimmed != "127.0.0.1" &&
+                !trimmed.startsWith("172.19.")
+            ) {
+                directDnsAddr = trimmed
                 break
             }
         }
