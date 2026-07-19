@@ -361,13 +361,13 @@ fun ConnectionDashboard(
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
-                        Color.White.copy(alpha = 0.16f),
-                        Color.White.copy(alpha = 0.04f)
+                        Color.White.copy(alpha = 0.35f),
+                        Color.White.copy(alpha = 0.05f)
                     )
                 } else {
                     listOf(
-                        Color.Black.copy(alpha = 0.08f),
-                        Color.Black.copy(alpha = 0.02f)
+                        Color.White.copy(alpha = 0.60f),
+                        Color.Black.copy(alpha = 0.10f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -396,13 +396,13 @@ fun ConnectionDashboard(
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
-                        Color.White.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.02f)
+                        Color.White.copy(alpha = 0.15f),
+                        Color.White.copy(alpha = 0.03f)
                     )
                 } else {
                     listOf(
-                        Color.Black.copy(alpha = 0.04f),
-                        Color.Black.copy(alpha = 0.01f)
+                        Color.White.copy(alpha = 0.50f),
+                        Color.White.copy(alpha = 0.15f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -425,13 +425,13 @@ fun ConnectionDashboard(
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
-                        Color.White.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.02f)
+                        Color.White.copy(alpha = 0.15f),
+                        Color.White.copy(alpha = 0.03f)
                     )
                 } else {
                     listOf(
-                        Color.Black.copy(alpha = 0.04f),
-                        Color.Black.copy(alpha = 0.01f)
+                        Color.White.copy(alpha = 0.50f),
+                        Color.White.copy(alpha = 0.15f)
                     )
                 }
                 Brush.linearGradient(colors = colors)

@@ -580,23 +580,23 @@ fun ChameleonTheme(
                 baseScheme.copy(
                     background = Color.Black, // True AMOLED Black background
                     surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, lightPrimary, ratio = 0.14f), // More visible tint to satisfy 'more existant' card colors
+                    surfaceVariant = tintColor(Color.Black, lightPrimary, ratio = 0.22f), // More visible tint to satisfy 'more existant' card colors
                     surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, lightPrimary, ratio = 0.08f),
-                    surfaceContainer = tintColor(Color.Black, lightPrimary, ratio = 0.10f),
-                    surfaceContainerHigh = tintColor(Color.Black, lightPrimary, ratio = 0.12f),
-                    surfaceContainerHighest = tintColor(Color.Black, lightPrimary, ratio = 0.16f),
+                    surfaceContainerLow = tintColor(Color.Black, lightPrimary, ratio = 0.12f),
+                    surfaceContainer = tintColor(Color.Black, lightPrimary, ratio = 0.16f),
+                    surfaceContainerHigh = tintColor(Color.Black, lightPrimary, ratio = 0.20f),
+                    surfaceContainerHighest = tintColor(Color.Black, lightPrimary, ratio = 0.26f),
                     primary = lightPrimary,
                     onPrimary = Color.White,
-                    primaryContainer = tintColor(Color.Black, lightPrimary, ratio = 0.20f), // Darker container background
+                    primaryContainer = tintColor(Color.Black, lightPrimary, ratio = 0.38f), // Richer container background
                     onPrimaryContainer = Color.White,
                     secondary = lightSecondary,
                     onSecondary = Color.White,
-                    secondaryContainer = tintColor(Color.Black, lightSecondary, ratio = 0.20f),
+                    secondaryContainer = tintColor(Color.Black, lightSecondary, ratio = 0.38f),
                     onSecondaryContainer = Color.White,
                     tertiary = lightTertiary,
                     onTertiary = Color.White,
-                    tertiaryContainer = tintColor(Color.Black, lightTertiary, ratio = 0.20f),
+                    tertiaryContainer = tintColor(Color.Black, lightTertiary, ratio = 0.38f),
                     onTertiaryContainer = Color.White,
                     onSurface = Color.White,
                     onSurfaceVariant = tintColor(Color.White, lightPrimary, ratio = 0.85f),
@@ -608,12 +608,12 @@ fun ChameleonTheme(
                 baseScheme.copy(
                     background = Color.Black,
                     surface = Color.Black,
-                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.14f),
+                    surfaceVariant = tintColor(Color.Black, baseScheme.primary, ratio = 0.22f),
                     surfaceContainerLowest = Color.Black,
-                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.08f),
-                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.10f),
-                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f),
-                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.16f)
+                    surfaceContainerLow = tintColor(Color.Black, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainer = tintColor(Color.Black, baseScheme.primary, ratio = 0.16f),
+                    surfaceContainerHigh = tintColor(Color.Black, baseScheme.primary, ratio = 0.20f),
+                    surfaceContainerHighest = tintColor(Color.Black, baseScheme.primary, ratio = 0.26f)
                 )
             }
         } else {
