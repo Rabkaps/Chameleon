@@ -161,7 +161,9 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     trafficMonitorJob = serviceScope.launch {
                         try {
                             val options = CommandClientOptions().apply {
-                                setStatusInterval(1000)
+                                // StatusInterval in libbox core expects Go's time.Duration (nanoseconds).
+                                // 1000 * 1000 * 1000 ns = 1 second. Using 1000 ns was causing a 1-microsecond update loop.
+                                setStatusInterval(1000 * 1000 * 1000L)
                                 addCommand(Libbox.CommandStatus)
                             }
                             

@@ -355,70 +355,88 @@ fun ConnectionDashboard(
     val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid") {
-            SolidColor(outlineVariant)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
-                secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.60f else 0.18f),
-                secondaryColor.copy(alpha = if (isDark) 0.40f else 0.06f)
-            )
-            Brush.linearGradient(colors = colors)
+        when (cardStyle) {
+            "solid" -> SolidColor(outlineVariant)
+            "tonal" -> SolidColor(outlineVariant.copy(alpha = 0.25f))
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        Color.White.copy(alpha = 0.04f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.08f),
+                        Color.Black.copy(alpha = 0.02f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> { // vibrant
+                val colors = listOf(
+                    primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
+                    secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
+                )
+                Brush.linearGradient(colors = colors)
+            }
         }
     }
 
     val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(primaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                primaryContainer,
-                secondaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    primaryColor.copy(alpha = 0.55f),
-                    secondaryColor.copy(alpha = 0.28f)
+        when (cardStyle) {
+            "solid" -> SolidColor(primaryContainer)
+            "vibrant" -> {
+                val colors = listOf(
+                    primaryContainer,
+                    secondaryContainer.copy(alpha = 0.7f)
                 )
-            } else {
-                listOf(
-                    primaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
+                Brush.linearGradient(colors = colors)
             }
-            Brush.linearGradient(colors = colors)
+            "tonal" -> SolidColor(surfaceContainerHigh)
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.01f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> SolidColor(surfaceContainerHigh)
         }
     }
 
     val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, surfaceContainer, secondaryContainer, tertiaryContainer) {
-        if (cardStyle == "solid") {
-            SolidColor(secondaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                secondaryContainer,
-                tertiaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    secondaryColor.copy(alpha = 0.55f),
-                    tertiaryColor.copy(alpha = 0.28f)
+        when (cardStyle) {
+            "solid" -> SolidColor(secondaryContainer)
+            "vibrant" -> {
+                val colors = listOf(
+                    secondaryContainer,
+                    tertiaryContainer.copy(alpha = 0.7f)
                 )
-            } else {
-                listOf(
-                    secondaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
+                Brush.linearGradient(colors = colors)
             }
-            Brush.linearGradient(colors = colors)
+            "tonal" -> SolidColor(surfaceContainer)
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.01f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> SolidColor(surfaceContainer)
         }
     }
 
@@ -428,18 +446,14 @@ fun ConnectionDashboard(
 
     @Composable
     fun ConnectCard(paddingVertical: Int = 32) {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(brush = if (isVpnActive) primaryCardBrush else secondaryCardBrush, shape = RoundedCornerShape(32.dp))
-                .border(
-                    width = 1.dp,
-                    brush = cardBorderBrush,
-                    shape = RoundedCornerShape(32.dp)
-                )
                 .clickable { onConnectToggle() },
+            brush = if (isVpnActive) primaryCardBrush else secondaryCardBrush,
             shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -600,17 +614,16 @@ fun ConnectionDashboard(
 
     @Composable
     fun ServerCard() {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
-                .clickable { onNavigateToServers() }
-                .pressScaleEffect(),
+                .pressScaleEffect()
+                .clickable { onNavigateToServers() },
+            brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
         ) {
-            VibrantCardContent(cardStyle) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -654,7 +667,6 @@ fun ConnectionDashboard(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-            }
         }
     }
 
@@ -664,16 +676,15 @@ fun ConnectionDashboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(
+            ExpressiveCard(
                 modifier = Modifier
                     .weight(1f)
-                    .height(100.dp)
-                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                    .height(100.dp),
+                brush = secondaryCardBrush,
                 shape = ExpressiveCardShape,
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                borderBrush = cardBorderBrush,
+                cardStyle = cardStyle
             ) {
-                VibrantCardContent(cardStyle) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -749,19 +760,17 @@ fun ConnectionDashboard(
                             }
                         }
                     }
-                }
             }
 
-            Card(
+            ExpressiveCard(
                 modifier = Modifier
                     .weight(1f)
-                    .height(100.dp)
-                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                    .height(100.dp),
+                brush = secondaryCardBrush,
                 shape = ExpressiveCardShape,
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                borderBrush = cardBorderBrush,
+                cardStyle = cardStyle
             ) {
-                VibrantCardContent(cardStyle) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -812,22 +821,20 @@ fun ConnectionDashboard(
                             )
                         }
                     }
-                }
             }
         }
     }
 
     @Composable
     fun BypassCard() {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                .fillMaxWidth(),
+            brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
         ) {
-            VibrantCardContent(cardStyle) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -984,21 +991,19 @@ fun ConnectionDashboard(
                         }
                     }
                 }
-            }
         }
     }
 
     @Composable
     fun GamingModeCard() {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                .fillMaxWidth(),
+            brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
         ) {
-            VibrantCardContent(cardStyle) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1100,21 +1105,19 @@ fun ConnectionDashboard(
                         }
                     }
                 }
-            }
         }
     }
 
     @Composable
     fun TelegramProxyCard() {
-        Card(
+        ExpressiveCard(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
+                .fillMaxWidth(),
+            brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
         ) {
-            VibrantCardContent(cardStyle) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1319,7 +1322,6 @@ fun ConnectionDashboard(
                             }
                         }
                     }
-                }
             }
         }
     }

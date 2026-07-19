@@ -172,6 +172,34 @@ fun VibrantCardContent(
 }
 
 @Composable
+fun ExpressiveCard(
+    modifier: Modifier = Modifier,
+    brush: Brush,
+    shape: androidx.compose.ui.graphics.Shape = ExpressiveCardShape,
+    borderBrush: Brush,
+    borderWidth: androidx.compose.ui.unit.Dp = 1.dp,
+    cardStyle: String,
+    content: @Composable () -> Unit
+) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(brush = brush, shape = shape)
+                .then(if (cardStyle == "glass" && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    Modifier.blur(20.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                } else {
+                    Modifier
+                })
+                .border(width = borderWidth, brush = borderBrush, shape = shape)
+        )
+        VibrantCardContent(cardStyle) {
+            content()
+        }
+    }
+}
+
+@Composable
 fun FlagTextRow(
     text: String,
     style: androidx.compose.ui.text.TextStyle = androidx.compose.material3.LocalTextStyle.current,
@@ -698,89 +726,117 @@ fun MainScreen(
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
 
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
-        if (cardStyle == "solid" || cardStyle == "tonal") {
-            SolidColor(outlineVariant)
-        } else {
-            val colors = listOf(
-                primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
-                secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
-            )
-            Brush.linearGradient(colors = colors)
+        when (cardStyle) {
+            "solid" -> SolidColor(outlineVariant)
+            "tonal" -> SolidColor(outlineVariant.copy(alpha = 0.25f))
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        Color.White.copy(alpha = 0.04f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.08f),
+                        Color.Black.copy(alpha = 0.02f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> { // vibrant
+                val colors = listOf(
+                    primaryColor.copy(alpha = if (isDark) 0.8f else 0.4f),
+                    secondaryColor.copy(alpha = if (isDark) 0.6f else 0.2f)
+                )
+                Brush.linearGradient(colors = colors)
+            }
         }
     }
 
     val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid" || cardStyle == "tonal") {
-            SolidColor(primaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                primaryContainer,
-                secondaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else { // glass style
-            val colors = if (isDark) {
-                listOf(
-                    primaryColor.copy(alpha = 0.55f),
-                    secondaryColor.copy(alpha = 0.28f)
+        when (cardStyle) {
+            "solid" -> SolidColor(primaryContainer)
+            "vibrant" -> {
+                val colors = listOf(
+                    primaryContainer,
+                    secondaryContainer.copy(alpha = 0.7f)
                 )
-            } else {
-                listOf(
-                    primaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
+                Brush.linearGradient(colors = colors)
             }
-            Brush.linearGradient(colors = colors)
+            "tonal" -> SolidColor(surfaceContainerHigh)
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.01f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> SolidColor(surfaceContainerHigh)
         }
     }
 
-    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, secondaryContainer, tertiaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid" || cardStyle == "tonal") {
-            SolidColor(secondaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                secondaryContainer,
-                tertiaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else { // glass style
-            val colors = if (isDark) {
-                listOf(
-                    secondaryColor.copy(alpha = 0.55f),
-                    tertiaryColor.copy(alpha = 0.28f)
+    val secondaryCardBrush = remember(isDark, cardStyle, secondaryColor, tertiaryColor, secondaryContainer, tertiaryContainer, surfaceContainer) {
+        when (cardStyle) {
+            "solid" -> SolidColor(secondaryContainer)
+            "vibrant" -> {
+                val colors = listOf(
+                    secondaryContainer,
+                    tertiaryContainer.copy(alpha = 0.7f)
                 )
-            } else {
-                listOf(
-                    secondaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
+                Brush.linearGradient(colors = colors)
             }
-            Brush.linearGradient(colors = colors)
+            "tonal" -> SolidColor(surfaceContainer)
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.01f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> SolidColor(surfaceContainer)
         }
     }
 
-    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, tertiaryContainer, primaryContainer, surfaceContainerHigh) {
-        if (cardStyle == "solid" || cardStyle == "tonal") {
-            SolidColor(tertiaryContainer)
-        } else if (cardStyle == "vibrant") {
-            val colors = listOf(
-                tertiaryContainer,
-                primaryContainer.copy(alpha = 0.7f)
-            )
-            Brush.linearGradient(colors = colors)
-        } else { // glass style
-            val colors = if (isDark) {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.55f),
-                    primaryColor.copy(alpha = 0.28f)
+    val tertiaryCardBrush = remember(isDark, cardStyle, tertiaryColor, primaryColor, tertiaryContainer, primaryContainer, surfaceContainerLow) {
+        when (cardStyle) {
+            "solid" -> SolidColor(tertiaryContainer)
+            "vibrant" -> {
+                val colors = listOf(
+                    tertiaryContainer,
+                    primaryContainer.copy(alpha = 0.7f)
                 )
-            } else {
-                listOf(
-                    tertiaryColor.copy(alpha = 0.18f),
-                    surfaceContainerHigh
-                )
+                Brush.linearGradient(colors = colors)
             }
-            Brush.linearGradient(colors = colors)
+            "tonal" -> SolidColor(surfaceContainerLow)
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                } else {
+                    listOf(
+                        Color.Black.copy(alpha = 0.04f),
+                        Color.Black.copy(alpha = 0.01f)
+                    )
+                }
+                Brush.linearGradient(colors = colors)
+            }
+            else -> SolidColor(surfaceContainerLow)
         }
     }
 
@@ -814,34 +870,38 @@ fun MainScreen(
     }
     val flowOffset = flowOffsetState.value
 
-    val activeCardBackgroundBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, tertiaryColor, primaryContainer, flowOffset) {
-        if (cardStyle == "solid" || cardStyle == "tonal") {
-            SolidColor(primaryContainer)
-        } else if (cardStyle == "vibrant") {
-            Brush.linearGradient(
-                colors = listOf(primaryColor, secondaryColor),
-                start = Offset(flowOffset - 500f, 0f),
-                end = Offset(flowOffset + 500f, 1000f)
-            )
-        } else {
-            val colors = if (isDark) {
-                listOf(
-                    primaryColor.copy(alpha = 0.68f),
-                    secondaryColor.copy(alpha = 0.50f),
-                    tertiaryColor.copy(alpha = 0.30f)
-                )
-            } else {
-                listOf(
-                    primaryColor.copy(alpha = 0.25f),
-                    secondaryColor.copy(alpha = 0.15f),
-                    Color.White
+    val activeCardBackgroundBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, tertiaryColor, primaryContainer, flowOffset, surfaceContainerHigh) {
+        when (cardStyle) {
+            "solid" -> SolidColor(primaryContainer)
+            "tonal" -> SolidColor(surfaceContainerHigh)
+            "vibrant" -> {
+                Brush.linearGradient(
+                    colors = listOf(primaryColor, secondaryColor),
+                    start = Offset(flowOffset - 500f, 0f),
+                    end = Offset(flowOffset + 500f, 1000f)
                 )
             }
-            Brush.linearGradient(
-                colors = colors,
-                start = Offset(flowOffset - 500f, 0f),
-                end = Offset(flowOffset + 500f, 1000f)
-            )
+            "glass" -> {
+                val colors = if (isDark) {
+                    listOf(
+                        primaryColor.copy(alpha = 0.25f),
+                        secondaryColor.copy(alpha = 0.15f),
+                        Color.White.copy(alpha = 0.05f)
+                    )
+                } else {
+                    listOf(
+                        primaryColor.copy(alpha = 0.12f),
+                        secondaryColor.copy(alpha = 0.08f),
+                        Color.Black.copy(alpha = 0.02f)
+                    )
+                }
+                Brush.linearGradient(
+                    colors = colors,
+                    start = Offset(flowOffset - 500f, 0f),
+                    end = Offset(flowOffset + 500f, 1000f)
+                )
+            }
+            else -> SolidColor(surfaceContainerHigh)
         }
     }
 
@@ -2977,8 +3037,8 @@ fun MainScreen(
                                  AnimatedContent(
                                      targetState = isSearchVisible,
                                      transitionSpec = {
-                                         fadeIn(animationSpec = tween(200)) togetherWith
-                                         fadeOut(animationSpec = tween(150))
+                                         fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)) togetherWith
+                                         fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
                                      },
                                      label = "SearchOrActionsTransition"
                                  ) { searchActive ->
@@ -4872,16 +4932,13 @@ fun MainScreen(
                             
                             Spacer(modifier = Modifier.height(16.dp))
                             
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
-                                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape),
-                                shape = ExpressiveCardShape,
-                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                            ExpressiveCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                brush = secondaryCardBrush,
+                                borderBrush = cardBorderBrush,
+                                cardStyle = settings.cardStyle
                             ) {
-                                VibrantCardContent(settings.cardStyle) {
-                                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         text = "Expressive Box $appVersion",
                                         fontWeight = FontWeight.Bold,
@@ -4893,7 +4950,6 @@ fun MainScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
                                 }
                             }
                             Spacer(modifier = Modifier.height(110.dp))
@@ -6043,21 +6099,21 @@ fun MainScreen(
         visible = isNodesExpanded,
         enter = slideInVertically(
             initialOffsetY = { it / 6 }, 
-            animationSpec = tween(500, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow)
         ) + scaleIn(
             initialScale = 0.92f, 
-            animationSpec = tween(500, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow)
         ) + fadeIn(
-            animationSpec = tween(400, easing = androidx.compose.animation.core.LinearEasing)
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
         ),
         exit = slideOutVertically(
             targetOffsetY = { it / 6 }, 
-            animationSpec = tween(400, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
         ) + scaleOut(
             targetScale = 0.92f, 
-            animationSpec = tween(400, easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f))
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
         ) + fadeOut(
-            animationSpec = tween(300, easing = androidx.compose.animation.core.LinearEasing)
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
         )
     ) {
         androidx.compose.material3.Scaffold(
