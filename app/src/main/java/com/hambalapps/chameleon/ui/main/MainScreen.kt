@@ -199,6 +199,73 @@ fun ExpressiveCard(
     }
 }
 
+private fun handleScannedQrResult(
+    result: String,
+    scope: kotlinx.coroutines.CoroutineScope,
+    context: android.content.Context,
+    settingsManager: com.hambalapps.chameleon.data.SettingsManager,
+    subscriptions: List<com.hambalapps.chameleon.data.Subscription>,
+    manualServersStr: String,
+    vpnState: String
+) {
+    val trimmedImport = result.trim()
+    if (trimmedImport.isNotEmpty()) {
+        scope.launch {
+            if (trimmedImport.startsWith("http://") || trimmedImport.startsWith("https://")) {
+                try {
+                    val fetchResult = fetchSubscription(trimmedImport)
+                    if (fetchResult.servers.isNotEmpty()) {
+                        val domain = try {
+                            java.net.URI(trimmedImport).host ?: "Subscription"
+                        } catch (e: Exception) {
+                            "Subscription"
+                        }
+                        val newSub = com.hambalapps.chameleon.data.Subscription(
+                            id = java.util.UUID.randomUUID().toString(),
+                            name = domain,
+                            url = trimmedImport,
+                            servers = fetchResult.servers.joinToString("\n"),
+                            upload = fetchResult.upload,
+                            download = fetchResult.download,
+                            total = fetchResult.total,
+                            expire = fetchResult.expire
+                        )
+                        val updatedList = subscriptions + newSub
+                        settingsManager.setSubscriptionList(com.hambalapps.chameleon.data.serializeSubscriptions(updatedList))
+                        settingsManager.setActiveSubId(newSub.id)
+                        settingsManager.setActiveProfile(fetchResult.servers[0])
+                        android.widget.Toast.makeText(context, "Subscription imported successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                        if (vpnState == "CONNECTED") {
+                            startVpnService(context)
+                        }
+                    } else {
+                        android.widget.Toast.makeText(context, "No configs found in subscription link", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(context, "Failed to fetch subscription: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            } else {
+                val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
+                    val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                    "openvpn://vpn?config=$b64#OpenVPN_Imported"
+                } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
+                    val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                    "awg://vpn?config=$b64#AmneziaWG_Imported"
+                } else {
+                    trimmedImport
+                }
+                val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                val newLinkWithoutRemark = finalLink.substringBefore("#")
+                val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
+                settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                settingsManager.setActiveSubId("manual")
+                settingsManager.setActiveProfile(finalLink)
+                android.widget.Toast.makeText(context, "Config imported successfully!", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
 @Composable
 fun FlagTextRow(
     text: String,
@@ -538,6 +605,22 @@ fun MainScreen(
     var searchQuery by remember { mutableStateOf("") }
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
+    val tabTitles = listOf(
+        stringResource(R.string.tab_all),
+        "Favorites",
+        "VLESS",
+        "Trojan",
+        "Shadowsocks",
+        "VMess",
+        "Hysteria",
+        "TUIC",
+        "OpenVPN",
+        "AmneziaWG"
+    )
+    var editingSubscription by remember { mutableStateOf<com.hambalapps.chameleon.data.Subscription?>(null) }
+    var editSubNameInput by remember { mutableStateOf("") }
+    var editSubUrlInput by remember { mutableStateOf("") }
+    var showEditSubDialog by remember { mutableStateOf(false) }
     var selectedCountryFilter by remember { mutableStateOf("All Countries") }
     var selectedSubGroupFilter by remember(activeSubscription) { mutableStateOf(activeSubscription?.name ?: "All Groups") }
     var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
@@ -579,7 +662,7 @@ fun MainScreen(
         }
     }
 
-    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries, pingsMap) {
+    val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries, pingsMap, settings.favoriteServers) {
         val mapped = serverList.mapIndexedNotNull { originalIndex, serverLink ->
             val rawType = serverLink.substringBefore("://").uppercase()
             val type = when (rawType) {
@@ -588,16 +671,18 @@ fun MainScreen(
                 "HY2" -> "HYSTERIA2"
                 else -> rawType
             }
-            val matchesTab = when (selectedTab) {
-                0 -> true
-                1 -> type == "VLESS"
-                2 -> type == "TROJAN"
-                3 -> type == "SS" || type == "SHADOWSOCKS"
-                4 -> type == "VMESS"
-                5 -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
-                6 -> type == "TUIC"
-                7 -> type == "OPENVPN"
-                8 -> type == "AMNEZIAWG"
+            val selectedTitle = tabTitles.getOrNull(selectedTab) ?: "All"
+            val matchesTab = when (selectedTitle) {
+                "All" -> true
+                "Favorites" -> settings.favoriteServers.contains(serverLink)
+                "VLESS" -> type == "VLESS"
+                "Trojan" -> type == "TROJAN"
+                "Shadowsocks" -> type == "SS" || type == "SHADOWSOCKS"
+                "VMess" -> type == "VMESS"
+                "Hysteria" -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
+                "TUIC" -> type == "TUIC"
+                "OpenVPN" -> type == "OPENVPN"
+                "AmneziaWG" -> type == "AMNEZIAWG"
                 else -> true
             }
             if (matchesTab) {
@@ -1770,6 +1855,24 @@ fun MainScreen(
                                                                         )
                                                                     }
                                                                 )
+                                                                DropdownMenuItem(
+                                                                     text = { Text("Edit", style = MaterialTheme.typography.bodyMedium) },
+                                                                     onClick = {
+                                                                         menuExpanded = false
+                                                                         editingSubscription = sub
+                                                                         editSubNameInput = sub.name
+                                                                         editSubUrlInput = sub.url
+                                                                         showEditSubDialog = true
+                                                                     },
+                                                                     leadingIcon = {
+                                                                         Icon(
+                                                                             imageVector = Icons.Default.Edit,
+                                                                             contentDescription = null,
+                                                                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                                             modifier = Modifier.size(18.dp)
+                                                                         )
+                                                                     }
+                                                                 )
                                                                 if (!isLocalSub) {
                                                                     DropdownMenuItem(
                                                                         text = { Text("Refresh", style = MaterialTheme.typography.bodyMedium) },
@@ -2352,7 +2455,7 @@ fun MainScreen(
                                             },
                                             divider = {}
                                         ) {
-                                            listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "AmneziaWG").forEachIndexed { index, title ->
+                                            tabTitles.forEachIndexed { index, title ->
                                                 Tab(
                                                     selected = selectedTab == index,
                                                     onClick = { selectedTab = index },
@@ -2719,26 +2822,15 @@ fun MainScreen(
                                              .clip(RoundedCornerShape(28.dp))
                                              .clickable {
                                                  scanResultCallback = { result ->
-                                                     val trimmedImport = result.trim()
-                                                     if (trimmedImport.isNotEmpty()) {
-                                                         scope.launch {
-                                                             val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
-                                                                 val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                                                                 "openvpn://vpn?config=$b64#OpenVPN_Imported"
-                                                             } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
-                                                                 val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                                                                 "awg://vpn?config=$b64#AmneziaWG_Imported"
-                                                             } else {
-                                                                 trimmedImport
-                                                             }
-                                                             val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                                                             val newLinkWithoutRemark = finalLink.substringBefore("#")
-                                                             val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
-                                                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
-                                                             settingsManager.setActiveSubId("manual")
-                                                             settingsManager.setActiveProfile(finalLink)
-                                                         }
-                                                     }
+                                                     handleScannedQrResult(
+                                                         result = result,
+                                                         scope = scope,
+                                                         context = context,
+                                                         settingsManager = settingsManager,
+                                                         subscriptions = subscriptions,
+                                                         manualServersStr = manualServersStr,
+                                                         vpnState = vpnState
+                                                     )
                                                  }
                                              }
                                              .background(brush = primaryCardBrush, shape = RoundedCornerShape(28.dp))
@@ -3371,6 +3463,25 @@ fun MainScreen(
                                                             }
                                                         }
                                                         
+                                                        val isFavorite = remember(settings.favoriteServers, serverLink) {
+                                                            settings.favoriteServers.contains(serverLink)
+                                                        }
+                                                        IconButton(
+                                                            onClick = {
+                                                                scope.launch {
+                                                                    settingsManager.toggleFavorite(serverLink)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                                                contentDescription = "Favorite",
+                                                                tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                                modifier = Modifier.size(20.dp)
+                                                            )
+                                                        }
+
                                                         var menuExpanded by remember { mutableStateOf(false) }
                                                         Box {
                                                             IconButton(onClick = { menuExpanded = true }) {
@@ -5095,6 +5206,127 @@ fun MainScreen(
 
     var isImportFetching by remember { mutableStateOf(false) }
 
+    // Edit Subscription Dialog
+    if (showEditSubDialog && editingSubscription != null) {
+        var isSubEditFetching by remember { mutableStateOf(false) }
+        var subEditError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = {
+                showEditSubDialog = false
+                editingSubscription = null
+            },
+            title = { Text("Edit Subscription") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editSubNameInput,
+                        onValueChange = { editSubNameInput = it },
+                        label = { Text("Subscription Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressiveButtonShape,
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editSubUrlInput,
+                        onValueChange = { editSubUrlInput = it },
+                        label = { Text("Subscription Link") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressiveButtonShape,
+                        singleLine = true,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    scanResultCallback = { result ->
+                                        editSubUrlInput = result
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCodeScanner,
+                                    contentDescription = "Scan QR Code"
+                                )
+                            }
+                        }
+                    )
+                    subEditError?.let { err ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isSubEditFetching = true
+                            subEditError = null
+                            try {
+                                val urlTrimmed = editSubUrlInput.trim()
+                                val nameTrimmed = editSubNameInput.trim()
+                                val updatedSub = if (urlTrimmed != editingSubscription!!.url) {
+                                    val result = fetchSubscription(urlTrimmed)
+                                    editingSubscription!!.copy(
+                                        name = nameTrimmed,
+                                        url = urlTrimmed,
+                                        servers = result.servers.joinToString("\n"),
+                                        upload = result.upload,
+                                        download = result.download,
+                                        total = result.total,
+                                        expire = result.expire
+                                    )
+                                } else {
+                                    editingSubscription!!.copy(
+                                        name = nameTrimmed
+                                    )
+                                }
+                                val updatedList = subscriptions.map {
+                                    if (it.id == editingSubscription!!.id) updatedSub else it
+                                }
+                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
+                                
+                                if (editingSubscription!!.id == activeSubId) {
+                                    val servers = updatedSub.servers.split("\n").filter { it.isNotEmpty() }
+                                    if (servers.isNotEmpty()) {
+                                        settingsManager.setActiveProfile(servers[0])
+                                        if (vpnState == "CONNECTED") {
+                                            startVpnService(context)
+                                        }
+                                    }
+                                }
+                                showEditSubDialog = false
+                                editingSubscription = null
+                            } catch (e: Exception) {
+                                subEditError = "Failed to update: ${e.message}"
+                            } finally {
+                                isSubEditFetching = false
+                            }
+                        }
+                    },
+                    enabled = !isSubEditFetching && editSubNameInput.isNotEmpty() && editSubUrlInput.isNotEmpty()
+                ) {
+                    if (isSubEditFetching) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showEditSubDialog = false
+                        editingSubscription = null
+                    },
+                    enabled = !isSubEditFetching
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Import Profile Dialog
     if (showImportDialog) {
         val isImportingSubscription = remember(importText) {
@@ -6271,7 +6503,7 @@ fun MainScreen(
                         },
                         divider = {}
                     ) {
-                        listOf(stringResource(R.string.tab_all), "VLESS", "Trojan", "Shadowsocks", "VMess", "Hysteria", "TUIC", "AmneziaWG").forEachIndexed { index, title ->
+                        tabTitles.forEachIndexed { index, title ->
                             Tab(
                                 selected = selectedTab == index,
                                 onClick = { selectedTab = index },

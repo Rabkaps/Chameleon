@@ -68,6 +68,7 @@ class SettingsManager(private val context: Context) {
         val ENABLE_MTPROXY = booleanPreferencesKey("enable_mtproxy")
         val MTPROXY_PORT = stringPreferencesKey("mtproxy_port")
         val MTPROXY_SECRET = stringPreferencesKey("mtproxy_secret")
+        val FAVORITE_SERVERS = stringSetPreferencesKey("favorite_servers")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -127,7 +128,8 @@ class SettingsManager(private val context: Context) {
             globalCamouflagePinnedIp = "",
             enableMtProxy = false,
             mtProxyPort = "19999",
-            mtProxySecret = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574"
+            mtProxySecret = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
+            favoriteServers = emptySet()
         )
     }
 
@@ -202,7 +204,8 @@ class SettingsManager(private val context: Context) {
             rootMode = prefs[ROOT_MODE] ?: false,
             enableMtProxy = prefs[ENABLE_MTPROXY] ?: false,
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
-            mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574"
+            mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
+            favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet()
         )
     }.distinctUntilChanged()
 
@@ -250,8 +253,19 @@ class SettingsManager(private val context: Context) {
     val proxyChains: Flow<String> = context.dataStore.data.map { it[PROXY_CHAINS] ?: "" }.distinctUntilChanged()
     val camouflageSettings: Flow<String> = context.dataStore.data.map { it[CAMOUFLAGE_SETTINGS] ?: "" }.distinctUntilChanged()
     val rootMode: Flow<Boolean> = context.dataStore.data.map { it[ROOT_MODE] ?: false }.distinctUntilChanged()
+    val favoriteServers: Flow<Set<String>> = context.dataStore.data.map { it[FAVORITE_SERVERS] ?: emptySet() }.distinctUntilChanged()
 
     suspend fun setProxyChains(value: String) { context.dataStore.edit { it[PROXY_CHAINS] = value } }
+    suspend fun toggleFavorite(serverLink: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[FAVORITE_SERVERS] ?: emptySet()
+            if (current.contains(serverLink)) {
+                prefs[FAVORITE_SERVERS] = current - serverLink
+            } else {
+                prefs[FAVORITE_SERVERS] = current + serverLink
+            }
+        }
+    }
     suspend fun setCamouflageSettings(value: String) { context.dataStore.edit { it[CAMOUFLAGE_SETTINGS] = value } }
     suspend fun setRootMode(value: Boolean) { context.dataStore.edit { it[ROOT_MODE] = value } }
 
@@ -400,7 +414,8 @@ data class UserSettings(
     val rootMode: Boolean,
     val enableMtProxy: Boolean,
     val mtProxyPort: String,
-    val mtProxySecret: String
+    val mtProxySecret: String,
+    val favoriteServers: Set<String>
 )
 
 data class Subscription(
