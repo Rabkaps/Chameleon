@@ -504,11 +504,37 @@ object ConfigInjector {
             val ruleSetName = r.optString("rule_set")
             val ruleSetArrayVal = r.optJSONArray("rule_set")
 
-            val isIranRule = (geosite != null && geosite.toString().contains("ir")) ||
-                             (geoip != null && geoip.toString().contains("ir")) ||
-                             (suffix != null && suffix.toString().contains(".ir")) ||
-                             (ruleSetName != null && ruleSetName.contains("ir")) ||
-                             (ruleSetArrayVal != null && ruleSetArrayVal.toString().contains("ir"))
+            val isIranRule = run {
+                val hasIrGeosite = geosite?.let { arr ->
+                    (0 until arr.length()).any { j ->
+                        val item = arr.optString(j)
+                        item == "ir" || item == "geosite-ir" || item == "geoip-ir"
+                    }
+                } ?: false
+                
+                val hasIrGeoip = geoip?.let { arr ->
+                    (0 until arr.length()).any { j ->
+                        val item = arr.optString(j)
+                        item == "ir" || item == "geoip-ir" || item == "geosite-ir"
+                    }
+                } ?: false
+                
+                val hasIrSuffix = suffix?.let { arr ->
+                    (0 until arr.length()).any { j ->
+                        val item = arr.optString(j)
+                        item == "ir" || item == ".ir" || item.endsWith(".ir")
+                    }
+                } ?: false
+                
+                val hasIrRuleSet = ruleSetArrayVal?.let { arr ->
+                    (0 until arr.length()).any { j ->
+                        val item = arr.optString(j)
+                        item == "geoip-ir" || item == "geosite-ir" || item == "ir"
+                    }
+                } ?: (ruleSetName != null && (ruleSetName == "geoip-ir" || ruleSetName == "geosite-ir" || ruleSetName == "ir"))
+
+                hasIrGeosite || hasIrGeoip || hasIrSuffix || hasIrRuleSet
+            }
             
             if (protocol != "dns" && !isIranRule && r.optString("action") != "sniff") {
                 originalRules.put(r)
@@ -644,9 +670,17 @@ object ConfigInjector {
             val geoipFile = java.io.File(context.filesDir, "geoip-ir.srs")
 
             // Inject or update local rule sets declaration if files exist
-            val ruleSetArray = JSONArray()
+            val existingRuleSets = route.optJSONArray("rule_set") ?: JSONArray()
+            val mergedRuleSets = JSONArray()
+            for (i in 0 until existingRuleSets.length()) {
+                val rs = existingRuleSets.optJSONObject(i) ?: continue
+                val tag = rs.optString("tag")
+                if (tag != "geoip-ir" && tag != "geosite-ir") {
+                    mergedRuleSets.put(rs)
+                }
+            }
             if (geoipFile.exists()) {
-                ruleSetArray.put(JSONObject().apply {
+                mergedRuleSets.put(JSONObject().apply {
                     put("tag", "geoip-ir")
                     put("type", "local")
                     put("format", "binary")
@@ -654,15 +688,15 @@ object ConfigInjector {
                 })
             }
             if (geositeFile.exists()) {
-                ruleSetArray.put(JSONObject().apply {
+                mergedRuleSets.put(JSONObject().apply {
                     put("tag", "geosite-ir")
                     put("type", "local")
                     put("format", "binary")
                     put("path", geositeFile.absolutePath)
                 })
             }
-            if (ruleSetArray.length() > 0) {
-                route.put("rule_set", ruleSetArray)
+            if (mergedRuleSets.length() > 0) {
+                route.put("rule_set", mergedRuleSets)
             }
 
             if (geositeFile.exists()) {
