@@ -137,17 +137,17 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                     val remark = try { java.net.URLDecoder.decode(parts.last(), "UTF-8") } catch (e: Exception) { parts.last() }
                     val remarkLower = remark.lowercase()
                     
-                    val isDummy = remarkLower.contains("traffic") || 
-                                  remarkLower.contains("remaining") || 
-                                  remarkLower.contains("expiry") || 
-                                  remarkLower.contains("limit") || 
-                                  remarkLower.contains("expire") || 
-                                  remarkLower.contains("quota") ||
-                                  remarkLower.contains("gb") || 
-                                  remarkLower.contains("mb") ||
-                                  remarkLower.contains("tb")
+                    val isQuotaRemark = remarkLower.contains("traffic") || 
+                                        remarkLower.contains("remaining") || 
+                                        remarkLower.contains("expiry") || 
+                                        remarkLower.contains("limit") || 
+                                        remarkLower.contains("expire") || 
+                                        remarkLower.contains("quota") ||
+                                        remarkLower.contains("gb") || 
+                                        remarkLower.contains("mb") ||
+                                        remarkLower.contains("tb")
                                   
-                    if (isDummy) {
+                    if (isQuotaRemark) {
                         if (remarkLower.contains("traffic") || remarkLower.contains("/")) {
                             val slashParts = remark.split("/")
                             if (slashParts.size == 2) {
@@ -173,7 +173,9 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                             val dateStr = remark.replace(Regex("(?i)(expiry|expire):?"), "").trim()
                             expireVal = parseDateString(dateStr) ?: expireVal
                         }
-                        continue // Exclude dummy config from connection profile list!
+                        if (isDummyHost(line)) {
+                            continue // Exclude dummy config from connection profile list!
+                        }
                     }
                 }
                 
@@ -234,4 +236,31 @@ internal fun formatExpiry(expirySecs: Long): String {
     val date = Date(ms)
     val format = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     return format.format(date)
+}
+
+private fun isDummyHost(line: String): Boolean {
+    try {
+        val trimmed = line.trim()
+        val schemeIdx = trimmed.indexOf("://")
+        if (schemeIdx < 0) return false
+        val scheme = trimmed.substring(0, schemeIdx).lowercase()
+        val rest = trimmed.substring(schemeIdx + 3)
+        val mainPart = rest.substringBefore("?").substringBefore("#")
+        
+        if (scheme == "vmess") {
+            val decoded = tryBase64Decode(mainPart) ?: return false
+            if (decoded.startsWith("{")) {
+                val json = org.json.JSONObject(decoded)
+                val add = json.optString("add") ?: ""
+                return add == "127.0.0.1" || add == "0.0.0.0" || add == "localhost" || add.isEmpty()
+            }
+        }
+        
+        val atIdx = mainPart.indexOf("@")
+        val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
+        val host = serverPart.substringBefore(":")
+        return host == "127.0.0.1" || host == "0.0.0.0" || host == "localhost" || host.isEmpty()
+    } catch (e: Exception) {
+        return false
+    }
 }
