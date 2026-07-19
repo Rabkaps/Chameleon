@@ -47,10 +47,25 @@ internal fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
 }
 
 internal fun parseDataSize(text: String): Long? {
-    val clean = text.trim().uppercase()
-    val numberPart = clean.takeWhile { it.isDigit() || it == '.' }
+    val clean = text.trim()
+    val regex = Regex("""(\d+(?:\.\d+)?)\s*(TB|GB|MB|KB|B)""", RegexOption.IGNORE_CASE)
+    val match = regex.find(clean)
+    if (match != null) {
+        val number = match.groupValues[1].toDoubleOrNull() ?: return null
+        val unit = match.groupValues[2].uppercase()
+        return when {
+            unit.startsWith("TB") -> (number * 1024L * 1024L * 1024L * 1024L).toLong()
+            unit.startsWith("GB") -> (number * 1024L * 1024L * 1024L).toLong()
+            unit.startsWith("MB") -> (number * 1024L * 1024L).toLong()
+            unit.startsWith("KB") -> (number * 1024L).toLong()
+            unit.startsWith("B") -> number.toLong()
+            else -> (number * 1024L * 1024L * 1024L).toLong()
+        }
+    }
+    // Fallback: original implementation
+    val numberPart = clean.uppercase().takeWhile { it.isDigit() || it == '.' }
     val number = numberPart.toDoubleOrNull() ?: return null
-    val unit = clean.drop(numberPart.length).trim()
+    val unit = clean.uppercase().drop(numberPart.length).trim()
     return when {
         unit.startsWith("TB") -> (number * 1024L * 1024L * 1024L * 1024L).toLong()
         unit.startsWith("GB") -> (number * 1024L * 1024L * 1024L).toLong()
@@ -145,21 +160,24 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                                         remarkLower.contains("quota") ||
                                         remarkLower.contains("gb") || 
                                         remarkLower.contains("mb") ||
-                                        remarkLower.contains("tb")
+                                        remarkLower.contains("tb") ||
+                                        remarkLower.contains("حجم") ||
+                                        remarkLower.contains("باقیمانده") ||
+                                        remarkLower.contains("باقی") ||
+                                        remarkLower.contains("مصرف") ||
+                                        remarkLower.contains("انقضا") ||
+                                        remarkLower.contains("ترافیک")
                                   
                     if (isQuotaRemark) {
-                        if (remarkLower.contains("traffic") || remarkLower.contains("/")) {
+                        if (remarkLower.contains("/") || remarkLower.contains("traffic") || remarkLower.contains("حجم") || remarkLower.contains("مصرف") || remarkLower.contains("ترافیک")) {
                             val slashParts = remark.split("/")
                             if (slashParts.size == 2) {
-                                val usedStr = slashParts[0].replace(Regex("(?i)traffic:?"), "").trim()
-                                val totalStr = slashParts[1].trim()
-                                downloadVal = parseDataSize(usedStr) ?: downloadVal
-                                totalVal = parseDataSize(totalStr) ?: totalVal
+                                downloadVal = parseDataSize(slashParts[0]) ?: downloadVal
+                                totalVal = parseDataSize(slashParts[1]) ?: totalVal
                             }
                         }
-                        if (remarkLower.contains("remaining")) {
-                            val remStr = remark.replace(Regex("(?i)remaining:?"), "").trim()
-                            val remainingBytes = parseDataSize(remStr)
+                        if (remarkLower.contains("remaining") || remarkLower.contains("باقیمانده") || remarkLower.contains("باقی")) {
+                            val remainingBytes = parseDataSize(remark)
                             if (remainingBytes != null) {
                                 if (totalVal != null) {
                                     downloadVal = totalVal - remainingBytes
@@ -169,9 +187,21 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                                 }
                             }
                         }
-                        if (remarkLower.contains("expiry") || remarkLower.contains("expire")) {
-                            val dateStr = remark.replace(Regex("(?i)(expiry|expire):?"), "").trim()
-                            expireVal = parseDateString(dateStr) ?: expireVal
+                        if (remarkLower.contains("expiry") || remarkLower.contains("expire") || remarkLower.contains("انقضا") || remarkLower.contains("تاریخ")) {
+                            val dateRegex = Regex("""(\d{4}[-/]\d{2}[-/]\d{2})|(\d{2}[-/]\d{2}[-/]\d{4})""")
+                            val dateMatch = dateRegex.find(remark)
+                            if (dateMatch != null) {
+                                expireVal = parseDateString(dateMatch.value) ?: expireVal
+                            } else {
+                                val daysRegex = Regex("""(\d+)\s*(day|days|روز)""", RegexOption.IGNORE_CASE)
+                                val daysMatch = daysRegex.find(remarkLower)
+                                if (daysMatch != null) {
+                                    val days = daysMatch.groupValues[1].toLongOrNull()
+                                    if (days != null) {
+                                        expireVal = (System.currentTimeMillis() / 1000L) + (days * 24 * 3600)
+                                    }
+                                }
+                            }
                         }
                         if (isDummyHost(line)) {
                             continue // Exclude dummy config from connection profile list!
