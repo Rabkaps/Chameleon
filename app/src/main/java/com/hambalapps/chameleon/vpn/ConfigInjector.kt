@@ -111,6 +111,7 @@ object ConfigInjector {
                 trimmedProfile.startsWith("ssr://") ||
                 trimmedProfile.startsWith("shadowtls://") ||
                 trimmedProfile.startsWith("snell://") ||
+                trimmedProfile.startsWith("masque://") ||
                 trimmedProfile.startsWith("client") ||
                 trimmedProfile.contains("dev tun") ||
                 (trimmedProfile.contains("[Interface]") && trimmedProfile.contains("[Peer]"))) {
@@ -1108,6 +1109,7 @@ object ConfigInjector {
                 put("cache_file", JSONObject().apply {
                     put("enabled", true)
                     put("store_warp_config", true)
+                    put("store_masque_config", true)
                 })
             })
         }
@@ -1561,6 +1563,50 @@ object ConfigInjector {
                     val hbStr = if (hb.endsWith("s") || hb.endsWith("ms")) hb else "${hb}s"
                     outbound.put("heartbeat", hbStr)
                 }
+            } else if (scheme == "masque") {
+                outbound.put("type", "masque")
+                outbound.put("system", false)
+                outbound.put("name", "masque0")
+
+                val useHttp2 = queryParams["use_http2"] == "1" || queryParams["use_http2"] == "true"
+                outbound.put("use_http2", useHttp2)
+
+                val useIpv6 = queryParams["use_ipv6"] == "1" || queryParams["use_ipv6"] == "true"
+                outbound.put("use_ipv6", useIpv6)
+
+                val profile = JSONObject()
+                val profileId = queryParams["id"] ?: queryParams["profile_id"] ?: ""
+                val token = queryParams["token"] ?: queryParams["auth_token"] ?: ""
+                val privateKey = queryParams["private_key"] ?: queryParams["pk"] ?: userInfo
+                val detour = queryParams["detour"] ?: ""
+                profile.put("id", profileId)
+                profile.put("auth_token", token)
+                profile.put("private_key", privateKey)
+                if (detour.isNotEmpty()) {
+                    profile.put("detour", detour)
+                }
+                outbound.put("profile", profile)
+
+                val tls = JSONObject()
+                val sni = queryParams["sni"] ?: queryParams["server_name"] ?: ""
+                if (sni.isNotEmpty()) {
+                    tls.put("server_name", sni)
+                }
+                val insecure = queryParams["insecure"] == "1" || queryParams["insecure"] == "true"
+                tls.put("insecure", insecure)
+                outbound.put("tls", tls)
+
+                val congestionController = queryParams["congestion_controller"] ?: queryParams["cc"] ?: "bbr"
+                outbound.put("congestion_controller", congestionController)
+
+                val reconnectDelay = queryParams["reconnect_delay"] ?: "5s"
+                outbound.put("reconnect_delay", reconnectDelay)
+                
+                val udpTimeout = queryParams["udp_timeout"] ?: "5m0s"
+                outbound.put("udp_timeout", udpTimeout)
+                
+                val udpKeepalive = queryParams["udp_keepalive_period"] ?: "30s"
+                outbound.put("udp_keepalive_period", udpKeepalive)
             } else if (scheme == "wireguard" || scheme == "awg" || scheme == "amneziawg") {
                 val isAmnezia = scheme == "awg" || scheme == "amneziawg"
                 val configText = queryParams["config"]?.let { tryBase64Decode(it) } ?: ""

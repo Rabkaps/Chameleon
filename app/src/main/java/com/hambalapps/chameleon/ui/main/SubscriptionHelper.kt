@@ -198,7 +198,8 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                                      lowerLine.startsWith("https://") ||
                                      lowerLine.startsWith("shadowtls://") ||
                                      lowerLine.startsWith("snell://") ||
-                                     lowerLine.startsWith("mieru://")
+                                     lowerLine.startsWith("mieru://") ||
+                                     lowerLine.startsWith("masque://")
                 
                 if (hasValidScheme) {
                     servers.add(line)

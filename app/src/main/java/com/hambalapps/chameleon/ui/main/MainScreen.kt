@@ -615,7 +615,8 @@ fun MainScreen(
         "Hysteria",
         "TUIC",
         "OpenVPN",
-        "AmneziaWG"
+        "AmneziaWG",
+        "MASQUE"
     )
     var editingSubscription by remember { mutableStateOf<com.hambalapps.chameleon.data.Subscription?>(null) }
     var editSubNameInput by remember { mutableStateOf("") }
@@ -683,6 +684,7 @@ fun MainScreen(
                 "TUIC" -> type == "TUIC"
                 "OpenVPN" -> type == "OPENVPN"
                 "AmneziaWG" -> type == "AMNEZIAWG"
+                "MASQUE" -> type == "MASQUE"
                 else -> true
             }
             if (matchesTab) {
@@ -748,6 +750,10 @@ fun MainScreen(
     var editRealitySpx by remember { mutableStateOf("") }
     var editUtlsFingerprint by remember { mutableStateOf("chrome") }
     var editShowAdvanced by remember { mutableStateOf(false) }
+    var editMasqueProfileId by remember { mutableStateOf("") }
+    var editMasqueToken by remember { mutableStateOf("") }
+    var editMasqueUseHttp2 by remember { mutableStateOf(false) }
+    var editMasqueUseIpv6 by remember { mutableStateOf(false) }
     var editTransportType by remember { mutableStateOf("tcp") }
     var editTransportPath by remember { mutableStateOf("") }
     var editTransportHost by remember { mutableStateOf("") }
@@ -5345,7 +5351,8 @@ fun MainScreen(
             !trimmed.startsWith("ovpn://") &&
             !trimmed.startsWith("awg://") &&
             !trimmed.startsWith("amneziawg://") &&
-            !trimmed.startsWith("wireguard://")
+            !trimmed.startsWith("wireguard://") &&
+            !trimmed.startsWith("masque://")
         }
 
         AlertDialog(
@@ -5560,6 +5567,10 @@ fun MainScreen(
                 editRealitySid = ""
                 editRealitySpx = ""
                 editUtlsFingerprint = "chrome"
+                editMasqueProfileId = ""
+                editMasqueToken = ""
+                editMasqueUseHttp2 = false
+                editMasqueUseIpv6 = false
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
@@ -5664,6 +5675,10 @@ fun MainScreen(
                     editRealitySid = queryParams["sid"] ?: ""
                     editRealitySpx = queryParams["spx"] ?: ""
                     editUtlsFingerprint = queryParams["fp"] ?: "chrome"
+                    editMasqueProfileId = queryParams["id"] ?: queryParams["profile_id"] ?: ""
+                    editMasqueToken = queryParams["token"] ?: queryParams["auth_token"] ?: ""
+                    editMasqueUseHttp2 = queryParams["use_http2"] == "true" || queryParams["use_http2"] == "1"
+                    editMasqueUseIpv6 = queryParams["use_ipv6"] == "true" || queryParams["use_ipv6"] == "1"
                     
                     editLinkInput = link
                     editorMode = "form"
@@ -5816,7 +5831,7 @@ fun MainScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                listOf("socks5", "http", "https").forEach { proto ->
+                                listOf("socks5", "http", "https", "masque").forEach { proto ->
                                     FilterChip(
                                         selected = editType == proto,
                                         onClick = { 
@@ -5856,10 +5871,55 @@ fun MainScreen(
                         OutlinedTextField(
                             value = editCreds,
                             onValueChange = { editCreds = it },
-                            label = { Text(if (editType == "vless") stringResource(R.string.uuid) else stringResource(R.string.password_credentials)) },
+                            label = { Text(if (editType == "vless") stringResource(R.string.uuid) else if (editType == "masque") "Private Key (Optional)" else stringResource(R.string.password_credentials)) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = ExpressiveButtonShape
                         )
+
+                        if (editType == "masque") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editMasqueProfileId,
+                                onValueChange = { editMasqueProfileId = it },
+                                label = { Text("Profile ID (Optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape,
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editMasqueToken,
+                                onValueChange = { editMasqueToken = it },
+                                label = { Text("Auth Token (Optional)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape,
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Use HTTP2 (default: HTTP/3 / QUIC)", fontWeight = FontWeight.Bold)
+                                Switch(
+                                    checked = editMasqueUseHttp2,
+                                    onCheckedChange = { editMasqueUseHttp2 = it }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Use IPv6 (default: IPv4)", fontWeight = FontWeight.Bold)
+                                Switch(
+                                    checked = editMasqueUseIpv6,
+                                    onCheckedChange = { editMasqueUseIpv6 = it }
+                                )
+                            }
+                        }
 
                         // Flow control (VLESS only)
                         if (editType == "vless") {
@@ -6202,6 +6262,12 @@ fun MainScreen(
                                              queryList.add("flow=${java.net.URLEncoder.encode(editFlow.trim(), "UTF-8")}")
                                          }
                                      } else if (editType == "https") {
+                                         if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                     } else if (editType == "masque") {
+                                         if (editMasqueProfileId.isNotEmpty()) queryList.add("id=${java.net.URLEncoder.encode(editMasqueProfileId.trim(), "UTF-8")}")
+                                         if (editMasqueToken.isNotEmpty()) queryList.add("token=${java.net.URLEncoder.encode(editMasqueToken.trim(), "UTF-8")}")
+                                         if (editMasqueUseHttp2) queryList.add("use_http2=1")
+                                         if (editMasqueUseIpv6) queryList.add("use_ipv6=1")
                                          if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
                                      }
 
