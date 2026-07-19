@@ -568,7 +568,13 @@ fun ChameleonTheme(
 
         // Material Expressive Color & Surface Strategy
         if (cardStyle == "tonal") {
-            baseScheme
+            baseScheme.copy(
+                surfaceContainerLowest = baseScheme.surface,
+                surfaceContainerLow = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.04f else 0.03f),
+                surfaceContainer = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.08f else 0.05f),
+                surfaceContainerHigh = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.12f else 0.08f),
+                surfaceContainerHighest = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.16f else 0.12f)
+            )
         } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(
