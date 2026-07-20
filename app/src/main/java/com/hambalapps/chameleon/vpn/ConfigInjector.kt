@@ -459,12 +459,15 @@ object ConfigInjector {
         }
         
         if (settings.bypassIran) {
-            // Rule: Route Iranian geosite to local DNS via geosite
-            val irGeositeRule = JSONObject().apply {
-                put("geosite", JSONArray(listOf("ir")))
-                put("server", "dns-direct")
+            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
+            if (geositeFile.exists()) {
+                // Rule: Route Iranian geosite to local DNS via rule_set
+                val irGeositeRule = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("server", "dns-direct")
+                }
+                rules.put(irGeositeRule)
             }
-            rules.put(irGeositeRule)
 
             // Rule: Route .ir domains to local DNS
             val irSuffixRule = JSONObject().apply {
@@ -663,17 +666,54 @@ object ConfigInjector {
 
         // 5. Bypass Iran Rules (must be high priority before custom/catch-all proxy rules)
         if (settings.bypassIran) {
-            val irGeosite = JSONObject().apply {
-                put("geosite", JSONArray(listOf("ir")))
-                put("outbound", "direct")
-            }
-            newRules.put(irGeosite)
+            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
+            val geoipFile = java.io.File(context.filesDir, "geoip-ir.srs")
 
-            val irGeoip = JSONObject().apply {
-                put("geoip", JSONArray(listOf("ir")))
-                put("outbound", "direct")
+            // Inject or update local rule sets declaration if files exist
+            val existingRuleSets = route.optJSONArray("rule_set") ?: JSONArray()
+            val mergedRuleSets = JSONArray()
+            for (i in 0 until existingRuleSets.length()) {
+                val rs = existingRuleSets.optJSONObject(i) ?: continue
+                val tag = rs.optString("tag")
+                if (tag != "geoip-ir" && tag != "geosite-ir") {
+                    mergedRuleSets.put(rs)
+                }
             }
-            newRules.put(irGeoip)
+            if (geoipFile.exists()) {
+                mergedRuleSets.put(JSONObject().apply {
+                    put("tag", "geoip-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geoipFile.absolutePath)
+                })
+            }
+            if (geositeFile.exists()) {
+                mergedRuleSets.put(JSONObject().apply {
+                    put("tag", "geosite-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geositeFile.absolutePath)
+                })
+            }
+            if (mergedRuleSets.length() > 0) {
+                route.put("rule_set", mergedRuleSets)
+            }
+
+            if (geositeFile.exists()) {
+                val irGeosite = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeosite)
+            }
+
+            if (geoipFile.exists()) {
+                val irGeoip = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geoip-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeoip)
+            }
 
             val irSuffix = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))

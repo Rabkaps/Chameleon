@@ -102,44 +102,6 @@ object SingboxManager {
         }
     }
 
-    private fun downloadGeoDatabasesIfNeeded() {
-        val geoipDb = File(workingDir, "geoip.db")
-        val geositeDb = File(workingDir, "geosite.db")
-        
-        if (!geoipDb.exists()) {
-            log("geoip.db is missing. Downloading GeoIP database...")
-            downloadFile("https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db", geoipDb)
-        }
-        if (!geositeDb.exists()) {
-            log("geosite.db is missing. Downloading GeoSite database...")
-            downloadFile("https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db", geositeDb)
-        }
-    }
-
-    private fun downloadFile(urlStr: String, destFile: File) {
-        try {
-            val url = URL(urlStr)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
-            if (conn.responseCode == 200) {
-                destFile.outputStream().use { output ->
-                    conn.inputStream.use { input ->
-                        input.copyTo(output)
-                    }
-                }
-                log("${destFile.name} downloaded successfully.")
-            } else {
-                log("Failed to download ${destFile.name}. HTTP code: ${conn.responseCode}")
-            }
-            conn.disconnect()
-        } catch (e: Exception) {
-            log("Failed to download ${destFile.name}: ${e.message}")
-            e.printStackTrace()
-        }
-    }
-
     suspend fun start(rawProfile: String, settingsManager: SettingsManager): Boolean {
         if (_vpnState.value == "CONNECTED" || _vpnState.value == "CONNECTING") {
             stop()
@@ -160,9 +122,6 @@ object SingboxManager {
                 // Ensure wintun.dll is present
                 downloadWintunIfNeeded()
             }
-
-            // Ensure geoip.db and geosite.db are present
-            downloadGeoDatabasesIfNeeded()
 
             // 1. Generate Config
             val configJson = ConfigInjector.injectConfig(

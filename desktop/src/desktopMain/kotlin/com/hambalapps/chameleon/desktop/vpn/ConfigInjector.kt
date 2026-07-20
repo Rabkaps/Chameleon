@@ -245,7 +245,7 @@ object ConfigInjector {
         
         if (settings.bypassIran) {
             val irGeositeRule = JSONObject().apply {
-                put("geosite", JSONArray(listOf("ir")))
+                put("rule_set", JSONArray(listOf("geosite-ir")))
                 put("server", "dns-direct")
             }
             rules.put(irGeositeRule)
@@ -423,18 +423,45 @@ object ConfigInjector {
         }
 
         if (settings.bypassIran) {
+            // Inject or update local rule sets declaration
+            val existingRuleSets = route.optJSONArray("rule_set") ?: JSONArray()
+            val mergedRuleSets = JSONArray()
+            for (i in 0 until existingRuleSets.length()) {
+                val rs = existingRuleSets.optJSONObject(i) ?: continue
+                val tag = rs.optString("tag")
+                if (tag != "geoip-ir" && tag != "geosite-ir") {
+                    mergedRuleSets.put(rs)
+                }
+            }
+            mergedRuleSets.put(JSONObject().apply {
+                put("tag", "geoip-ir")
+                put("type", "local")
+                put("format", "binary")
+                put("path", geoipPath)
+            })
+            mergedRuleSets.put(JSONObject().apply {
+                put("tag", "geosite-ir")
+                put("type", "local")
+                put("format", "binary")
+                put("path", geositePath)
+            })
+            route.put("rule_set", mergedRuleSets)
+
+            // Add Iran Bypass Geosite Rule via rule_set
             val irGeosite = JSONObject().apply {
-                put("geosite", JSONArray(listOf("ir")))
+                put("rule_set", JSONArray(listOf("geosite-ir")))
                 put("outbound", "direct")
             }
             newRules.put(irGeosite)
 
+            // Add Iran Bypass GeoIP Rule via rule_set
             val irGeoip = JSONObject().apply {
-                put("geoip", JSONArray(listOf("ir")))
+                put("rule_set", JSONArray(listOf("geoip-ir")))
                 put("outbound", "direct")
             }
             newRules.put(irGeoip)
 
+            // Add Iran .ir Suffix Rule
             val irSuffix = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))
                 put("outbound", "direct")
