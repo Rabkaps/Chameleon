@@ -204,4 +204,5 @@
     <string name="camouflage_preset">Camouflage Preset</string>
     <string name="custom_sni">Custom SNI</string>
     <string name="custom_host">Custom Host Header</string>
+    <string name="app_language_title">App Language</string>
 </resources>

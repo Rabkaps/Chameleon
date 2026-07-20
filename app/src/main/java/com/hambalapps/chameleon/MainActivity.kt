@@ -34,6 +34,24 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+  override fun attachBaseContext(newBase: android.content.Context) {
+    val language = kotlinx.coroutines.runBlocking {
+      com.hambalapps.chameleon.data.SettingsManager.getInstance(newBase).appLanguage.first()
+    }
+    val locale = when (language) {
+      "en" -> java.util.Locale.ENGLISH
+      "fa" -> java.util.Locale("fa")
+      else -> java.util.Locale.getDefault()
+    }
+    java.util.Locale.setDefault(locale)
+    val resources = newBase.resources
+    val config = resources.configuration
+    config.setLocale(locale)
+    config.setLayoutDirection(locale)
+    val context = newBase.createConfigurationContext(config)
+    super.attachBaseContext(context)
+  }
+
   private val requestPermissionLauncher = registerForActivityResult(
     ActivityResultContracts.RequestPermission()
   ) { isGranted: Boolean ->

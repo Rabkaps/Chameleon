@@ -69,10 +69,12 @@ class SettingsManager(private val context: Context) {
         val MTPROXY_PORT = stringPreferencesKey("mtproxy_port")
         val MTPROXY_SECRET = stringPreferencesKey("mtproxy_secret")
         val FAVORITE_SERVERS = stringSetPreferencesKey("favorite_servers")
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
         val defaultSettings = UserSettings(
+            appLanguage = "system",
             isAdvancedMode = false,
             enableDebugLogging = false,
             bypassIran = true,
@@ -149,6 +151,7 @@ class SettingsManager(private val context: Context) {
         }
 
         UserSettings(
+            appLanguage = prefs[APP_LANGUAGE] ?: "system",
             isAdvancedMode = prefs[IS_ADVANCED_MODE] ?: false,
             enableDebugLogging = prefs[ENABLE_DEBUG_LOGGING] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
@@ -291,6 +294,9 @@ class SettingsManager(private val context: Context) {
     suspend fun setSplitTunnelingApps(value: Set<String>) { context.dataStore.edit { it[SPLIT_TUNNELING_APPS] = value } }
     suspend fun setManualServers(value: String) { context.dataStore.edit { it[MANUAL_SERVERS] = value } }
     suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
+    val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }.distinctUntilChanged()
+    suspend fun setAppLanguage(value: String) { context.dataStore.edit { it[APP_LANGUAGE] = value } }
+
     suspend fun setThemeMode(value: String) { context.dataStore.edit { it[THEME_MODE] = value } }
     suspend fun setCardStyle(value: String) { context.dataStore.edit { it[CARD_STYLE] = value } }
     suspend fun setBypassLan(value: Boolean) { context.dataStore.edit { it[BYPASS_LAN] = value } }
@@ -359,6 +365,7 @@ class SettingsManager(private val context: Context) {
 }
 
 data class UserSettings(
+    val appLanguage: String,
     val isAdvancedMode: Boolean,
     val enableDebugLogging: Boolean,
     val bypassIran: Boolean,

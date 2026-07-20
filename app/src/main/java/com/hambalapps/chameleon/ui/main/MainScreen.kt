@@ -124,50 +124,53 @@ fun VibrantCardContent(
     isSecondary: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    if (cardStyle == "vibrant" || cardStyle == "solid") {
-        val originalColorScheme = MaterialTheme.colorScheme
-        val textCol = if (isSecondary) originalColorScheme.onSecondaryContainer else originalColorScheme.onPrimaryContainer
-        val bgCol = if (isSecondary) originalColorScheme.secondaryContainer else originalColorScheme.primaryContainer
-        MaterialTheme(
-            colorScheme = originalColorScheme.copy(
-                primary = textCol,
-                onPrimary = bgCol,
-                primaryContainer = textCol.copy(alpha = 0.20f),
-                onPrimaryContainer = textCol,
-                
-                secondary = textCol,
-                onSecondary = bgCol,
-                secondaryContainer = textCol.copy(alpha = 0.20f),
-                onSecondaryContainer = textCol,
-                
-                tertiary = textCol,
-                onTertiary = bgCol,
-                tertiaryContainer = textCol.copy(alpha = 0.20f),
-                onTertiaryContainer = textCol,
-                
-                surface = bgCol,
-                onSurface = textCol,
-                onSurfaceVariant = textCol.copy(alpha = 0.80f),
-                surfaceVariant = textCol.copy(alpha = 0.15f),
-                
-                outline = textCol.copy(alpha = 0.45f),
-                outlineVariant = textCol.copy(alpha = 0.25f),
-                onError = Color.White,
-                
-                surfaceContainerLowest = textCol.copy(alpha = 0.05f),
-                surfaceContainerLow = textCol.copy(alpha = 0.10f),
-                surfaceContainer = textCol.copy(alpha = 0.15f),
-                surfaceContainerHigh = textCol.copy(alpha = 0.20f),
-                surfaceContainerHighest = textCol.copy(alpha = 0.25f)
-            )
-        ) {
-            CompositionLocalProvider(
-                LocalContentColor provides MaterialTheme.colorScheme.onSurface,
-                content = content
-            )
-        }
+    val originalColorScheme = MaterialTheme.colorScheme
+    val textCol = if (isSecondary) originalColorScheme.onSecondaryContainer else originalColorScheme.onPrimaryContainer
+    val bgCol = if (isSecondary) originalColorScheme.secondaryContainer else originalColorScheme.primaryContainer
+    
+    val targetColorScheme = if (cardStyle == "vibrant" || cardStyle == "solid") {
+        originalColorScheme.copy(
+            primary = textCol,
+            onPrimary = bgCol,
+            primaryContainer = textCol.copy(alpha = 0.20f),
+            onPrimaryContainer = textCol,
+            
+            secondary = textCol,
+            onSecondary = bgCol,
+            secondaryContainer = textCol.copy(alpha = 0.20f),
+            onSecondaryContainer = textCol,
+            
+            tertiary = textCol,
+            onTertiary = bgCol,
+            tertiaryContainer = textCol.copy(alpha = 0.20f),
+            onTertiaryContainer = textCol,
+            
+            surface = bgCol,
+            onSurface = textCol,
+            onSurfaceVariant = textCol.copy(alpha = 0.80f),
+            surfaceVariant = textCol.copy(alpha = 0.15f),
+            
+            outline = textCol.copy(alpha = 0.45f),
+            outlineVariant = textCol.copy(alpha = 0.25f),
+            onError = Color.White,
+            
+            surfaceContainerLowest = textCol.copy(alpha = 0.05f),
+            surfaceContainerLow = textCol.copy(alpha = 0.10f),
+            surfaceContainer = textCol.copy(alpha = 0.15f),
+            surfaceContainerHigh = textCol.copy(alpha = 0.20f),
+            surfaceContainerHighest = textCol.copy(alpha = 0.25f)
+        )
     } else {
-        content()
+        originalColorScheme
+    }
+
+    androidx.compose.material3.MaterialExpressiveTheme(
+        colorScheme = targetColorScheme
+    ) {
+        CompositionLocalProvider(
+            LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+            content = content
+        )
     }
 }
 
@@ -629,6 +632,63 @@ fun MainScreen(
     var selectedNodes by remember { mutableStateOf(setOf<String>()) }
     var resolvedCountries by remember { mutableStateOf(mapOf<String, String>()) }
     var isTestingPings by remember { mutableStateOf(false) }
+    var isUpdatingSubs by remember { mutableStateOf(false) }
+
+    val onUpdateSubscriptions = {
+        if (!isUpdatingSubs) {
+            scope.launch {
+                isUpdatingSubs = true
+                var anyUpdated = false
+                var updateFailed = false
+                val currentSubs = subscriptions
+                val updatedSubs = currentSubs.map { sub ->
+                    if (!sub.url.startsWith("local://")) {
+                        try {
+                            val result = fetchSubscription(sub.url)
+                            if (result.servers.isNotEmpty()) {
+                                anyUpdated = true
+                                sub.copy(
+                                    servers = result.servers.joinToString("\n"),
+                                    upload = result.upload,
+                                    download = result.download,
+                                    total = result.total,
+                                    expire = result.expire
+                                )
+                            } else {
+                                sub
+                            }
+                        } catch (e: Exception) {
+                            updateFailed = true
+                            sub
+                        }
+                    } else {
+                        sub
+                    }
+                }
+                if (anyUpdated) {
+                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
+                    val activeSubIdVal = currentSettings.activeSubId
+                    val activeProfileVal = currentSettings.activeProfile
+                    val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
+                    if (updatedActiveSub != null) {
+                        val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
+                        if (sList.isNotEmpty() && !sList.contains(activeProfileVal)) {
+                            settingsManager.setActiveProfile(sList[0])
+                            if (vpnState == "CONNECTED") {
+                                startVpnService(context)
+                            }
+                        }
+                    }
+                    android.widget.Toast.makeText(context, "Subscriptions updated!", android.widget.Toast.LENGTH_SHORT).show()
+                } else if (updateFailed) {
+                    android.widget.Toast.makeText(context, "Failed to update some subscriptions", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    android.widget.Toast.makeText(context, "No updates found", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                isUpdatingSubs = false
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         IpCountryResolver.init(context)
@@ -691,11 +751,13 @@ fun MainScreen(
                 val name = ProxyNameResolver.getProxyName(serverLink, context)
                 val matchesSearch = name.contains(searchQuery, ignoreCase = true)
                 
-                val matchesGroup = if (selectedSubGroupFilter == "All Groups") {
-                    true
-                } else {
-                    val matchingSub = subscriptions.find { it.name == selectedSubGroupFilter }
-                    matchingSub?.servers?.split("\n")?.map { it.trim() }?.contains(serverLink.trim()) ?: false
+                val matchesGroup = when (selectedSubGroupFilter) {
+                    "All Groups" -> true
+                    "Favorites" -> settings.favoriteServers.contains(serverLink)
+                    else -> {
+                        val matchingSub = subscriptions.find { it.name == selectedSubGroupFilter }
+                        matchingSub?.servers?.split("\n")?.map { it.trim() }?.contains(serverLink.trim()) ?: false
+                    }
                 }
                 
                 val matchesCountry = if (selectedCountryFilter == "All Countries") {
@@ -828,8 +890,8 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.60f),
-                        Color.Black.copy(alpha = 0.10f)
+                        primaryColor.copy(alpha = 0.25f),
+                        Color.White.copy(alpha = 0.50f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -863,8 +925,8 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.15f)
+                        primaryColor.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.65f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -892,8 +954,8 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.15f)
+                        secondaryColor.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.65f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -921,8 +983,8 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.15f)
+                        tertiaryColor.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.65f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -1487,7 +1549,7 @@ fun MainScreen(
                         }
 
                         val subGroups = remember(subscriptions) {
-                            listOf("All Groups") + subscriptions.map { it.name }
+                            listOf("All Groups", "Favorites") + subscriptions.map { it.name }
                         }
 
                         val subscriptionManagerCard: @Composable (Modifier, Modifier) -> Unit = { modifier, listModifier ->
@@ -1838,7 +1900,7 @@ fun MainScreen(
                                                                 onDismissRequest = { menuExpanded = false },
                                                                 modifier = Modifier.background(standardColorScheme.surfaceContainerHigh)
                                                             ) {
-                                                                MaterialTheme(colorScheme = standardColorScheme) {
+                                                                androidx.compose.material3.MaterialExpressiveTheme(colorScheme = standardColorScheme) {
                                                                 DropdownMenuItem(
                                                                     text = {
                                                                         Text(
@@ -2268,6 +2330,25 @@ fun MainScreen(
                                                 }
 
                                                 IconButton(
+                                                    onClick = onUpdateSubscriptions,
+                                                    enabled = !isUpdatingSubs && !isTestingPings,
+                                                    modifier = Modifier.pressScaleEffect()
+                                                ) {
+                                                    if (isUpdatingSubs) {
+                                                        LoadingIndicator(
+                                                            modifier = Modifier.size(20.dp),
+                                                            color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    } else {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Sync,
+                                                            contentDescription = "Update Subscriptions",
+                                                            tint = MaterialTheme.colorScheme.primary
+                                                        )
+                                                    }
+                                                }
+
+                                                IconButton(
                                                     onClick = {
                                                         if (!isTestingPings) {
                                                             scope.launch {
@@ -2348,7 +2429,7 @@ fun MainScreen(
                                                             expanded = isGroupDropdownExpanded,
                                                             onDismissRequest = { isGroupDropdownExpanded = false }
                                                         ) {
-                                                            MaterialTheme(colorScheme = standardColorScheme) {
+                                                            androidx.compose.material3.MaterialExpressiveTheme(colorScheme = standardColorScheme) {
                                                                 subGroups.forEach { group ->
                                                                     DropdownMenuItem(
                                                                         text = { Text(group) },
@@ -2380,7 +2461,7 @@ fun MainScreen(
                                                             expanded = isCountryDropdownExpanded,
                                                             onDismissRequest = { isCountryDropdownExpanded = false }
                                                         ) {
-                                                            MaterialTheme(colorScheme = standardColorScheme) {
+                                                            androidx.compose.material3.MaterialExpressiveTheme(colorScheme = standardColorScheme) {
                                                                 uniqueCountries.forEach { country ->
                                                                     DropdownMenuItem(
                                                                         text = { Text(country) },
@@ -2395,6 +2476,33 @@ fun MainScreen(
                                                     }
 
                                                     Spacer(modifier = Modifier.weight(1f))
+
+                                                    // Update/Refresh Subscriptions button
+                                                    FilledIconButton(
+                                                        onClick = onUpdateSubscriptions,
+                                                        modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        ),
+                                                        shape = CircleShape,
+                                                        enabled = !isUpdatingSubs && !isTestingPings
+                                                    ) {
+                                                        if (isUpdatingSubs) {
+                                                            LoadingIndicator(
+                                                                modifier = Modifier.size(16.dp),
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                            )
+                                                        } else {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Sync,
+                                                                contentDescription = "Update Subscriptions",
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                    
+                                                    Spacer(modifier = Modifier.width(8.dp))
 
                                                     // Ping/Speed test button
                                                     FilledIconButton(
@@ -3213,6 +3321,33 @@ fun MainScreen(
                                              horizontalArrangement = Arrangement.End,
                                              verticalAlignment = Alignment.CenterVertically
                                          ) {
+                                             // Update/Refresh Subscriptions button
+                                             FilledIconButton(
+                                                 onClick = onUpdateSubscriptions,
+                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
+                                                 colors = IconButtonDefaults.filledIconButtonColors(
+                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                 ),
+                                                 shape = CircleShape,
+                                                 enabled = !isUpdatingSubs && !isTestingPings
+                                             ) {
+                                                 if (isUpdatingSubs) {
+                                                     LoadingIndicator(
+                                                         modifier = Modifier.size(16.dp),
+                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                     )
+                                                 } else {
+                                                     Icon(
+                                                         imageVector = Icons.Default.Sync,
+                                                         contentDescription = "Update Subscriptions",
+                                                         modifier = Modifier.size(16.dp)
+                                                     )
+                                                 }
+                                             }
+
+                                             Spacer(modifier = Modifier.width(8.dp))
+
                                              // Ping/Speed test button
                                              FilledIconButton(
                                                  onClick = {

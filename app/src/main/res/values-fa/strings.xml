@@ -195,4 +195,5 @@
     <string name="mode_ai_bypass_title">WARP</string>
     <string name="tag_stable">پایدار</string>
     <string name="tag_experimental">آزمایشی</string>
+    <string name="app_language_title">زبان برنامه (Language)</string>
 </resources>
