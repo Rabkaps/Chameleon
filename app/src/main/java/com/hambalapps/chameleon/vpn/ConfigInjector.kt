@@ -415,16 +415,22 @@ object ConfigInjector {
         android.util.Log.i("Chameleon", "Direct DNS set to: $directDnsAddr")
 
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
+        val shecanServer = createDnsServer("dns-shecan", "185.51.200.2", null)
 
         // 4. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
         val bootstrapServer = createDnsServer("dns-bootstrap", "https://8.8.8.8/dns-query", null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
-            val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
             servers.put(secureServer)
             servers.put(fallbackSecureProxy)
             servers.put(radarServer)
+            servers.put(shecanServer)
+            servers.put(directServer)
+            servers.put(bootstrapServer)
+        } else if (settings.bypassIran) {
+            servers.put(secureServer)
+            servers.put(fallbackSecureProxy)
             servers.put(shecanServer)
             servers.put(directServer)
             servers.put(bootstrapServer)
@@ -628,7 +634,7 @@ object ConfigInjector {
             directIps.add(bootstrapDnsAddr)
         }
 
-        if (settings.vpnMode == "gaming") {
+        if (settings.bypassIran || settings.vpnMode == "gaming") {
             listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
                 if (!directIps.contains(ip)) {
                     directIps.add(ip)
