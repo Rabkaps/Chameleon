@@ -667,8 +667,8 @@ fun MainScreen(
                 }
                 if (anyUpdated) {
                     settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
-                    val activeSubIdVal = currentSettings.activeSubId
-                    val activeProfileVal = currentSettings.activeProfile
+                    val activeSubIdVal = settings.activeSubId
+                    val activeProfileVal = settings.activeProfile
                     val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
                     if (updatedActiveSub != null) {
                         val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
