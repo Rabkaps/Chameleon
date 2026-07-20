@@ -459,12 +459,16 @@ object ConfigInjector {
         }
         
         if (settings.bypassIran) {
-            // Rule: Route Iranian geosite to local DNS via rule_set
-            val irGeositeRule = JSONObject().apply {
-                put("rule_set", JSONArray(listOf("geosite-ir")))
-                put("server", "dns-direct")
+            val targetDir = context.filesDir ?: context.cacheDir
+            val geositeFile = java.io.File(targetDir, "geosite-ir.srs")
+            if (geositeFile.exists()) {
+                // Rule: Route Iranian geosite to local DNS via rule_set
+                val irGeositeRule = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("server", "dns-direct")
+                }
+                rules.put(irGeositeRule)
             }
-            rules.put(irGeositeRule)
 
             // Rule: Route .ir domains to local DNS
             val irSuffixRule = JSONObject().apply {
@@ -663,7 +667,11 @@ object ConfigInjector {
 
         // 5. Bypass Iran Rules (must be high priority before custom/catch-all proxy rules)
         if (settings.bypassIran) {
-            // Inject or update local rule sets declaration
+            val targetDir = context.filesDir ?: context.cacheDir
+            val geositeFile = java.io.File(targetDir, "geosite-ir.srs")
+            val geoipFile = java.io.File(targetDir, "geoip-ir.srs")
+
+            // Inject or update local rule sets declaration if files exist
             val existingRuleSets = route.optJSONArray("rule_set") ?: JSONArray()
             val mergedRuleSets = JSONArray()
             for (i in 0 until existingRuleSets.length()) {
@@ -673,31 +681,41 @@ object ConfigInjector {
                     mergedRuleSets.put(rs)
                 }
             }
-            mergedRuleSets.put(JSONObject().apply {
-                put("tag", "geoip-ir")
-                put("type", "local")
-                put("format", "binary")
-                put("path", java.io.File(context.filesDir, "geoip-ir.srs").absolutePath)
-            })
-            mergedRuleSets.put(JSONObject().apply {
-                put("tag", "geosite-ir")
-                put("type", "local")
-                put("format", "binary")
-                put("path", java.io.File(context.filesDir, "geosite-ir.srs").absolutePath)
-            })
-            route.put("rule_set", mergedRuleSets)
-
-            val irGeosite = JSONObject().apply {
-                put("rule_set", JSONArray(listOf("geosite-ir")))
-                put("outbound", "direct")
+            if (geoipFile.exists()) {
+                mergedRuleSets.put(JSONObject().apply {
+                    put("tag", "geoip-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geoipFile.absolutePath)
+                })
             }
-            newRules.put(irGeosite)
-
-            val irGeoip = JSONObject().apply {
-                put("rule_set", JSONArray(listOf("geoip-ir")))
-                put("outbound", "direct")
+            if (geositeFile.exists()) {
+                mergedRuleSets.put(JSONObject().apply {
+                    put("tag", "geosite-ir")
+                    put("type", "local")
+                    put("format", "binary")
+                    put("path", geositeFile.absolutePath)
+                })
             }
-            newRules.put(irGeoip)
+            if (mergedRuleSets.length() > 0) {
+                route.put("rule_set", mergedRuleSets)
+            }
+
+            if (geositeFile.exists()) {
+                val irGeosite = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geosite-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeosite)
+            }
+
+            if (geoipFile.exists()) {
+                val irGeoip = JSONObject().apply {
+                    put("rule_set", JSONArray(listOf("geoip-ir")))
+                    put("outbound", "direct")
+                }
+                newRules.put(irGeoip)
+            }
 
             val irSuffix = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))
@@ -997,9 +1015,7 @@ object ConfigInjector {
                 put("peers", JSONArray().apply {
                     put(JSONObject().apply {
                         put("address", peerIp)
-                        put("server", peerIp)
                         put("port", portVal)
-                        put("server_port", portVal)
                         put("public_key", "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=")
                         put("allowed_ips", JSONArray().apply {
                             put("0.0.0.0/0")
