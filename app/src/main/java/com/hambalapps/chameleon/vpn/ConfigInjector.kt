@@ -997,7 +997,9 @@ object ConfigInjector {
                 put("peers", JSONArray().apply {
                     put(JSONObject().apply {
                         put("address", peerIp)
+                        put("server", peerIp)
                         put("port", portVal)
+                        put("server_port", portVal)
                         put("public_key", "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=")
                         put("allowed_ips", JSONArray().apply {
                             put("0.0.0.0/0")

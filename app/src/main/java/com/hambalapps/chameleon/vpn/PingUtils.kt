@@ -25,44 +25,44 @@ suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatc
 }
 
 fun tryBase64Decode(str: String): String? {
-    val flags = listOf(
-        Base64.DEFAULT,
-        Base64.URL_SAFE,
-        Base64.NO_PADDING,
-        Base64.NO_WRAP,
-        Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-    )
-    for (flag in flags) {
-        try {
-            val decoded = Base64.decode(str, flag)
-            val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-            if (decodedStr.isNotEmpty()) {
-                return decodedStr
-            }
-        } catch (e: Exception) {
-            // continue
-        }
-    }
     try {
-        val cleaned = str.trim().replace("\r", "").replace("\n", "").replace(" ", "")
-        val javaFlags = listOf(
-            java.util.Base64.getDecoder(),
-            java.util.Base64.getUrlDecoder()
+        val flags = listOf(
+            Base64.DEFAULT,
+            Base64.URL_SAFE,
+            Base64.NO_PADDING,
+            Base64.NO_WRAP,
+            Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
         )
-        for (decoder in javaFlags) {
+        for (flag in flags) {
             try {
-                var toDecode = cleaned
-                while (toDecode.length % 4 != 0) {
-                    toDecode += "="
-                }
-                val decoded = decoder.decode(toDecode)
+                val decoded = Base64.decode(str, flag)
                 val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
                 if (decodedStr.isNotEmpty()) {
                     return decodedStr
                 }
-            } catch (e: Exception) {}
+            } catch (e: Throwable) {
+                // continue
+            }
         }
-    } catch (e: Exception) {}
+    } catch (e: Throwable) {
+        // Android Base64 not mocked in JVM unit tests
+    }
+
+    // Fallback for JVM unit testing environments
+    try {
+        val cleaned = str.trim().replace("\r", "").replace("\n", "").replace(" ", "").replace("-", "+").replace("_", "/")
+        var toDecode = cleaned
+        while (toDecode.length % 4 != 0) {
+            toDecode += "="
+        }
+        val decoded = java.util.Base64.getDecoder().decode(toDecode)
+        val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
+        if (decodedStr.isNotEmpty()) {
+            return decodedStr
+        }
+    } catch (e: Throwable) {
+        // continue
+    }
     return null
 }
 

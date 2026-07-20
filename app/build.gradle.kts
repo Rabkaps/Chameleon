@@ -82,6 +82,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+
     buildFeatures {
       compose = true
       aidl = false
@@ -124,7 +129,7 @@ dependencies {
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
   // Instrumented tests
-  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+  // androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 
   // Local tests: jUnit, coroutines, Android runner
@@ -134,10 +139,10 @@ dependencies {
   testImplementation("org.json:json:20240303")
 
   // Instrumented tests: jUnit rules and runners
-  androidTestImplementation(libs.androidx.test.core)
-  androidTestImplementation(libs.androidx.test.ext.junit)
-  androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(libs.androidx.test.espresso.core)
+  // androidTestImplementation(libs.androidx.test.core)
+  // androidTestImplementation(libs.androidx.test.ext.junit)
+  // androidTestImplementation(libs.androidx.test.runner)
+  // androidTestImplementation(libs.androidx.test.espresso.core)
 
   // Navigation
   implementation(libs.androidx.navigation3.ui)

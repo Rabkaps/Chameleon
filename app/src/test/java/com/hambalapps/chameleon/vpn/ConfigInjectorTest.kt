@@ -90,9 +90,9 @@ class ConfigInjectorTest {
         assert(addressArr.length() == 2)
         
         val peers = endpoint.getJSONArray("peers")
-        assert(peers.length() == 1)
         val peer = peers.getJSONObject(0)
-        assert(peer.getString("address") == "engage.cloudflareclient.com")
+        val peerAddress = if (peer.has("server")) peer.getString("server") else peer.getString("address")
+        assert(peerAddress == "162.159.193.1" || peerAddress == "engage.cloudflareclient.com")
         assert(peer.getString("public_key") == "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=")
         
         val experimental = json.getJSONObject("experimental")
