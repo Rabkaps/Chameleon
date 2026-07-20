@@ -2812,6 +2812,25 @@ fun MainScreen(
                                                             verticalAlignment = Alignment.CenterVertically,
                                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                         ) {
+                                                            val isFavorite = remember(settings.favoriteServers, serverLink) {
+                                                                settings.favoriteServers.contains(serverLink)
+                                                            }
+                                                            IconButton(
+                                                                onClick = {
+                                                                    scope.launch {
+                                                                        settingsManager.toggleFavorite(serverLink)
+                                                                    }
+                                                                },
+                                                                modifier = Modifier.size(36.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                                                    contentDescription = "Favorite",
+                                                                    tint = if (isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                            }
+
                                                             IconButton(
                                                                 onClick = {
                                                                     val sendIntent = Intent().apply {
@@ -5140,6 +5159,43 @@ fun MainScreen(
                                                         else -> "vibrant"
                                                     }
                                                     scope.launch { settingsManager.setCardStyle(styleVal) }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // App Language Connected Button Group
+                                            Text("App Language", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            val currentLang by settingsManager.appLanguage.collectAsStateWithLifecycle(initialValue = "system")
+                                            ConnectedButtonGroup(
+                                                selectedIndex = when (currentLang) {
+                                                    "system" -> 0
+                                                    "en" -> 1
+                                                    "fa" -> 2
+                                                    else -> 0
+                                                },
+                                                options = listOf("System", "English", "فارسی"),
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                onSelect = { index ->
+                                                    val langVal = when (index) {
+                                                        0 -> "system"
+                                                        1 -> "en"
+                                                        2 -> "fa"
+                                                        else -> "system"
+                                                    }
+                                                    scope.launch {
+                                                        settingsManager.setAppLanguage(langVal)
+                                                        if (context is android.app.Activity) {
+                                                            context.recreate()
+                                                        }
+                                                    }
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             )
