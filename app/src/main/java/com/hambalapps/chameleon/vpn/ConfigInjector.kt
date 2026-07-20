@@ -402,10 +402,10 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 2. Clean secure DoH fallback for the proxy outbound (placed after primary secure DNS)
-        val fallbackDnsUrl = if (settings.secureDns.contains("1.1.1.1") || settings.secureDns.contains("cloudflare")) {
-            "https://8.8.8.8/dns-query" // Google DoH if primary is Cloudflare
+        val fallbackDnsUrl = if (settings.secureDns.contains("8.8.8.8") || settings.secureDns.contains("google")) {
+            "https://9.9.9.9/dns-query" // Quad9 DoH if primary is Google
         } else {
-            "https://1.1.1.1/dns-query" // Cloudflare DoH otherwise
+            "https://8.8.8.8/dns-query" // Google DoH otherwise
         }
         val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", fallbackDnsUrl, "proxy")
 

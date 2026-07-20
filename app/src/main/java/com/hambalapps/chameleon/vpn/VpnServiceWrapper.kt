@@ -1222,7 +1222,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     if (dnsServer.getValue() != "8.8.8.8") {
                         builder.addDnsServer("8.8.8.8")
                     } else {
-                        builder.addDnsServer("1.1.1.1")
+                        builder.addDnsServer("8.8.4.4")
                     }
                 } catch (e: Exception) {
                     // Ignore

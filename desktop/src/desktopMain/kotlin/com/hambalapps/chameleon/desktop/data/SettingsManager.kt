@@ -23,7 +23,7 @@ data class Subscription(
 data class UserSettings(
     val isAdvancedMode: Boolean = false,
     val bypassIran: Boolean = true,
-    val secureDns: String = "https://1.1.1.1/dns-query",
+    val secureDns: String = "https://8.8.8.8/dns-query",
     val tunStack: String = "mixed",
     val enableFragment: Boolean = false,
     val fragmentLength: String = "10-20",
