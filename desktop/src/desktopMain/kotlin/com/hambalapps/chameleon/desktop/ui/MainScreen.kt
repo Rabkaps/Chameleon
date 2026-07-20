@@ -63,49 +63,53 @@ fun VibrantCardContent(
     cardStyle: String,
     content: @Composable () -> Unit
 ) {
-    if (cardStyle == "vibrant") {
-        val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
-        val cardBackground = MaterialTheme.colorScheme.primaryContainer
-        MaterialTheme(
-            colorScheme = MaterialTheme.colorScheme.copy(
-                primary = onPrimaryContainer,
-                onPrimary = cardBackground,
-                primaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
-                onPrimaryContainer = onPrimaryContainer,
-                
-                secondary = onPrimaryContainer,
-                onSecondary = cardBackground,
-                secondaryContainer = onPrimaryContainer,
-                onSecondaryContainer = cardBackground,
-                
-                tertiary = onPrimaryContainer,
-                onTertiary = cardBackground,
-                tertiaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
-                onTertiaryContainer = onPrimaryContainer,
-                
-                surface = cardBackground,
-                onSurface = onPrimaryContainer,
-                onSurfaceVariant = onPrimaryContainer.copy(alpha = 0.80f),
-                surfaceVariant = onPrimaryContainer.copy(alpha = 0.15f),
-                
-                outline = onPrimaryContainer.copy(alpha = 0.45f),
-                outlineVariant = onPrimaryContainer.copy(alpha = 0.25f),
-                onError = Color.White,
-                
-                surfaceContainerLowest = onPrimaryContainer.copy(alpha = 0.05f),
-                surfaceContainerLow = onPrimaryContainer.copy(alpha = 0.10f),
-                surfaceContainer = onPrimaryContainer.copy(alpha = 0.15f),
-                surfaceContainerHigh = onPrimaryContainer.copy(alpha = 0.20f),
-                surfaceContainerHighest = onPrimaryContainer.copy(alpha = 0.25f)
-            )
-        ) {
-            CompositionLocalProvider(
-                LocalContentColor provides MaterialTheme.colorScheme.onSurface,
-                content = content
-            )
-        }
+    val originalColorScheme = MaterialTheme.colorScheme
+    val onPrimaryContainer = originalColorScheme.onPrimaryContainer
+    val cardBackground = originalColorScheme.primaryContainer
+
+    val targetColorScheme = if (cardStyle == "vibrant" || cardStyle == "solid") {
+        originalColorScheme.copy(
+            primary = onPrimaryContainer,
+            onPrimary = cardBackground,
+            primaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
+            onPrimaryContainer = onPrimaryContainer,
+            
+            secondary = onPrimaryContainer,
+            onSecondary = cardBackground,
+            secondaryContainer = onPrimaryContainer,
+            onSecondaryContainer = cardBackground,
+            
+            tertiary = onPrimaryContainer,
+            onTertiary = cardBackground,
+            tertiaryContainer = onPrimaryContainer.copy(alpha = 0.20f),
+            onTertiaryContainer = onPrimaryContainer,
+            
+            surface = cardBackground,
+            onSurface = onPrimaryContainer,
+            onSurfaceVariant = onPrimaryContainer.copy(alpha = 0.80f),
+            surfaceVariant = onPrimaryContainer.copy(alpha = 0.15f),
+            
+            outline = onPrimaryContainer.copy(alpha = 0.45f),
+            outlineVariant = onPrimaryContainer.copy(alpha = 0.25f),
+            onError = Color.White,
+            
+            surfaceContainerLowest = onPrimaryContainer.copy(alpha = 0.05f),
+            surfaceContainerLow = onPrimaryContainer.copy(alpha = 0.10f),
+            surfaceContainer = onPrimaryContainer.copy(alpha = 0.15f),
+            surfaceContainerHigh = onPrimaryContainer.copy(alpha = 0.20f),
+            surfaceContainerHighest = onPrimaryContainer.copy(alpha = 0.25f)
+        )
     } else {
-        content()
+        originalColorScheme
+    }
+
+    MaterialTheme(
+        colorScheme = targetColorScheme
+    ) {
+        CompositionLocalProvider(
+            LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+            content = content
+        )
     }
 }
 
@@ -325,7 +329,13 @@ fun MainScreen() {
     val settingsManager = remember { SettingsManager() }
     val settings by settingsManager.settings.collectAsState()
 
-    val isFarsi = settings.isFarsi
+    val isFarsi = remember(settings.appLanguage, settings.isFarsi) {
+        when (settings.appLanguage) {
+            "fa" -> true
+            "en" -> false
+            else -> settings.isFarsi
+        }
+    }
     val layoutDirection = if (isFarsi) LayoutDirection.Rtl else LayoutDirection.Ltr
 
     var currentScreen by remember { mutableStateOf("dashboard") }
@@ -350,12 +360,18 @@ fun MainScreen() {
         if (cardStyle == "solid" || cardStyle == "vibrant") {
             SolidColor(outlineVariant)
         } else {
-            Brush.linearGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = 0.16f),
-                    Color.White.copy(alpha = 0.02f)
+            val colors = if (isDark) {
+                listOf(
+                    Color.White.copy(alpha = 0.35f),
+                    Color.White.copy(alpha = 0.05f)
                 )
-            )
+            } else {
+                listOf(
+                    primaryColor.copy(alpha = 0.25f),
+                    Color.White.copy(alpha = 0.50f)
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
@@ -367,7 +383,18 @@ fun MainScreen() {
         } else if (cardStyle == "vibrant") {
             SolidColor(primaryContainer)
         } else {
-            SolidColor(surfaceColor.copy(alpha = 0.45f))
+            val colors = if (isDark) {
+                listOf(
+                    Color.White.copy(alpha = 0.15f),
+                    Color.White.copy(alpha = 0.03f)
+                )
+            } else {
+                listOf(
+                    primaryColor.copy(alpha = 0.08f),
+                    Color.White.copy(alpha = 0.65f)
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
@@ -377,7 +404,18 @@ fun MainScreen() {
         } else if (cardStyle == "vibrant") {
             SolidColor(primaryContainer)
         } else {
-            SolidColor(surfaceColor.copy(alpha = 0.40f))
+            val colors = if (isDark) {
+                listOf(
+                    Color.White.copy(alpha = 0.15f),
+                    Color.White.copy(alpha = 0.03f)
+                )
+            } else {
+                listOf(
+                    secondaryColor.copy(alpha = 0.08f),
+                    Color.White.copy(alpha = 0.65f)
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
@@ -387,7 +425,18 @@ fun MainScreen() {
         } else if (cardStyle == "vibrant") {
             SolidColor(primaryContainer)
         } else {
-            SolidColor(surfaceColor.copy(alpha = 0.35f))
+            val colors = if (isDark) {
+                listOf(
+                    Color.White.copy(alpha = 0.15f),
+                    Color.White.copy(alpha = 0.03f)
+                )
+            } else {
+                listOf(
+                    tertiaryColor.copy(alpha = 0.08f),
+                    Color.White.copy(alpha = 0.65f)
+                )
+            }
+            Brush.linearGradient(colors = colors)
         }
     }
 
@@ -1169,7 +1218,7 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
     val scope = rememberCoroutineScope()
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("ALL", "VLESS", "TROJAN", "SHADOWSOCKS", "VMESS", "HYSTERIA", "TUIC", "CHAIN")
+    val tabs = listOf("ALL", "FAVORITES", "VLESS", "TROJAN", "SHADOWSOCKS", "VMESS", "HYSTERIA", "TUIC", "CHAIN")
 
     val subscriptions = settings.deserializedSubscriptions
     val activeSubId = settings.activeSubId
@@ -1189,8 +1238,8 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
     var showChainBuilder by remember { mutableStateOf(false) }
     val chains = remember(settings.proxyChains) { deserializeProxyChains(settings.proxyChains) }
 
-    val filteredServerList = remember(serverList, selectedTab, chains) {
-        if (selectedTab == 7) { // CHAIN Tab
+    val filteredServerList = remember(serverList, selectedTab, chains, settings.favoriteServers) {
+        if (selectedTab == 8) { // CHAIN Tab
             chains.map { chain ->
                 val escapedName = java.net.URLEncoder.encode(chain.name, "UTF-8")
                 ServerItem(
@@ -1204,12 +1253,13 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
                 val type = serverLink.substringBefore("://").uppercase()
                 val matchesTab = when (selectedTab) {
                     0 -> true
-                    1 -> type == "VLESS"
-                    2 -> type == "TROJAN"
-                    3 -> type == "SS" || type == "SHADOWSOCKS"
-                    4 -> type == "VMESS"
-                    5 -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
-                    6 -> type == "TUIC"
+                    1 -> settings.favoriteServers.contains(serverLink)
+                    2 -> type == "VLESS"
+                    3 -> type == "TROJAN"
+                    4 -> type == "SS" || type == "SHADOWSOCKS"
+                    5 -> type == "VMESS"
+                    6 -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
+                    7 -> type == "TUIC"
                     else -> true
                 }
                 if (matchesTab) {
@@ -1234,8 +1284,8 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
             )
 
             // Double-hop Proxy Chain & Ping Actions
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (selectedTab == 7) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (selectedTab == 8) {
                     // Create Chain Button
                     Button(
                         onClick = { showChainBuilder = true },
@@ -1247,6 +1297,63 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
                         Text(text = if (isFarsi) "ایجاد زنجیره دو مرحله‌ای" else "Build Proxy Chain", fontWeight = FontWeight.Bold)
                     }
                 } else {
+                    var isUpdatingSubs by remember { mutableStateOf(false) }
+
+                    IconButton(
+                        onClick = {
+                            if (!isUpdatingSubs) {
+                                isUpdatingSubs = true
+                                scope.launch {
+                                    var anyUpdated = false
+                                    val currentSubs = subscriptions
+                                    val updatedSubs = currentSubs.map { sub ->
+                                        if (!sub.url.startsWith("local://")) {
+                                            try {
+                                                val result = fetchSubscription(sub.url)
+                                                if (result.servers.isNotEmpty()) {
+                                                    anyUpdated = true
+                                                    sub.copy(
+                                                        servers = result.servers.joinToString("\n"),
+                                                        upload = result.upload,
+                                                        download = result.download,
+                                                        total = result.total,
+                                                        expire = result.expire
+                                                    )
+                                                } else {
+                                                    sub
+                                                }
+                                            } catch (e: Exception) {
+                                                sub
+                                            }
+                                        } else {
+                                            sub
+                                        }
+                                    }
+                                    if (anyUpdated) {
+                                        settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
+                                        val activeSubIdVal = settings.activeSubId
+                                        val activeProfileVal = settings.activeProfile
+                                        val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
+                                        if (updatedActiveSub != null) {
+                                            val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
+                                            if (sList.isNotEmpty() && !sList.contains(activeProfileVal)) {
+                                                settingsManager.setActiveProfile(sList[0])
+                                            }
+                                        }
+                                    }
+                                    isUpdatingSubs = false
+                                }
+                            }
+                        },
+                        enabled = !isUpdatingSubs && !isTestingPings
+                    ) {
+                        if (isUpdatingSubs) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(imageVector = Icons.Filled.Refresh, contentDescription = "Update Subscriptions", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+
                     Button(
                         onClick = {
                             if (!isTestingPings && serverList.isNotEmpty()) {
@@ -1430,8 +1537,21 @@ fun ProfilesScreen(settings: UserSettings, settingsManager: SettingsManager) {
                                 )
                             }
                             
-                            // Right Side: ping result or delete button for chains
+                            // Right Side: favorite button & ping result or delete button for chains
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                val isFavorited = settings.favoriteServers.contains(server.link)
+                                IconButton(
+                                    onClick = { settingsManager.toggleFavorite(server.link) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorited) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        tint = if (isFavorited) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
                                 if (server.type == "CHAIN") {
                                     IconButton(
                                         onClick = {
@@ -2185,6 +2305,55 @@ fun SettingsScreen(
                                 .clip(ExpressiveChipShape)
                                 .background(bg)
                                 .clickable { settingsManager.setCardStyle(styleKey) }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = displayName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = tc
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Text(
+                    text = if (isFarsi) "زبان برنامه" else "App Language",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                val langOptions = listOf(
+                    "system" to (if (isFarsi) "سیستم (پیش‌فرض)" else "System Default"),
+                    "en" to "English",
+                    "fa" to "فارسی"
+                )
+                
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    langOptions.forEach { (langKey, displayName) ->
+                        val selected = settings.appLanguage == langKey
+                        val tc = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+
+                        Box(
+                            modifier = Modifier
+                                .clip(ExpressiveChipShape)
+                                .background(bg)
+                                .clickable {
+                                    settingsManager.setAppLanguage(langKey)
+                                    if (langKey == "fa") {
+                                        settingsManager.setIsFarsi(true)
+                                    } else if (langKey == "en") {
+                                        settingsManager.setIsFarsi(false)
+                                    }
+                                }
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Text(

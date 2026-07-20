@@ -48,6 +48,8 @@ data class UserSettings(
     val lastSubsUpdateTime: Long = 0L,
     val autoConnectSubs: Set<String> = emptySet(),
     val isFarsi: Boolean = false,
+    val appLanguage: String = "system",
+    val favoriteServers: Set<String> = emptySet(),
     val enableTun: Boolean = false,
     val delayTestUrl: String = "http://cp.cloudflare.com/generate_204",
     val warpDetourMode: String = "proxy",
@@ -194,6 +196,12 @@ class SettingsManager {
     fun setAutoUpdateInterval(value: String) { saveSettings(currentSettings.copy(autoUpdateInterval = value)) }
     fun setLastSubsUpdateTime(value: Long) { saveSettings(currentSettings.copy(lastSubsUpdateTime = value)) }
     fun setIsFarsi(value: Boolean) { saveSettings(currentSettings.copy(isFarsi = value)) }
+    fun setAppLanguage(value: String) { saveSettings(currentSettings.copy(appLanguage = value)) }
+    fun toggleFavorite(serverLink: String) {
+        val current = currentSettings.favoriteServers
+        val updated = if (current.contains(serverLink)) current - serverLink else current + serverLink
+        saveSettings(currentSettings.copy(favoriteServers = updated))
+    }
     fun setEnableTun(value: Boolean) { saveSettings(currentSettings.copy(enableTun = value)) }
     fun setDelayTestUrl(value: String) { saveSettings(currentSettings.copy(delayTestUrl = value)) }
     fun setWarpDetourMode(value: String) { saveSettings(currentSettings.copy(warpDetourMode = value)) }

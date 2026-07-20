@@ -123,6 +123,10 @@ object SingboxManager {
                 downloadWintunIfNeeded()
             }
 
+            // Ensure geosite and geoip database resources are extracted to working directory
+            extractResource("geoip-ir.srs", geoip)
+            extractResource("geosite-ir.srs", geosite)
+
             // 1. Generate Config
             val configJson = ConfigInjector.injectConfig(
                 rawProfile = rawProfile,
