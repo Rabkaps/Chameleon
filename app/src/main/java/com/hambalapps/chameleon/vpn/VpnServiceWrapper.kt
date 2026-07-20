@@ -853,7 +853,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                         log("Failed to apply transparent proxy iptables rules.")
                     }
                 }
-                downloadDatabasesIfMissing()
             } catch (e: Throwable) {
                 log("Failed to start VPN: ${e.message}")
                 e.printStackTrace()
@@ -1638,48 +1637,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     override fun setSystemProxyEnabled(enabled: Boolean) {}
 
-    private fun downloadDatabasesIfMissing() {
-        serviceScope.launch {
-            try {
-                val geoipFile = File(filesDir, "geoip-ir.srs")
-                val geositeFile = File(filesDir, "geosite-ir.srs")
-                
-                if (!geoipFile.exists()) {
-                    log("Background downloading geoip-ir.srs from Chocolate4U...")
-                    downloadFile("https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geoip-ir.srs", geoipFile)
-                    log("geoip-ir.srs downloaded successfully.")
-                }
-                if (!geositeFile.exists()) {
-                    log("Background downloading geosite-ir.srs from Chocolate4U...")
-                    downloadFile("https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-ir.srs", geositeFile)
-                    log("geosite-ir.srs downloaded successfully.")
-                }
-            } catch (e: Exception) {
-                log("Background assets download failed: ${e.message}")
-            }
-        }
-    }
-
-    private fun downloadFile(urlStr: String, destFile: File) {
-        val url = java.net.URL(urlStr)
-        val connection = url.openConnection() as java.net.HttpURLConnection
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.requestMethod = "GET"
-        connection.connect()
-        
-        if (connection.responseCode == 200) {
-            val tempFile = File(destFile.parentFile, destFile.name + ".tmp")
-            connection.inputStream.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            tempFile.renameTo(destFile)
-        } else {
-            throw java.io.IOException("HTTP error ${connection.responseCode} downloading $urlStr")
-        }
-    }
 
     private fun copyDatabasesFromAssets() {
         try {
@@ -1692,7 +1649,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             val geoipFile = File(filesDir, "geoip-ir.srs")
             val geositeFile = File(filesDir, "geosite-ir.srs")
             
-            if (!geoipFile.exists()) {
+            if (!geoipFile.exists() || geoipFile.length() == 0L) {
+                if (geoipFile.exists()) geoipFile.delete()
                 log("Copying geoip-ir.srs from assets...")
                 assets.open("geoip-ir.srs").use { input ->
                     geoipFile.outputStream().use { output ->
@@ -1701,7 +1659,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
                 log("geoip-ir.srs copied from assets.")
             }
-            if (!geositeFile.exists()) {
+            if (!geositeFile.exists() || geositeFile.length() == 0L) {
+                if (geositeFile.exists()) geositeFile.delete()
                 log("Copying geosite-ir.srs from assets...")
                 assets.open("geosite-ir.srs").use { input ->
                     geositeFile.outputStream().use { output ->
