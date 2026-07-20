@@ -1641,18 +1641,18 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     private fun downloadDatabasesIfMissing() {
         serviceScope.launch {
             try {
-                val geoipFile = File(filesDir, "geoip-ir.srs")
-                val geositeFile = File(filesDir, "geosite-ir.srs")
+                val geoipDb = File(filesDir, "geoip.db")
+                val geositeDb = File(filesDir, "geosite.db")
                 
-                if (!geoipFile.exists()) {
-                    log("Background downloading geoip-ir.srs from Chocolate4U...")
-                    downloadFile("https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geoip-ir.srs", geoipFile)
-                    log("geoip-ir.srs downloaded successfully.")
+                if (!geoipDb.exists()) {
+                    log("Background downloading geoip.db from SagerNet...")
+                    downloadFile("https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db", geoipDb)
+                    log("geoip.db downloaded successfully.")
                 }
-                if (!geositeFile.exists()) {
-                    log("Background downloading geosite-ir.srs from Chocolate4U...")
-                    downloadFile("https://raw.githubusercontent.com/Chocolate4U/Iran-sing-box-rules/rule-set/geosite-ir.srs", geositeFile)
-                    log("geosite-ir.srs downloaded successfully.")
+                if (!geositeDb.exists()) {
+                    log("Background downloading geosite.db from SagerNet...")
+                    downloadFile("https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db", geositeDb)
+                    log("geosite.db downloaded successfully.")
                 }
             } catch (e: Exception) {
                 log("Background assets download failed: ${e.message}")
@@ -1683,35 +1683,29 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     private fun copyDatabasesFromAssets() {
         try {
-            // Cleanup legacy .db files if they exist to save space
-            val legacyGeoip = File(filesDir, "geoip.db")
-            val legacyGeosite = File(filesDir, "geosite.db")
-            if (legacyGeoip.exists()) legacyGeoip.delete()
-            if (legacyGeosite.exists()) legacyGeosite.delete()
+            val geoipDb = File(filesDir, "geoip.db")
+            val geositeDb = File(filesDir, "geosite.db")
 
-            val geoipFile = File(filesDir, "geoip-ir.srs")
-            val geositeFile = File(filesDir, "geosite-ir.srs")
-            
-            if (!geoipFile.exists()) {
-                log("Copying geoip-ir.srs from assets...")
-                assets.open("geoip-ir.srs").use { input ->
-                    geoipFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
+            if (!geoipDb.exists()) {
+                log("Downloading geoip.db from SagerNet...")
+                try {
+                    downloadFile("https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db", geoipDb)
+                    log("geoip.db downloaded successfully.")
+                } catch (e: Exception) {
+                    log("Failed to download geoip.db: ${e.message}")
                 }
-                log("geoip-ir.srs copied from assets.")
             }
-            if (!geositeFile.exists()) {
-                log("Copying geosite-ir.srs from assets...")
-                assets.open("geosite-ir.srs").use { input ->
-                    geositeFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
+            if (!geositeDb.exists()) {
+                log("Downloading geosite.db from SagerNet...")
+                try {
+                    downloadFile("https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db", geositeDb)
+                    log("geosite.db downloaded successfully.")
+                } catch (e: Exception) {
+                    log("Failed to download geosite.db: ${e.message}")
                 }
-                log("geosite-ir.srs copied from assets.")
             }
         } catch (e: Exception) {
-            log("Error copying databases from assets: ${e.message}")
+            log("Error preparing databases: ${e.message}")
             e.printStackTrace()
         }
     }
