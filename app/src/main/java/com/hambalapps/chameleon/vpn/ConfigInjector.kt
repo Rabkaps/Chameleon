@@ -2542,7 +2542,7 @@ object ConfigInjector {
     private fun resolveDomainViaDoh(domain: String, timeoutMs: Int = 3000): String? {
         if (!dohWorking) return null
         try {
-            val url = java.net.URL("https://1.1.1.1/dns-query?name=$domain&type=A")
+            val url = java.net.URL("https://dns.google/dns-query?name=$domain&type=A")
             val conn = url.openConnection() as java.net.HttpURLConnection
             conn.connectTimeout = timeoutMs
             conn.readTimeout = timeoutMs
@@ -2574,19 +2574,7 @@ object ConfigInjector {
     }
 
     private fun resolveDomainWithFallbacks(context: Context, domain: String, settings: InjectorSettings): String? {
-        // Try fast system resolver first (works instantly for unblocked domestic/bridge nodes)
-        try {
-            val addresses = java.net.InetAddress.getAllByName(domain)
-            for (addr in addresses) {
-                val ip = addr.hostAddress
-                if (ip != null && isPublicIp(ip)) {
-                    android.util.Log.i("Chameleon", "System resolver successfully resolved $domain to $ip")
-                    return ip
-                }
-            }
-        } catch (e: Exception) {}
-
-        // Try secure DoH resolution next to bypass local DNS poisoning and UDP DNS hijacking
+        // Try secure DoH resolution first to bypass local DNS poisoning and UDP DNS hijacking
         val dohIp = resolveDomainViaDoh(domain)
         if (dohIp != null) {
             return dohIp
@@ -2595,26 +2583,18 @@ object ConfigInjector {
         val dnsServers = mutableListOf<String>()
         
         if (settings.bypassIran) {
-            // For Iran: prioritize clean public resolvers (e.g. 4.2.2.4, 8.8.8.8, 1.1.1.1) to prevent local mobile carrier poisoning
-            listOf("8.8.8.8", "1.1.1.1", "4.2.2.4", "185.51.200.2", "178.22.122.100").forEach { ip ->
+            // For Iran: prioritize clean public resolvers (e.g. 8.8.8.8, 4.2.2.4, 178.22.122.100, 185.51.200.2) to prevent local mobile carrier poisoning
+            listOf("8.8.8.8", "4.2.2.4", "185.51.200.2", "178.22.122.100").forEach { ip ->
                 if (!dnsServers.contains(ip)) {
                     dnsServers.add(ip)
                 }
             }
         } else {
-            // Outside Iran: prioritize Cloudflare, Google, then Shecan
-            listOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "178.22.122.100").forEach { ip ->
+            // Outside Iran: prioritize Google, Quad9, then Shecan
+            listOf("8.8.8.8", "9.9.9.9", "178.22.122.100").forEach { ip ->
                 if (!dnsServers.contains(ip)) {
                     dnsServers.add(ip)
                 }
-            }
-        }
-
-        // Add system DNS at the end as a fallback
-        val systemDns = getSystemDnsServers(context)
-        systemDns.forEach { ip ->
-            if (!dnsServers.contains(ip)) {
-                dnsServers.add(ip)
             }
         }
 
@@ -2625,12 +2605,13 @@ object ConfigInjector {
             }
         }
 
-        // Final fallback: try system DNS (may be hijacked, but better than nothing)
+        // Final fallback: try system DNS (may be hijacked on Iranian mobile networks, but used as last resort)
         try {
             val addresses = java.net.InetAddress.getAllByName(domain)
             for (addr in addresses) {
                 val ip = addr.hostAddress
                 if (ip != null && isPublicIp(ip)) {
+                    android.util.Log.i("Chameleon", "System resolver resolved $domain to $ip")
                     return ip
                 }
             }
