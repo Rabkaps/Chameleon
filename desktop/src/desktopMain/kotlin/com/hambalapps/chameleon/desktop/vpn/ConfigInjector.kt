@@ -199,19 +199,13 @@ object ConfigInjector {
 
         // 2. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
         val systemDnsList = getSystemDnsServers()
-        var rawDirectDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
+        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
         
         for (dnsIp in systemDnsList) {
             if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
-                rawDirectDnsAddr = dnsIp
+                directDnsAddr = dnsIp
                 break
             }
-        }
-
-        val directDnsAddr = if (!rawDirectDnsAddr.contains("://") && isIpAddress(rawDirectDnsAddr)) {
-            "tcp://$rawDirectDnsAddr"
-        } else {
-            rawDirectDnsAddr
         }
 
         val directServer = createDnsServer("dns-direct", directDnsAddr, "direct")
@@ -380,14 +374,6 @@ object ConfigInjector {
             directIps.add(defaultDirectDns)
         }
         
-        if (settings.bypassIran) {
-            listOf("185.51.200.2", "178.22.122.100").forEach { ip ->
-                if (!directIps.contains(ip)) {
-                    directIps.add(ip)
-                }
-            }
-        }
-
         // Dynamic bootstrap DNS address matching the one in injectDns
         val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "8.8.8.8"
         if (!directIps.contains(bootstrapDnsAddr) && isIpAddress(bootstrapDnsAddr)) {

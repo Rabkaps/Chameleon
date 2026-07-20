@@ -1692,8 +1692,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             val geoipFile = File(filesDir, "geoip-ir.srs")
             val geositeFile = File(filesDir, "geosite-ir.srs")
             
-            if (!geoipFile.exists() || geoipFile.length() == 0L) {
-                if (geoipFile.exists()) geoipFile.delete()
+            if (!geoipFile.exists()) {
                 log("Copying geoip-ir.srs from assets...")
                 assets.open("geoip-ir.srs").use { input ->
                     geoipFile.outputStream().use { output ->
@@ -1702,8 +1701,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
                 log("geoip-ir.srs copied from assets.")
             }
-            if (!geositeFile.exists() || geositeFile.length() == 0L) {
-                if (geositeFile.exists()) geositeFile.delete()
+            if (!geositeFile.exists()) {
                 log("Copying geosite-ir.srs from assets...")
                 assets.open("geosite-ir.srs").use { input ->
                     geositeFile.outputStream().use { output ->
