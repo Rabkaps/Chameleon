@@ -407,7 +407,12 @@ object ConfigInjector {
         val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", fallbackDnsUrl, "proxy")
 
         // 3. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
-        val directDnsAddr = getSystemDnsAddress(context)
+        val rawDirectDnsAddr = getSystemDnsAddress(context)
+        val directDnsAddr = if (!rawDirectDnsAddr.contains("://") && isIpAddress(rawDirectDnsAddr)) {
+            "tcp://$rawDirectDnsAddr"
+        } else {
+            rawDirectDnsAddr
+        }
 
         android.util.Log.i("Chameleon", "Direct DNS set to: $directDnsAddr")
 
@@ -621,7 +626,7 @@ object ConfigInjector {
             directIps.add(bootstrapDnsAddr)
         }
 
-        if (settings.vpnMode == "gaming") {
+        if (settings.bypassIran || settings.vpnMode == "gaming") {
             listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
                 if (!directIps.contains(ip)) {
                     directIps.add(ip)
@@ -673,17 +678,18 @@ object ConfigInjector {
                     mergedRuleSets.put(rs)
                 }
             }
+            val targetFilesDir = context.filesDir ?: context.cacheDir
             mergedRuleSets.put(JSONObject().apply {
                 put("tag", "geoip-ir")
                 put("type", "local")
                 put("format", "binary")
-                put("path", java.io.File(context.filesDir, "geoip-ir.srs").absolutePath)
+                put("path", java.io.File(targetFilesDir, "geoip-ir.srs").absolutePath)
             })
             mergedRuleSets.put(JSONObject().apply {
                 put("tag", "geosite-ir")
                 put("type", "local")
                 put("format", "binary")
-                put("path", java.io.File(context.filesDir, "geosite-ir.srs").absolutePath)
+                put("path", java.io.File(targetFilesDir, "geosite-ir.srs").absolutePath)
             })
             route.put("rule_set", mergedRuleSets)
 

@@ -48,10 +48,12 @@ object SingboxManager {
 
     private fun extractResource(name: String, dest: File) {
         try {
-            val stream: InputStream? = SingboxManager::class.java.classLoader.getResourceAsStream(name)
-            if (stream != null) {
-                Files.copy(stream, dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                stream.close()
+            if (!dest.exists() || dest.length() == 0L || name == "sing-box.exe") {
+                val stream: InputStream? = SingboxManager::class.java.classLoader.getResourceAsStream(name)
+                if (stream != null) {
+                    Files.copy(stream, dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    stream.close()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
