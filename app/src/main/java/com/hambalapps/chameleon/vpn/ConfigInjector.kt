@@ -459,15 +459,12 @@ object ConfigInjector {
         }
         
         if (settings.bypassIran) {
-            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
-            if (geositeFile.exists()) {
-                // Rule: Route Iranian geosite to local DNS via rule_set
-                val irGeositeRule = JSONObject().apply {
-                    put("rule_set", JSONArray(listOf("geosite-ir")))
-                    put("server", "dns-direct")
-                }
-                rules.put(irGeositeRule)
+            // Rule: Route Iranian geosite to local DNS via rule_set
+            val irGeositeRule = JSONObject().apply {
+                put("rule_set", JSONArray(listOf("geosite-ir")))
+                put("server", "dns-direct")
             }
+            rules.put(irGeositeRule)
 
             // Rule: Route .ir domains to local DNS
             val irSuffixRule = JSONObject().apply {
@@ -666,10 +663,7 @@ object ConfigInjector {
 
         // 5. Bypass Iran Rules (must be high priority before custom/catch-all proxy rules)
         if (settings.bypassIran) {
-            val geositeFile = java.io.File(context.filesDir, "geosite-ir.srs")
-            val geoipFile = java.io.File(context.filesDir, "geoip-ir.srs")
-
-            // Inject or update local rule sets declaration if files exist
+            // Inject or update local rule sets declaration
             val existingRuleSets = route.optJSONArray("rule_set") ?: JSONArray()
             val mergedRuleSets = JSONArray()
             for (i in 0 until existingRuleSets.length()) {
@@ -679,41 +673,31 @@ object ConfigInjector {
                     mergedRuleSets.put(rs)
                 }
             }
-            if (geoipFile.exists()) {
-                mergedRuleSets.put(JSONObject().apply {
-                    put("tag", "geoip-ir")
-                    put("type", "local")
-                    put("format", "binary")
-                    put("path", geoipFile.absolutePath)
-                })
-            }
-            if (geositeFile.exists()) {
-                mergedRuleSets.put(JSONObject().apply {
-                    put("tag", "geosite-ir")
-                    put("type", "local")
-                    put("format", "binary")
-                    put("path", geositeFile.absolutePath)
-                })
-            }
-            if (mergedRuleSets.length() > 0) {
-                route.put("rule_set", mergedRuleSets)
-            }
+            mergedRuleSets.put(JSONObject().apply {
+                put("tag", "geoip-ir")
+                put("type", "local")
+                put("format", "binary")
+                put("path", java.io.File(context.filesDir, "geoip-ir.srs").absolutePath)
+            })
+            mergedRuleSets.put(JSONObject().apply {
+                put("tag", "geosite-ir")
+                put("type", "local")
+                put("format", "binary")
+                put("path", java.io.File(context.filesDir, "geosite-ir.srs").absolutePath)
+            })
+            route.put("rule_set", mergedRuleSets)
 
-            if (geositeFile.exists()) {
-                val irGeosite = JSONObject().apply {
-                    put("rule_set", JSONArray(listOf("geosite-ir")))
-                    put("outbound", "direct")
-                }
-                newRules.put(irGeosite)
+            val irGeosite = JSONObject().apply {
+                put("rule_set", JSONArray(listOf("geosite-ir")))
+                put("outbound", "direct")
             }
+            newRules.put(irGeosite)
 
-            if (geoipFile.exists()) {
-                val irGeoip = JSONObject().apply {
-                    put("rule_set", JSONArray(listOf("geoip-ir")))
-                    put("outbound", "direct")
-                }
-                newRules.put(irGeoip)
+            val irGeoip = JSONObject().apply {
+                put("rule_set", JSONArray(listOf("geoip-ir")))
+                put("outbound", "direct")
             }
+            newRules.put(irGeoip)
 
             val irSuffix = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))

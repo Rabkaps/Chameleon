@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
 
   override fun attachBaseContext(newBase: android.content.Context) {
     val language = kotlinx.coroutines.runBlocking {
-      com.hambalapps.chameleon.data.SettingsManager.getInstance(newBase).appLanguage.first()
+      com.hambalapps.chameleon.data.SettingsManager(newBase).appLanguage.first()
     }
     val locale = when (language) {
       "en" -> java.util.Locale.ENGLISH
