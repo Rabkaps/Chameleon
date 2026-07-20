@@ -142,6 +142,9 @@ object ConfigInjector {
             if (!settings.localProxyOnly) {
                 injectTunInbound(configJson, settings)
             }
+            if (settings.bypassIran) {
+                ensureRuleSetsExtracted(context)
+            }
             injectLocalProxyInbound(configJson, settings)
             injectMTProxyInbound(configJson, settings)
 
@@ -470,15 +473,9 @@ object ConfigInjector {
                 rules.put(irGeositeRule)
             }
 
-            // Rule: Route .ir and major Iranian domains to local DNS
+            // Rule: Route .ir domains to local DNS
             val irSuffixRule = JSONObject().apply {
-                put("domain_suffix", JSONArray(listOf(
-                    ".ir", "digikala.com", "aparat.com", "telewebion.com",
-                    "torob.com", "basalam.com", "filimo.com", "namava.ir",
-                    "cafebazaar.ir", "snapp.ir", "divar.ir", "rubika.ir",
-                    "eitaa.com", "bale.ai", "shecan.ir", "bankmellat.ir",
-                    "bmi.ir", "shaparak.ir", "nobitex.ir", "wallex.ir"
-                )))
+                put("domain_suffix", JSONArray(listOf(".ir")))
                 put("server", "dns-direct")
             }
             rules.put(irSuffixRule)
@@ -724,13 +721,7 @@ object ConfigInjector {
             }
 
             val irSuffix = JSONObject().apply {
-                put("domain_suffix", JSONArray(listOf(
-                    ".ir", "digikala.com", "aparat.com", "telewebion.com",
-                    "torob.com", "basalam.com", "filimo.com", "namava.ir",
-                    "cafebazaar.ir", "snapp.ir", "divar.ir", "rubika.ir",
-                    "eitaa.com", "bale.ai", "shecan.ir", "bankmellat.ir",
-                    "bmi.ir", "shaparak.ir", "nobitex.ir", "wallex.ir"
-                )))
+                put("domain_suffix", JSONArray(listOf(".ir")))
                 put("outbound", "direct")
             }
             newRules.put(irSuffix)
@@ -2753,6 +2744,33 @@ object ConfigInjector {
 
         // Fallback to UDP if TCP fails
         return resolveDomainDirectlyUDP(domain, cleanDnsIp, timeoutMs)
+    }
+
+    private fun ensureRuleSetsExtracted(context: Context) {
+        try {
+            val targetDir = context.filesDir ?: context.cacheDir
+            val geoipFile = java.io.File(targetDir, "geoip-ir.srs")
+            val geositeFile = java.io.File(targetDir, "geosite-ir.srs")
+
+            if (!geoipFile.exists() || geoipFile.length() == 0L) {
+                if (geoipFile.exists()) geoipFile.delete()
+                context.assets.open("geoip-ir.srs").use { input ->
+                    geoipFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            if (!geositeFile.exists() || geositeFile.length() == 0L) {
+                if (geositeFile.exists()) geositeFile.delete()
+                context.assets.open("geosite-ir.srs").use { input ->
+                    geositeFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Chameleon", "Error extracting rule-sets: ${e.message}")
+        }
     }
 
     private fun resolveDomainDirectlyUDP(domain: String, dnsServerIp: String, timeoutMs: Int = 2000): String? {

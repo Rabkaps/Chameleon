@@ -251,13 +251,7 @@ object ConfigInjector {
             rules.put(irGeositeRule)
 
             val irSuffixRule = JSONObject().apply {
-                put("domain_suffix", JSONArray(listOf(
-                    ".ir", "digikala.com", "aparat.com", "telewebion.com",
-                    "torob.com", "basalam.com", "filimo.com", "namava.ir",
-                    "cafebazaar.ir", "snapp.ir", "divar.ir", "rubika.ir",
-                    "eitaa.com", "bale.ai", "shecan.ir", "bankmellat.ir",
-                    "bmi.ir", "shaparak.ir", "nobitex.ir", "wallex.ir"
-                )))
+                put("domain_suffix", JSONArray(listOf(".ir")))
                 put("server", "dns-direct")
             }
             rules.put(irSuffixRule)
@@ -467,15 +461,9 @@ object ConfigInjector {
             }
             newRules.put(irGeoip)
 
-            // Add Iran .ir & major Iranian domains Suffix Rule
+            // Add Iran .ir Suffix Rule
             val irSuffix = JSONObject().apply {
-                put("domain_suffix", JSONArray(listOf(
-                    ".ir", "digikala.com", "aparat.com", "telewebion.com",
-                    "torob.com", "basalam.com", "filimo.com", "namava.ir",
-                    "cafebazaar.ir", "snapp.ir", "divar.ir", "rubika.ir",
-                    "eitaa.com", "bale.ai", "shecan.ir", "bankmellat.ir",
-                    "bmi.ir", "shaparak.ir", "nobitex.ir", "wallex.ir"
-                )))
+                put("domain_suffix", JSONArray(listOf(".ir")))
                 put("outbound", "direct")
             }
             newRules.put(irSuffix)
