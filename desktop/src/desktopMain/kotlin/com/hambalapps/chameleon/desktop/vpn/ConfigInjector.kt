@@ -215,8 +215,10 @@ object ConfigInjector {
         }
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
+        val bootstrapServer = createDnsServer("dns-bootstrap", "8.8.8.8", null)
         servers.put(directServer)
         servers.put(shecanServer)
+        servers.put(bootstrapServer)
 
         dns.put("servers", servers)
 
