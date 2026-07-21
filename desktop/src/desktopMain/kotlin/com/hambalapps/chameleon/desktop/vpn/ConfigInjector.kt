@@ -265,7 +265,7 @@ object ConfigInjector {
         val route = config.optJSONObject("route") ?: JSONObject().also { config.put("route", it) }
         val rules = route.optJSONArray("rules") ?: JSONArray().also { route.put("rules", it) }
 
-        val newRules = JSONArray()
+        val originalRules = JSONArray()
         for (i in 0 until rules.length()) {
             val r = rules.optJSONObject(i) ?: continue
             val protocol = r.optString("protocol")
@@ -307,10 +307,12 @@ object ConfigInjector {
                 hasIrGeosite || hasIrGeoip || hasIrSuffix || hasIrRuleSet
             }
             
-            if (protocol != "dns" && !isIranRule) {
-                newRules.put(r)
+            if (protocol != "dns" && !isIranRule && r.optString("action") != "sniff") {
+                originalRules.put(r)
             }
         }
+
+        val newRules = JSONArray()
 
         // Add sniffing rule at the beginning
         val sniffRule = JSONObject().apply {
@@ -378,6 +380,14 @@ object ConfigInjector {
         val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "8.8.8.8"
         if (!directIps.contains(bootstrapDnsAddr) && isIpAddress(bootstrapDnsAddr)) {
             directIps.add(bootstrapDnsAddr)
+        }
+
+        if (settings.bypassIran) {
+            listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
+                if (!directIps.contains(ip)) {
+                    directIps.add(ip)
+                }
+            }
         }
 
         for (host in proxyHosts) {
@@ -467,6 +477,11 @@ object ConfigInjector {
                 put("outbound", "direct")
             }
             newRules.put(irSuffix)
+        }
+
+        // Append original profile rules after injected system rules
+        for (i in 0 until originalRules.length()) {
+            newRules.put(originalRules.getJSONObject(i))
         }
 
         // If split tunneling is set to only route specific apps, everything else must bypass (direct)
