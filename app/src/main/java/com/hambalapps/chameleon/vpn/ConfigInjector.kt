@@ -302,9 +302,9 @@ object ConfigInjector {
         return dnsList
     }
 
-    private fun getSystemDnsAddress(context: Context): String {
+    private fun getSystemDnsAddress(context: Context, settings: InjectorSettings? = null): String {
         val systemDnsList = getSystemDnsServers(context)
-        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
+        var directDnsAddr = "8.8.8.8" // Clean public default fallback
         for (dnsIp in systemDnsList) {
             val trimmed = dnsIp.trim()
             // Filter out well-known hijacked public DNS servers in Iran, localhost, and VPN local interface addresses (prevent looping)
@@ -330,7 +330,9 @@ object ConfigInjector {
         val trimmed = address.trim()
         if (trimmed.startsWith("https://")) {
             serverObj.put("type", "https")
-            val hostPart = trimmed.substringAfter("https://").substringBefore("/")
+            val rawHost = trimmed.substringAfter("https://").substringBefore("/")
+            val hostPart = if (rawHost.contains(":")) rawHost.substringBefore(":") else rawHost
+
             serverObj.put("server", hostPart)
             val path = "/" + trimmed.substringAfter("https://").substringAfter("/", "")
             if (path.length > 1) {
@@ -367,7 +369,14 @@ object ConfigInjector {
             serverObj.put("tls", tls)
         } else {
             serverObj.put("type", "udp")
-            serverObj.put("server", trimmed)
+            val serverIp = if (trimmed.contains(":")) trimmed.substringBefore(":") else trimmed
+            serverObj.put("server", serverIp)
+            if (trimmed.contains(":")) {
+                val port = trimmed.substringAfter(":").toIntOrNull()
+                if (port != null) {
+                    serverObj.put("server_port", port)
+                }
+            }
         }
         return serverObj
     }
@@ -378,7 +387,7 @@ object ConfigInjector {
         dns.put("strategy", "ipv4_only")
         val servers = JSONArray()
 
-        // 1. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options / AntiZapret) - prioritised first
+        // 1. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options / AntiZapret)
         val outboundsList = config.optJSONArray("outbounds")
         if (outboundsList != null) {
             for (i in 0 until outboundsList.length()) {
@@ -398,47 +407,28 @@ object ConfigInjector {
             }
         }
 
-        // 1. Secure DNS Server (routes via the proxy)
+        // 2. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
-        // 2. Clean secure DoH fallback for the proxy outbound (placed after primary secure DNS)
-        val fallbackDnsUrl = if (settings.secureDns.contains("8.8.8.8") || settings.secureDns.contains("google")) {
-            "https://9.9.9.9/dns-query" // Quad9 DoH if primary is Google
-        } else {
-            "https://8.8.8.8/dns-query" // Google DoH otherwise
-        }
-        val fallbackSecureProxy = createDnsServer("dns-vpn-fallback-secure", fallbackDnsUrl, "proxy")
-
-        // 3. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
-        val directDnsAddr = getSystemDnsAddress(context)
-
-        val directDnsServerAddr = if (isIpAddress(directDnsAddr) && !directDnsAddr.startsWith("tcp://") && !directDnsAddr.startsWith("http")) "tcp://$directDnsAddr" else directDnsAddr
-        val directServer = createDnsServer("dns-direct", directDnsServerAddr, null)
-        val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
-        val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
-
-        // 4. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably (without carrier hijacking)
-        val bootstrapServer = createDnsServer("dns-bootstrap", "https://8.8.8.8/dns-query", null)
+        // 3. Local Bypass DNS Server for Iran domains (runs directly over active network DNS / Shecan)
+        val directDnsAddr = getSystemDnsAddress(context, settings)
+        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
+        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
+        val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
-            servers.put(fallbackSecureProxy)
             servers.put(radarServer)
             servers.put(shecanServer)
             servers.put(directServer)
-            servers.put(bootstrapServer)
         } else if (settings.bypassIran) {
             servers.put(secureServer)
-            servers.put(fallbackSecureProxy)
+            servers.put(directServer)
             servers.put(shecanServer)
             servers.put(radarServer)
-            servers.put(directServer)
-            servers.put(bootstrapServer)
         } else {
             servers.put(secureServer)
-            servers.put(fallbackSecureProxy)
             servers.put(directServer)
-            servers.put(bootstrapServer)
         }
 
         dns.put("servers", servers)
@@ -625,7 +615,7 @@ object ConfigInjector {
         if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
             directIps.add(directDnsAddr)
         }
-        val systemDnsAddr = getSystemDnsAddress(context)
+        val systemDnsAddr = getSystemDnsAddress(context, settings)
         if (systemDnsAddr.isNotEmpty() && isIpAddress(systemDnsAddr)) {
             directIps.add(systemDnsAddr)
         }
@@ -661,8 +651,13 @@ object ConfigInjector {
         }
 
         if (directIps.isNotEmpty()) {
+            val directIpsCidr = directIps.map { ip ->
+                if (ip.contains("/")) ip
+                else if (ip.contains(":")) "$ip/128"
+                else "$ip/32"
+            }
             val bypassIpsRule = JSONObject().apply {
-                put("ip_cidr", JSONArray(directIps))
+                put("ip_cidr", JSONArray(directIpsCidr))
                 put("outbound", "direct")
             }
             newRules.put(bypassIpsRule)

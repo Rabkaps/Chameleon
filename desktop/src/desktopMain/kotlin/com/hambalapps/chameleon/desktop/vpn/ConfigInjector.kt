@@ -184,7 +184,14 @@ object ConfigInjector {
             serverObj.put("tls", tls)
         } else {
             serverObj.put("type", "udp")
-            serverObj.put("server", trimmed)
+            val serverIp = if (trimmed.contains(":")) trimmed.substringBefore(":") else trimmed
+            serverObj.put("server", serverIp)
+            if (trimmed.contains(":")) {
+                val port = trimmed.substringAfter(":").toIntOrNull()
+                if (port != null) {
+                    serverObj.put("server_port", port)
+                }
+            }
         }
         return serverObj
     }
@@ -197,28 +204,19 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
         servers.put(secureServer)
 
-        // 2. Local Bypass DNS Server for Iran domains (runs directly, detouring proxy)
+        // 2. Local Bypass DNS Server for Iran domains (runs directly over system DNS / public clean DNS)
         val systemDnsList = getSystemDnsServers()
-        var directDnsAddr = "178.22.122.100" // Default Shecan/Local DNS
-        
+        var directDnsAddr = "8.8.8.8"
         for (dnsIp in systemDnsList) {
             if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
                 directDnsAddr = dnsIp
                 break
             }
         }
-
-        val directDnsServerAddr = if (isIpAddress(directDnsAddr) && !directDnsAddr.startsWith("tcp://") && !directDnsAddr.startsWith("http")) "tcp://$directDnsAddr" else directDnsAddr
-        val directServer = createDnsServer("dns-direct", directDnsServerAddr, null)
-        val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
+        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
+        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
         servers.put(directServer)
         servers.put(shecanServer)
-
-        // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably
-        // Prefer the first system DNS server, fallback to 8.8.8.8 if none available
-        val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "https://8.8.8.8/dns-query"
-        val bootstrapServer = createDnsServer("dns-bootstrap", bootstrapDnsAddr, null)
-        servers.put(bootstrapServer)
 
         dns.put("servers", servers)
 
@@ -412,8 +410,13 @@ object ConfigInjector {
         }
 
         if (directIps.isNotEmpty()) {
+            val directIpsCidr = directIps.map { ip ->
+                if (ip.contains("/")) ip
+                else if (ip.contains(":")) "$ip/128"
+                else "$ip/32"
+            }
             val bypassIpsRule = JSONObject().apply {
-                put("ip_cidr", JSONArray(directIps))
+                put("ip_cidr", JSONArray(directIpsCidr))
                 put("outbound", "direct")
             }
             newRules.put(bypassIpsRule)

@@ -616,6 +616,20 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
 
                 if (rawProfile.trim().isEmpty()) {
+                    val subscriptionListStr = settingsManager.subscriptionList.first()
+                    val subscriptions = deserializeSubscriptions(subscriptionListStr)
+                    val manualStr = settingsManager.manualServers.first()
+                    val allServers = (subscriptions.flatMap { sub -> sub.servers.split("\n") } + manualStr.split("\n"))
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    if (allServers.isNotEmpty()) {
+                        rawProfile = allServers.first()
+                        settingsManager.setActiveProfile(rawProfile)
+                        log("Fallback: Auto-selected first available profile.")
+                    }
+                }
+
+                if (rawProfile.trim().isEmpty()) {
                     log("No profile selected. Aborting connection.")
                     withContext(Dispatchers.Main) {
                         android.widget.Toast.makeText(
