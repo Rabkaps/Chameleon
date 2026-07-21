@@ -208,8 +208,11 @@ object ConfigInjector {
             }
         }
 
-        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
+        val directDnsServerAddr = if (isIpAddress(directDnsAddr) && !directDnsAddr.startsWith("tcp://") && !directDnsAddr.startsWith("http")) "tcp://$directDnsAddr" else directDnsAddr
+        val directServer = createDnsServer("dns-direct", directDnsServerAddr, null)
+        val shecanServer = createDnsServer("dns-shecan", "tcp://185.51.200.2", null)
         servers.put(directServer)
+        servers.put(shecanServer)
 
         // 3. Clean Bootstrap DNS Server for resolving proxy/DNS hostnames reliably
         // Prefer the first system DNS server, fallback to 8.8.8.8 if none available
