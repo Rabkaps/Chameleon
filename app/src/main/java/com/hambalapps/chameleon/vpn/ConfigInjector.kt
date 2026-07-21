@@ -304,15 +304,10 @@ object ConfigInjector {
 
     private fun getSystemDnsAddress(context: Context, settings: InjectorSettings? = null): String {
         val systemDnsList = getSystemDnsServers(context)
-        var directDnsAddr = "8.8.8.8" // Clean public default fallback
+        var directDnsAddr = "tcp://8.8.8.8" // Clean TCP DNS fallback to prevent carrier UDP port 53 hijacking
         for (dnsIp in systemDnsList) {
             val trimmed = dnsIp.trim()
-            // Filter out well-known hijacked public DNS servers in Iran, localhost, and VPN local interface addresses (prevent looping)
-            if (trimmed != "8.8.8.8" && trimmed != "8.8.4.4" && 
-                trimmed != "1.1.1.1" && trimmed != "1.0.0.1" && 
-                trimmed != "9.9.9.9" && trimmed != "127.0.0.1" &&
-                !trimmed.startsWith("172.19.")
-            ) {
+            if (trimmed.isNotEmpty() && !trimmed.startsWith("172.19.") && trimmed != "127.0.0.1") {
                 directDnsAddr = trimmed
                 break
             }
@@ -413,9 +408,9 @@ object ConfigInjector {
         // 3. Local Bypass DNS Server for Iran domains (runs directly over active network DNS / Shecan)
         val directDnsAddr = getSystemDnsAddress(context, settings)
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
-        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
-        val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
-        val bootstrapServer = createDnsServer("dns-bootstrap", "8.8.8.8", null)
+        val shecanServer = createDnsServer("dns-shecan", "tcp://178.22.122.100", null)
+        val radarServer = createDnsServer("dns-radar", "tcp://10.202.10.10", null)
+        val bootstrapServer = createDnsServer("dns-bootstrap", "tcp://8.8.8.8", null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
