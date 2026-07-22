@@ -76,6 +76,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -1632,64 +1636,130 @@ fun ConnectionDashboard(
     fun DashboardCardWrapper(
         cardId: String,
         index: Int,
-        cardSize: String,
+        cardSize: String, // "1x1", "2x1", "1x2", "2x2"
         onMoveUp: () -> Unit,
         onMoveDown: () -> Unit,
-        onToggleSize: () -> Unit,
+        onSetSize: (String) -> Unit,
         onRemove: () -> Unit,
         modifier: Modifier = Modifier,
         content: @Composable () -> Unit
     ) {
+        val parsedWidth = if (cardSize.startsWith("1x") || cardSize == "half" || cardSize == "compact") "1" else "2"
+        val parsedHeight = if (cardSize.endsWith("x2") || cardSize == "tall" || cardSize == "large") "2" else "1"
+        val currentGridLabel = "${parsedWidth}x${parsedHeight}"
+
         if (!isEditMode) {
-            Box(modifier = modifier) { content() }
+            val cardHeightModifier = if (parsedHeight == "2") Modifier.height(240.dp) else Modifier
+            Box(modifier = modifier.then(cardHeightModifier)) { content() }
         } else {
+            var totalDragX by remember { mutableStateOf(0f) }
+            var totalDragY by remember { mutableStateOf(0f) }
+
+            val containerHeightModifier = if (parsedHeight == "2") Modifier.height(240.dp) else Modifier
+
             Card(
                 modifier = modifier
+                    .then(containerHeightModifier)
                     .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
                     .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = getCardTitle(cardId),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = onToggleSize, modifier = Modifier.size(28.dp)) {
-                                Icon(
-                                    imageVector = Icons.Default.AspectRatio,
-                                    contentDescription = "Resize Card",
-                                    tint = if (cardSize == "half") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(18.dp))
-                            }
-                            IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(18.dp))
-                            }
-                            IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${getCardTitle(cardId)} ($currentGridLabel)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        val nextWidth = if (parsedWidth == "1") "2" else "1"
+                                        onSetSize("${nextWidth}x${parsedHeight}")
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AspectRatio,
+                                        contentDescription = "Quick Toggle Width",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
+                                }
+                                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
+                        Box(modifier = Modifier.weight(1f).padding(6.dp)) {
+                            content()
+                        }
                     }
-                    Box(modifier = Modifier.padding(6.dp)) {
-                        content()
+
+                    // Drag-to-Resize Handle at Bottom Right
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .size(32.dp)
+                            .pointerInput(cardSize) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        totalDragX = 0f
+                                        totalDragY = 0f
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        totalDragX += dragAmount.x
+                                        totalDragY += dragAmount.y
+
+                                        var targetWidth = parsedWidth
+                                        var targetHeight = parsedHeight
+
+                                        if (totalDragX > 60f) targetWidth = "2"
+                                        else if (totalDragX < -60f) targetWidth = "1"
+
+                                        if (totalDragY > 60f) targetHeight = "2"
+                                        else if (totalDragY < -60f) targetHeight = "1"
+
+                                        val newSize = "${targetWidth}x${targetHeight}"
+                                        if (newSize != currentGridLabel) {
+                                            onSetSize(newSize)
+                                        }
+                                    }
+                                )
+                            },
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        tonalElevation = 6.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInFull,
+                                contentDescription = "Drag Handle to Resize Bento Grid Card",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1718,7 +1788,7 @@ fun ConnectionDashboard(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Customize Dashboard", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text("Reorder cards, resize, or add widgets", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Drag handle at bottom-right to resize cards", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
                         onClick = { showAddCardSheet = true },
@@ -1735,59 +1805,65 @@ fun ConnectionDashboard(
         var i = 0
         while (i < activeCardIds.size) {
             val cardId1 = activeCardIds[i]
-            val size1 = cardSizes[cardId1] ?: "full"
+            val rawSize1 = cardSizes[cardId1] ?: "2x1"
+            val isWidthHalf1 = rawSize1.startsWith("1x") || rawSize1 == "half" || rawSize1 == "compact"
 
-            if (size1 == "half" && i + 1 < activeCardIds.size && (cardSizes[activeCardIds[i + 1]] ?: "full") == "half") {
-                val idx1 = i
-                val idx2 = i + 1
-                val cardId2 = activeCardIds[idx2]
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    DashboardCardWrapper(
-                        cardId = cardId1,
-                        index = idx1,
-                        cardSize = "half",
-                        onMoveUp = { moveCard(idx1, -1) },
-                        onMoveDown = { moveCard(idx1, 1) },
-                        onToggleSize = { scope.launch { settingsManager.setCardSize(cardId1, "full") } },
-                        onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
-                        modifier = Modifier.weight(1f)
+            if (isWidthHalf1 && i + 1 < activeCardIds.size) {
+                val cardId2 = activeCardIds[i + 1]
+                val rawSize2 = cardSizes[cardId2] ?: "2x1"
+                val isWidthHalf2 = rawSize2.startsWith("1x") || rawSize2 == "half" || rawSize2 == "compact"
+
+                if (isWidthHalf2) {
+                    val idx1 = i
+                    val idx2 = i + 1
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        RenderCardById(cardId1)
+                        DashboardCardWrapper(
+                            cardId = cardId1,
+                            index = idx1,
+                            cardSize = rawSize1,
+                            onMoveUp = { moveCard(idx1, -1) },
+                            onMoveDown = { moveCard(idx1, 1) },
+                            onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
+                            onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            RenderCardById(cardId1)
+                        }
+                        DashboardCardWrapper(
+                            cardId = cardId2,
+                            index = idx2,
+                            cardSize = rawSize2,
+                            onMoveUp = { moveCard(idx2, -1) },
+                            onMoveDown = { moveCard(idx2, 1) },
+                            onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId2, newSize) } },
+                            onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId2) } },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            RenderCardById(cardId2)
+                        }
                     }
-                    DashboardCardWrapper(
-                        cardId = cardId2,
-                        index = idx2,
-                        cardSize = "half",
-                        onMoveUp = { moveCard(idx2, -1) },
-                        onMoveDown = { moveCard(idx2, 1) },
-                        onToggleSize = { scope.launch { settingsManager.setCardSize(cardId2, "full") } },
-                        onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId2) } },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        RenderCardById(cardId2)
-                    }
+                    i += 2
+                    continue
                 }
-                i += 2
-            } else {
-                val idx = i
-                val currentSize = if (size1 == "half") "half" else "full"
-                DashboardCardWrapper(
-                    cardId = cardId1,
-                    index = idx,
-                    cardSize = currentSize,
-                    onMoveUp = { moveCard(idx, -1) },
-                    onMoveDown = { moveCard(idx, 1) },
-                    onToggleSize = { scope.launch { settingsManager.setCardSize(cardId1, if (currentSize == "half") "full" else "half") } },
-                    onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    RenderCardById(cardId1)
-                }
-                i += 1
             }
+
+            val idx = i
+            DashboardCardWrapper(
+                cardId = cardId1,
+                index = idx,
+                cardSize = rawSize1,
+                onMoveUp = { moveCard(idx, -1) },
+                onMoveDown = { moveCard(idx, 1) },
+                onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
+                onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                RenderCardById(cardId1)
+            }
+            i += 1
         }
 
         if (Config.IS_SPECIAL && !activeCardIds.contains("love_notes")) {
