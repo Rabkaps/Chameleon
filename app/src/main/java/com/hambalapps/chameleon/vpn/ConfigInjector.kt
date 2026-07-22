@@ -304,10 +304,10 @@ object ConfigInjector {
 
     private fun getSystemDnsAddress(context: Context, settings: InjectorSettings? = null): String {
         val systemDnsList = getSystemDnsServers(context)
-        var directDnsAddr = "178.22.122.100" // Default domestic DNS for unthrottled Iranian mobile data & Wi-Fi
+        var directDnsAddr = "178.22.122.100" // Default public domestic Shecan DNS for unthrottled Iranian mobile data & Wi-Fi
         for (dnsIp in systemDnsList) {
             val trimmed = dnsIp.trim()
-            if (trimmed.isNotEmpty() && !trimmed.startsWith("172.19.") && trimmed != "127.0.0.1" && trimmed != "8.8.8.8" && trimmed != "8.8.4.4" && trimmed != "1.1.1.1") {
+            if (trimmed.isNotEmpty() && !trimmed.startsWith("172.") && !trimmed.startsWith("10.") && !trimmed.startsWith("192.168.") && trimmed != "127.0.0.1" && trimmed != "8.8.8.8" && trimmed != "8.8.4.4" && trimmed != "1.1.1.1") {
                 directDnsAddr = trimmed
                 break
             }
