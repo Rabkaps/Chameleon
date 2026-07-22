@@ -409,12 +409,12 @@ object ConfigInjector {
         // 2. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
-        // 3. Local Bypass DNS Server for Iran domains (uses clean recursive resolver 1.1.1.1)
-        val directServer = createDnsServer("dns-direct", "1.1.1.1", null)
-        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
-        val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
-        val online403Server = createDnsServer("dns-403", "10.202.10.202", null)
-        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", null)
+        // 3. Local Bypass DNS Server for Iran domains (routes directly over physical network interface)
+        val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
+        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
+        val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
+        val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
+        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
