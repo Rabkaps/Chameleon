@@ -71,6 +71,7 @@ class SettingsManager(private val context: Context) {
         val FAVORITE_SERVERS = stringSetPreferencesKey("favorite_servers")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val DASHBOARD_CARDS = stringPreferencesKey("dashboard_cards")
+        val DASHBOARD_CARD_SIZES = stringPreferencesKey("dashboard_card_sizes")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -304,6 +305,28 @@ class SettingsManager(private val context: Context) {
     }.distinctUntilChanged()
     suspend fun setDashboardCards(cards: List<String>) {
         context.dataStore.edit { it[DASHBOARD_CARDS] = cards.joinToString(",") }
+    }
+
+    val dashboardCardSizes: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[DASHBOARD_CARD_SIZES] ?: ""
+        if (raw.isEmpty()) emptyMap()
+        else raw.split(";").mapNotNull {
+            val parts = it.split(":")
+            if (parts.size == 2) parts[0] to parts[1] else null
+        }.toMap()
+    }.distinctUntilChanged()
+
+    suspend fun setCardSize(cardId: String, size: String) {
+        context.dataStore.edit { prefs ->
+            val raw = prefs[DASHBOARD_CARD_SIZES] ?: ""
+            val map = if (raw.isEmpty()) mutableMapOf()
+            else raw.split(";").mapNotNull {
+                val parts = it.split(":")
+                if (parts.size == 2) parts[0] to parts[1] else null
+            }.toMap().toMutableMap()
+            map[cardId] = size
+            prefs[DASHBOARD_CARD_SIZES] = map.entries.joinToString(";") { "${it.key}:${it.value}" }
+        }
     }
 
     suspend fun setThemeMode(value: String) { context.dataStore.edit { it[THEME_MODE] = value } }
