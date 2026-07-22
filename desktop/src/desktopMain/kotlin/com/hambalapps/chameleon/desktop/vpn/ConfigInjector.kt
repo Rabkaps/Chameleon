@@ -204,8 +204,8 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
         servers.put(secureServer)
 
-        // 2. Local Bypass DNS Server for Iran domains (runs directly over system DNS / Shecan)
-        val directServer = createDnsServer("dns-direct", "178.22.122.100", null)
+        // 2. Local Bypass DNS Server for Iran domains (uses clean recursive resolver 1.1.1.1)
+        val directServer = createDnsServer("dns-direct", "1.1.1.1", null)
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
         val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", null)
         servers.put(directServer)
@@ -213,6 +213,7 @@ object ConfigInjector {
         servers.put(bootstrapServer)
 
         dns.put("servers", servers)
+        dns.put("final", "dns-secure")
 
         val rules = JSONArray()
 
