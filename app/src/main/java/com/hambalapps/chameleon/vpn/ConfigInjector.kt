@@ -820,27 +820,35 @@ object ConfigInjector {
             }
             out.remove("_original_link") // Clean up temporary key
 
-            // Inject fragmentation into proxy outbound if enabled
+            // Inject fragmentation into proxy outbound with strict safety checks
             val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
             val isOpenVpn = out.optString("type") == "openvpn"
             val isWireGuard = out.optString("type") == "wireguard" || out.optString("type") == "amneziawg"
-            if (isProxyOrRelay && settings.enableFragment && !isOpenVpn && !isWireGuard) {
+            val type = out.optString("type")
+            val tls = out.optJSONObject("tls")
+            val hasTls = tls?.optBoolean("enabled", false) ?: (tls != null)
+            val flow = out.optString("flow")
+            val isVision = flow.contains("vision")
+            val isReality = tls?.has("reality") ?: false
+
+            if (isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision) {
                 injectFragmentToOutbound(out, settings)
             }
-            // Inject multiplexing if enabled (disabled in gaming mode, and for Reality/xhttp/OpenVPN/WireGuard configs)
-            val tls = out.optJSONObject("tls")
-            val isReality = tls?.has("reality") ?: false
+
+            // Inject multiplexing with strict protocol compatibility checks (skips gRPC, REALITY, Vision, UDP)
             val transport = out.optJSONObject("transport")
+            val isGrpc = transport?.optString("type") == "grpc"
             val isXhttp = transport?.optString("type") == "xhttp"
-            if (isProxyOrRelay && settings.enableMux && settings.vpnMode != "gaming" && !isReality && !isXhttp && !isOpenVpn && !isWireGuard) {
+            val isTcpOrWs = (type == "vless" || type == "vmess" || type == "trojan" || type == "shadowsocks")
+
+            if (isProxyOrRelay && isTcpOrWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && settings.vpnMode != "gaming") {
                 val mux = JSONObject().apply {
                     put("enabled", true)
-                    put("protocol", "smux")
-                    put("max_connections", 4)
-                    put("min_streams", 4)
+                    put("type", "h2mux")
+                    put("concurrency", 8)
                 }
                 out.put("multiplex", mux)
-            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isXhttp || isOpenVpn || isWireGuard)) {
+            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isVision || isGrpc || isXhttp || isOpenVpn || isWireGuard)) {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
@@ -971,6 +979,16 @@ object ConfigInjector {
         tls.put("fragment", true)
         tls.put("record_fragment", true)
         tls.put("fragment_fallback_delay", "500ms")
+        if (settings.fragmentLength.isNotEmpty()) {
+            tls.put("fragment_length", settings.fragmentLength)
+        } else {
+            tls.put("fragment_length", "10-30")
+        }
+        if (settings.fragmentInterval.isNotEmpty()) {
+            tls.put("fragment_interval", settings.fragmentInterval)
+        } else {
+            tls.put("fragment_interval", "1-3ms")
+        }
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
