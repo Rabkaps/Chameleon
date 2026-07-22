@@ -588,6 +588,7 @@ fun MainScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var importText by remember { mutableStateOf("") }
     var showLogs by remember { mutableStateOf(false) }
+    var isDashboardEditMode by remember { mutableStateOf(false) }
     
     // Tabs list ordered as: 1. Servers, 2. Home (Main), 3. Settings, 4. Logs (if enabled)
     val tabs = remember(showLogsTab, context) {
@@ -1301,17 +1302,15 @@ fun MainScreen(
                             containerColor = Color.Transparent
                         ),
                         actions = {
-                            if (showLogsTab) {
-                                val targetLogPageIdx = remember(tabs) { tabs.indexOfFirst { it.first == 2 } }
-                                if (targetLogPageIdx >= 0) {
-                                    IconButton(onClick = { scope.launch { pagerState.animateScrollToPage(targetLogPageIdx) } }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Terminal,
-                                            contentDescription = stringResource(R.string.show_logs),
-                                            tint = if (pagerState.targetPage == targetLogPageIdx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
+                            IconButton(
+                                onClick = { isDashboardEditMode = !isDashboardEditMode },
+                                modifier = Modifier.pressScaleEffect()
+                            ) {
+                                Icon(
+                                    imageVector = if (isDashboardEditMode) Icons.Default.Check else Icons.Default.Edit,
+                                    contentDescription = if (isDashboardEditMode) "Done Customizing" else "Customize Dashboard",
+                                    tint = if (isDashboardEditMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
                             }
                         }
                     )
@@ -1470,6 +1469,8 @@ fun MainScreen(
                                 sessionUpBytesProvider = { sessionUpBytes },
                                 settingsManager = settingsManager,
                                 scope = scope,
+                                isEditMode = isDashboardEditMode,
+                                onNavigateToCdnFronting = { onItemClick(CdnFronting) },
                                 onConnectToggle = {
                                     if (vpnState == "CONNECTED") {
                                         stopVpnService(context)

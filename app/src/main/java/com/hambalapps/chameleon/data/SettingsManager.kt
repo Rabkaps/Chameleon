@@ -70,6 +70,7 @@ class SettingsManager(private val context: Context) {
         val MTPROXY_SECRET = stringPreferencesKey("mtproxy_secret")
         val FAVORITE_SERVERS = stringSetPreferencesKey("favorite_servers")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
+        val DASHBOARD_CARDS = stringPreferencesKey("dashboard_cards")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -296,6 +297,14 @@ class SettingsManager(private val context: Context) {
     suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
     val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }.distinctUntilChanged()
     suspend fun setAppLanguage(value: String) { context.dataStore.edit { it[APP_LANGUAGE] = value } }
+
+    val dashboardCards: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        val raw = prefs[DASHBOARD_CARDS] ?: "connect_button,selected_server,traffic,current_ip"
+        raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }.distinctUntilChanged()
+    suspend fun setDashboardCards(cards: List<String>) {
+        context.dataStore.edit { it[DASHBOARD_CARDS] = cards.joinToString(",") }
+    }
 
     suspend fun setThemeMode(value: String) { context.dataStore.edit { it[THEME_MODE] = value } }
     suspend fun setCardStyle(value: String) { context.dataStore.edit { it[CARD_STYLE] = value } }

@@ -70,6 +70,19 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Radar
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hambalapps.chameleon.vpn.CdnIpScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -160,6 +173,8 @@ fun ConnectionDashboard(
     scope: CoroutineScope,
     onConnectToggle: () -> Unit,
     onNavigateToServers: () -> Unit,
+    onNavigateToCdnFronting: (() -> Unit)? = null,
+    isEditMode: Boolean = false,
     sessionDownBytesProvider: () -> Long = { 0L },
     sessionUpBytesProvider: () -> Long = { 0L },
     activeCountryCode: String? = null
@@ -1428,48 +1443,209 @@ fun ConnectionDashboard(
         }
     }
 
-    if (isLandscape) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Box(modifier = Modifier.weight(0.9f)) {
-                ConnectCard(paddingVertical = 16)
-            }
-            Column(
-                modifier = Modifier.weight(1.1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+    val activeCardIds by settingsManager.dashboardCards.collectAsState(initial = listOf("connect_button", "selected_server", "traffic", "current_ip"))
+    var showAddCardSheet by remember { mutableStateOf(false) }
+
+    fun moveCard(index: Int, direction: Int) {
+        val nextIndex = index + direction
+        if (nextIndex in activeCardIds.indices) {
+            val mutable = activeCardIds.toMutableList()
+            val item = mutable.removeAt(index)
+            mutable.add(nextIndex, item)
+            scope.launch { settingsManager.setDashboardCards(mutable) }
+        }
+    }
+
+    fun getCardTitle(cardId: String): String = when (cardId) {
+        "connect_button" -> "Main Connection Button"
+        "selected_server" -> "Active Server Node"
+        "traffic" -> "Down / Up Live Traffic"
+        "current_ip" -> "IP Address & Location"
+        "cdn_fronting" -> "CDN Fronting & Clean IP"
+        "live_logs" -> "Live Engine Logs Stream"
+        "mode_selector" -> "VPN Routing Mode"
+        "warp_status" -> "WARP Detour Bypass"
+        "telegram_proxy" -> "Telegram MTProxy Server"
+        else -> cardId
+    }
+
+    @Composable
+    fun RenderCardById(cardId: String) {
+        when (cardId) {
+            "connect_button" -> ConnectCard(paddingVertical = 24)
+            "selected_server" -> ServerCard()
+            "traffic" -> PingProtocolRow()
+            "cdn_fronting" -> CdnFrontingDashboardCard()
+            "live_logs" -> LiveLogsDashboardCard()
+            "mode_selector" -> GamingModeCard()
+            "warp_status" -> BypassCard()
+            "telegram_proxy" -> TelegramProxyCard()
+            else -> {}
+        }
+    }
+
+    @Composable
+    fun DashboardCardWrapper(
+        cardId: String,
+        index: Int,
+        content: @Composable () -> Unit
+    ) {
+        if (!isEditMode) {
+            content()
+        } else {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), ExpressiveCardShape),
+                shape = ExpressiveCardShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                ServerCard()
-                PingProtocolRow()
-                if (Config.IS_SPECIAL) {
-                    LoveNotesCard()
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = getCardTitle(cardId),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { moveCard(index, -1) }, enabled = index > 0, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray)
+                            }
+                            IconButton(onClick = { moveCard(index, 1) }, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray)
+                            }
+                            IconButton(onClick = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId) } }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        content()
+                    }
                 }
-                BypassCard()
-                GamingModeCard()
-                TelegramProxyCard()
             }
         }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            ConnectCard(paddingVertical = 32)
-            ServerCard()
-            PingProtocolRow()
-            if (Config.IS_SPECIAL) {
-                LoveNotesCard()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (isEditMode) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = ExpressiveCardShape,
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Customize Dashboard", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Reorder cards or add new widgets", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(
+                        onClick = { showAddCardSheet = true },
+                        shape = ExpressivePillShape
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Add Card")
+                    }
+                }
             }
-            BypassCard()
-            GamingModeCard()
-            TelegramProxyCard()
+        }
+
+        activeCardIds.forEachIndexed { index, cardId ->
+            DashboardCardWrapper(
+                cardId = cardId,
+                index = index,
+                onMoveUp = { moveCard(index, -1) },
+                onMoveDown = { moveCard(index, 1) },
+                onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId) } }
+            ) {
+                RenderCardById(cardId)
+            }
+        }
+
+        if (Config.IS_SPECIAL && !activeCardIds.contains("love_notes")) {
+            LoveNotesCard()
+        }
+    }
+
+    if (showAddCardSheet) {
+        val allAvailableCards = listOf(
+            "connect_button" to ("Main Connection Button" to "Primary VPN connect button and wave visualizer"),
+            "selected_server" to ("Active Server Node" to "Current server flag, name, and 1-tap picker"),
+            "traffic" to ("Down / Up Live Traffic" to "Session download and upload bytes counter"),
+            "cdn_fronting" to ("CDN Fronting & Clean IP" to "Quick toggle and clean IP status card"),
+            "live_logs" to ("Live Engine Stream" to "Real-time sing-box terminal log console"),
+            "mode_selector" to ("VPN Routing Mode" to "Standard vs Gaming routing mode chips"),
+            "warp_status" to ("WARP Detour Bypass" to "Cloudflare WARP account and detour options"),
+            "telegram_proxy" to ("Telegram MTProxy Server" to "Local MTProto proxy server toggle")
+        )
+        val inactiveCards = allAvailableCards.filter { !activeCardIds.contains(it.first) }
+
+        ModalBottomSheet(
+            onDismissRequest = { showAddCardSheet = false },
+            sheetState = rememberModalBottomSheetState()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Add Card to Dashboard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (inactiveCards.isEmpty()) {
+                    Text("All available cards are already active on your dashboard!", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    inactiveCards.forEach { (cardId, info) ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    scope.launch {
+                                        settingsManager.setDashboardCards(activeCardIds + cardId)
+                                        showAddCardSheet = false
+                                    }
+                                },
+                            shape = ExpressiveCardShape,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(info.first, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text(info.second, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Icon(Icons.Default.Add, contentDescription = "Add Card", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
