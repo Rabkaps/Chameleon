@@ -340,6 +340,10 @@ object ConfigInjector {
                     put("server_name", "radar.game")
                 } else if (hostPart == "185.51.200.2" || hostPart == "178.22.122.100") {
                     put("server_name", "shecan.ir")
+                } else if (hostPart == "8.8.8.8" || hostPart == "8.8.4.4") {
+                    put("server_name", "dns.google")
+                } else if (hostPart == "1.1.1.1" || hostPart == "1.0.0.1") {
+                    put("server_name", "cloudflare-dns.com")
                 }
             }
             serverObj.put("tls", tls)

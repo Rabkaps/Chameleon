@@ -164,6 +164,11 @@ object ConfigInjector {
             val tls = JSONObject().apply {
                 put("enabled", true)
                 put("insecure", true)
+                if (hostPart == "8.8.8.8" || hostPart == "8.8.4.4") {
+                    put("server_name", "dns.google")
+                } else if (hostPart == "1.1.1.1" || hostPart == "1.0.0.1") {
+                    put("server_name", "cloudflare-dns.com")
+                }
             }
             serverObj.put("tls", tls)
         } else if (trimmed.startsWith("tls://")) {
