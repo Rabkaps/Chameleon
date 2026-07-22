@@ -820,34 +820,49 @@ object ConfigInjector {
             }
             out.remove("_original_link") // Clean up temporary key
 
-            // Inject fragmentation into proxy outbound with strict safety checks
+            // Detect Cloudflare Workers, Pages, and WebSocket CDN panels
+            val serverHost = out.optString("server")
+            val serverName = tls?.optString("server_name") ?: ""
+            val transport = out.optJSONObject("transport")
+            val transType = transport?.optString("type") ?: ""
+            val isWs = transType == "ws"
+            val hostHeader = transport?.optJSONObject("headers")?.optString("Host") ?: transport?.optString("host") ?: ""
+            val isCloudflareWorker = serverHost.contains(".workers.dev") || serverHost.contains(".pages.dev") ||
+                    serverName.contains(".workers.dev") || serverName.contains(".pages.dev") ||
+                    hostHeader.contains(".workers.dev") || hostHeader.contains(".pages.dev") ||
+                    serverHost.contains("novaproxy") || hostHeader.contains("novaproxy")
+            val isCloudflare = isCloudflareWorker || isWs
+
+            // Inject fragmentation into proxy outbound with strict safety checks (skips Cloudflare edge & WS)
             val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
             val isOpenVpn = type == "openvpn"
             val isWireGuard = type == "wireguard" || type == "amneziawg"
-            val tls = out.optJSONObject("tls")
             val hasTls = tls?.optBoolean("enabled", false) ?: (tls != null)
             val flow = out.optString("flow")
             val isVision = flow.contains("vision")
             val isReality = tls?.has("reality") ?: false
 
-            if (isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision) {
+            if (isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision && !isCloudflare) {
                 injectFragmentToOutbound(out, settings)
+            } else if (tls != null && isCloudflare) {
+                tls.remove("fragment")
+                tls.remove("record_fragment")
+                tls.remove("fragment_fallback_delay")
             }
 
-            // Inject multiplexing with strict protocol compatibility checks (skips gRPC, REALITY, Vision, UDP)
-            val transport = out.optJSONObject("transport")
-            val isGrpc = transport?.optString("type") == "grpc"
-            val isXhttp = transport?.optString("type") == "xhttp"
+            // Inject multiplexing with strict protocol compatibility checks (skips Cloudflare, WS, gRPC, REALITY, Vision, UDP)
+            val isGrpc = transType == "grpc"
+            val isXhttp = transType == "xhttp"
             val isTcpOrWs = (type == "vless" || type == "vmess" || type == "trojan" || type == "shadowsocks")
 
-            if (isProxyOrRelay && isTcpOrWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && settings.vpnMode != "gaming") {
+            if (isProxyOrRelay && isTcpOrWs && !isWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && !isCloudflareWorker && settings.vpnMode != "gaming") {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "h2mux")
                     put("max_connections", 8)
                 }
                 out.put("multiplex", mux)
-            } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isVision || isGrpc || isXhttp || isOpenVpn || isWireGuard)) {
+            } else {
                 out.remove("multiplex")
             }
             cleanOutbounds.put(out)
