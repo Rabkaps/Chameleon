@@ -318,8 +318,9 @@ object ConfigInjector {
         }
         newRules.put(sniffRule)
 
-        // Add standard DNS routing rule
+        // Add standard DNS routing rule (scope to inbounds to prevent hijacking internal outbound DNS client traffic)
         val dnsRule = JSONObject().apply {
+            put("inbound", JSONArray(listOf("tun-in", "mixed-in", "socks-in", "http-in")))
             put("protocol", "dns")
             put("action", "hijack-dns")
         }

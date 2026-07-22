@@ -405,11 +405,9 @@ object ConfigInjector {
         // 2. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
-        // 3. Local Bypass DNS Server for Iran domains (uses native OS system resolver)
-        val directServer = JSONObject().apply {
-            put("tag", "dns-direct")
-            put("type", "local")
-        }
+        // 3. Local Bypass DNS Server for Iran domains (runs directly over active network DNS / Shecan)
+        val directDnsAddr = getSystemDnsAddress(context, settings)
+        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
         val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", null)
@@ -566,8 +564,9 @@ object ConfigInjector {
         }
         newRules.put(sniffRule)
 
-        // 2. DNS Hijack Rule (must be at the top)
+        // 2. DNS Hijack Rule (must target inbound interfaces only, to prevent hijacking internal outbound DNS client traffic)
         val dnsRule = JSONObject().apply {
+            put("inbound", JSONArray(listOf("tun-in", "mixed-in", "socks-in", "http-in")))
             put("protocol", "dns")
             put("action", "hijack-dns")
         }
