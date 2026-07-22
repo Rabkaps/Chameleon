@@ -843,8 +843,8 @@ object ConfigInjector {
             if (isProxyOrRelay && isTcpOrWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && settings.vpnMode != "gaming") {
                 val mux = JSONObject().apply {
                     put("enabled", true)
-                    put("type", "h2mux")
-                    put("concurrency", 8)
+                    put("protocol", "h2mux")
+                    put("max_connections", 8)
                 }
                 out.put("multiplex", mux)
             } else if (isProxyOrRelay && (settings.vpnMode == "gaming" || isReality || isVision || isGrpc || isXhttp || isOpenVpn || isWireGuard)) {
