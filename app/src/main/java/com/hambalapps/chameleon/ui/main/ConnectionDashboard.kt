@@ -1456,6 +1456,142 @@ fun ConnectionDashboard(
         }
     }
 
+    @Composable
+    fun CdnFrontingDashboardCard() {
+        val cdnEnabled by settingsManager.globalCamouflageEnabled.collectAsState(initial = false)
+        val cdnPreset by settingsManager.globalCamouflagePreset.collectAsState(initial = "cloudflare")
+        val cdnPinnedIp by settingsManager.globalCamouflagePinnedIp.collectAsState(initial = "")
+        val lastResults = remember(cdnPreset) { CdnIpScanner.lastScanResults[cdnPreset] ?: emptyList() }
+        val activeIpText = if (cdnPinnedIp.isNotEmpty()) cdnPinnedIp else (lastResults.firstOrNull()?.ip ?: "Auto-Scanning...")
+
+        ExpressiveCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onNavigateToCdnFronting?.invoke() },
+            brush = secondaryCardBrush,
+            shape = ExpressiveCardShape,
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Radar,
+                            contentDescription = "CDN Fronting",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "CDN Fronting & Clean IP",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (cdnEnabled) "Active ($activeIpText)" else "Disabled",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = cdnEnabled,
+                        onCheckedChange = { checked ->
+                            scope.launch {
+                                settingsManager.setGlobalCamouflageEnabled(checked)
+                                if (state == "CONNECTED") {
+                                    startVpnService(context)
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun LiveLogsDashboardCard() {
+        val rawVpnLogs by VpnServiceWrapper.vpnLogs.collectAsStateWithLifecycle()
+        val logLines = remember(rawVpnLogs) {
+            if (rawVpnLogs.isEmpty()) listOf("No engine logs recorded yet")
+            else rawVpnLogs.split("\n").takeLast(6)
+        }
+
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            brush = secondaryCardBrush,
+            shape = ExpressiveCardShape,
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Terminal,
+                            contentDescription = "Live Logs",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Live Engine Stream",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    TextButton(onClick = { VpnServiceWrapper.clearLogs() }) {
+                        Text("Clear", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Black.copy(alpha = 0.85f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        logLines.forEach { line ->
+                            Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp
+                                ),
+                                color = if (line.contains("ERROR", true) || line.contains("failed", true)) Color(0xFFFF5252) else Color(0xFF64FFDA),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun getCardTitle(cardId: String): String = when (cardId) {
         "connect_button" -> "Main Connection Button"
         "selected_server" -> "Active Server Node"
@@ -1488,6 +1624,9 @@ fun ConnectionDashboard(
     fun DashboardCardWrapper(
         cardId: String,
         index: Int,
+        onMoveUp: () -> Unit,
+        onMoveDown: () -> Unit,
+        onRemove: () -> Unit,
         content: @Composable () -> Unit
     ) {
         if (!isEditMode) {
@@ -1496,6 +1635,7 @@ fun ConnectionDashboard(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
                     .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -1516,13 +1656,13 @@ fun ConnectionDashboard(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { moveCard(index, -1) }, enabled = index > 0, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
-                            IconButton(onClick = { moveCard(index, 1) }, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray)
                             }
-                            IconButton(onClick = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId) } }, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error)
                             }
                         }
