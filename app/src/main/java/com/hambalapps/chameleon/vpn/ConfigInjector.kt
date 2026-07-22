@@ -822,9 +822,8 @@ object ConfigInjector {
 
             // Inject fragmentation into proxy outbound with strict safety checks
             val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
-            val isOpenVpn = out.optString("type") == "openvpn"
-            val isWireGuard = out.optString("type") == "wireguard" || out.optString("type") == "amneziawg"
-            val type = out.optString("type")
+            val isOpenVpn = type == "openvpn"
+            val isWireGuard = type == "wireguard" || type == "amneziawg"
             val tls = out.optJSONObject("tls")
             val hasTls = tls?.optBoolean("enabled", false) ?: (tls != null)
             val flow = out.optString("flow")
