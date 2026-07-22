@@ -1223,31 +1223,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
             }
 
-            // 3. Configure DNS Servers
-            val dnsServer = options.getDNSServerAddress()
-            if (dnsServer != null && dnsServer.getValue().isNotEmpty()) {
-                try {
-                    builder.addDnsServer(dnsServer.getValue())
-                } catch (e: Exception) {
-                    log("Failed to add DNS server ${dnsServer.getValue()}: ${e.message}")
-                }
-                // Add one more IPv4 address for robust DNS hijacking
-                try {
-                    if (dnsServer.getValue() != "8.8.8.8") {
-                        builder.addDnsServer("8.8.8.8")
-                    } else {
-                        builder.addDnsServer("8.8.4.4")
-                    }
-                } catch (e: Exception) {
-                    // Ignore
-                }
-            } else {
-                try {
-                    builder.addDnsServer("172.19.0.1")
-                    builder.addDnsServer("8.8.8.8")
-                } catch (e: Exception) {
-                    // Ignore
-                }
+            // 3. Configure DNS Servers (172.19.0.1 primary TUN hijack address for instant 2ms response)
+            try {
+                builder.addDnsServer("172.19.0.1")
+            } catch (e: Exception) {
+                log("Failed to add primary TUN DNS server: ${e.message}")
             }
 
             // 4. Establish TUN Interface and detach file descriptor
