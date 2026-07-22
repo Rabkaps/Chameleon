@@ -204,18 +204,13 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
         servers.put(secureServer)
 
-        // 2. Local Bypass DNS Server for Iran domains (runs directly over system DNS / public clean DNS)
-        val systemDnsList = getSystemDnsServers()
-        var directDnsAddr = "8.8.8.8"
-        for (dnsIp in systemDnsList) {
-            if (dnsIp != "8.8.8.8" && dnsIp != "8.8.4.4" && dnsIp != "1.1.1.1" && dnsIp != "1.0.0.1" && dnsIp != "9.9.9.9") {
-                directDnsAddr = dnsIp
-                break
-            }
+        // 2. Local Bypass DNS Server for Iran domains (uses native OS system resolver)
+        val directServer = JSONObject().apply {
+            put("tag", "dns-direct")
+            put("type", "local")
         }
-        val directServer = createDnsServer("dns-direct", directDnsAddr, null)
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
-        val bootstrapServer = createDnsServer("dns-bootstrap", "8.8.8.8", null)
+        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", null)
         servers.put(directServer)
         servers.put(shecanServer)
         servers.put(bootstrapServer)
