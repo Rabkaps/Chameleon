@@ -4632,42 +4632,44 @@ fun MainScreen(
                                 colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                             ) {
                                 VibrantCardContent(settings.cardStyle) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.FilterAlt, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(stringResource(R.string.split_tunneling), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                            Text(
-                                                text = if (splitTunnelingEnabled) {
-                                                    val modeText = if (splitTunnelingMode == "bypass") stringResource(R.string.bypass_apps) else stringResource(R.string.route_apps)
-                                                    "$modeText: ${splitTunnelingApps.size}"
-                                                } else stringResource(R.string.split_tunneling_desc),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.FilterAlt, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(stringResource(R.string.split_tunneling), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                Text(
+                                                    text = if (splitTunnelingEnabled) {
+                                                        val modeText = if (splitTunnelingMode == "bypass") stringResource(R.string.bypass_apps) else stringResource(R.string.route_apps)
+                                                        "$modeText: ${splitTunnelingApps.size}"
+                                                    } else stringResource(R.string.split_tunneling_desc),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(ExpressiveChipShape)
+                                                    .background(if (splitTunnelingEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (splitTunnelingEnabled) stringResource(R.string.state_on) else stringResource(R.string.state_off),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (splitTunnelingEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                         }
                                     }
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(ExpressiveChipShape)
-                                                .background(if (splitTunnelingEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = if (splitTunnelingEnabled) stringResource(R.string.state_on) else stringResource(R.string.state_off),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (splitTunnelingEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                                    }
+                                }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
 

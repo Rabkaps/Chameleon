@@ -3,8 +3,11 @@ package com.hambalapps.chameleon.ui.cdn
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -46,6 +49,17 @@ import kotlinx.coroutines.withContext
 val ExpressiveCardShape = RoundedCornerShape(28.dp)
 val ExpressivePillShape = RoundedCornerShape(50)
 
+private fun restartVpnService(context: Context) {
+    val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+        action = VpnServiceWrapper.ACTION_START
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+    } else {
+        context.startService(intent)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CdnFrontingScreen(
@@ -70,6 +84,9 @@ fun CdnFrontingScreen(
     var scanResults by remember { mutableStateOf<List<ScannedIp>>(emptyList()) }
     var scanSummary by remember { mutableStateOf<String?>(null) }
     var triggerScan by remember { mutableStateOf(0) }
+
+    val motionScheme = MaterialTheme.motionScheme
+    val spatialSpec = remember(motionScheme) { motionScheme.defaultSpatialSpec<Float>() }
 
     // Load initial scan results for current preset
     LaunchedEffect(preset, triggerScan) {
@@ -150,10 +167,12 @@ fun CdnFrontingScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // Main Toggle Card
+            // Main Toggle Card with Expressive Spring Animation
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
                     shape = ExpressiveCardShape,
                     colors = CardDefaults.cardColors(
                         containerColor = if (isEnabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
@@ -188,7 +207,7 @@ fun CdnFrontingScreen(
                                         style = MaterialTheme.typography.titleMedium
                                     )
                                     Text(
-                                        text = "Overlays proxy outbounds with clean CDN edge IPs to bypass SNI throttling",
+                                        text = "Overlays proxy outbounds with clean CDN edge IPs to defeat SNI throttling",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -201,7 +220,7 @@ fun CdnFrontingScreen(
                                     scope.launch {
                                         settingsManager.setGlobalCamouflageEnabled(checked)
                                         if (vpnState == "CONNECTED") {
-                                            VpnServiceWrapper.startVpn(context)
+                                            restartVpnService(context)
                                         }
                                     }
                                 }
@@ -216,7 +235,9 @@ fun CdnFrontingScreen(
                 item {
                     val activeIpText = if (pinnedIp.isNotEmpty()) pinnedIp else (scanResults.firstOrNull()?.ip ?: "Auto-Scanning CDN Edge...")
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
                         shape = ExpressiveCardShape,
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
@@ -261,7 +282,7 @@ fun CdnFrontingScreen(
                                     onClick = {
                                         scope.launch {
                                             settingsManager.setGlobalCamouflagePinnedIp("")
-                                            if (vpnState == "CONNECTED") VpnServiceWrapper.startVpn(context)
+                                            if (vpnState == "CONNECTED") restartVpnService(context)
                                         }
                                     }
                                 ) {
@@ -304,7 +325,7 @@ fun CdnFrontingScreen(
                                                 settingsManager.setGlobalCamouflageSni("aws.amazon.com")
                                                 settingsManager.setGlobalCamouflageHost("aws.amazon.com")
                                             }
-                                            if (vpnState == "CONNECTED") VpnServiceWrapper.startVpn(context)
+                                            if (vpnState == "CONNECTED") restartVpnService(context)
                                         }
                                     },
                                     label = { Text(label) },
@@ -319,7 +340,9 @@ fun CdnFrontingScreen(
                 if (preset == "custom") {
                     item {
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
                             shape = ExpressiveCardShape,
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -391,7 +414,7 @@ fun CdnFrontingScreen(
                     }
                 }
 
-                // Scanned Working IPs List
+                // Scanned Working IPs List Header
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -437,6 +460,7 @@ fun CdnFrontingScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow))
                                 .border(
                                     width = if (isPinned) 2.dp else 1.dp,
                                     color = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
@@ -498,7 +522,7 @@ fun CdnFrontingScreen(
                                                 } else {
                                                     settingsManager.setGlobalCamouflagePinnedIp(scannedIp.ip)
                                                 }
-                                                if (vpnState == "CONNECTED") VpnServiceWrapper.startVpn(context)
+                                                if (vpnState == "CONNECTED") restartVpnService(context)
                                             }
                                         },
                                         colors = if (isPinned) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
