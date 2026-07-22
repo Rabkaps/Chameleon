@@ -978,16 +978,6 @@ object ConfigInjector {
         tls.put("fragment", true)
         tls.put("record_fragment", true)
         tls.put("fragment_fallback_delay", "500ms")
-        if (settings.fragmentLength.isNotEmpty()) {
-            tls.put("fragment_length", settings.fragmentLength)
-        } else {
-            tls.put("fragment_length", "10-30")
-        }
-        if (settings.fragmentInterval.isNotEmpty()) {
-            tls.put("fragment_interval", settings.fragmentInterval)
-        } else {
-            tls.put("fragment_interval", "1-3ms")
-        }
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
