@@ -465,17 +465,17 @@ object ConfigInjector {
         
         if (settings.bypassIran) {
             ensureRuleSetsExtracted(context)
-            // Rule: Route Iranian geosite to domestic Shecan DNS via rule_set
+            // Rule: Route Iranian geosite to local DNS via rule_set
             val irGeositeRule = JSONObject().apply {
                 put("rule_set", JSONArray(listOf("geosite-ir")))
-                put("server", "dns-shecan")
+                put("server", "dns-direct")
             }
             rules.put(irGeositeRule)
 
-            // Rule: Route .ir domains to domestic Shecan DNS
+            // Rule: Route .ir domains to local DNS
             val irSuffixRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))
-                put("server", "dns-shecan")
+                put("server", "dns-direct")
             }
             rules.put(irSuffixRule)
         }

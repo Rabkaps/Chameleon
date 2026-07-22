@@ -247,13 +247,13 @@ object ConfigInjector {
         if (settings.bypassIran) {
             val irGeositeRule = JSONObject().apply {
                 put("rule_set", JSONArray(listOf("geosite-ir")))
-                put("server", "dns-shecan")
+                put("server", "dns-direct")
             }
             rules.put(irGeositeRule)
 
             val irSuffixRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))
-                put("server", "dns-shecan")
+                put("server", "dns-direct")
             }
             rules.put(irSuffixRule)
         }
