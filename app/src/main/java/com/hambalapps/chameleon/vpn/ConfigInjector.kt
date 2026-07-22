@@ -410,12 +410,14 @@ object ConfigInjector {
         val directServer = createDnsServer("dns-direct", directDnsAddr, null)
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", null)
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", null)
+        val online403Server = createDnsServer("dns-403", "10.202.10.202", null)
         val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", null)
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
             servers.put(radarServer)
             servers.put(shecanServer)
+            servers.put(online403Server)
             servers.put(directServer)
             servers.put(bootstrapServer)
         } else if (settings.bypassIran) {
@@ -423,6 +425,7 @@ object ConfigInjector {
             servers.put(directServer)
             servers.put(shecanServer)
             servers.put(radarServer)
+            servers.put(online403Server)
             servers.put(bootstrapServer)
         } else {
             servers.put(secureServer)
@@ -622,7 +625,7 @@ object ConfigInjector {
         }
 
         if (settings.bypassIran || settings.vpnMode == "gaming") {
-            listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
+            listOf("10.202.10.10", "10.202.10.11", "10.202.10.202", "185.51.200.2", "178.22.122.100").forEach { ip ->
                 if (!directIps.contains(ip)) {
                     directIps.add(ip)
                 }
