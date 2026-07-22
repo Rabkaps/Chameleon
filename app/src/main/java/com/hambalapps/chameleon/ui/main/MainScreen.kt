@@ -84,6 +84,7 @@ import kotlin.math.sin
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.hambalapps.chameleon.SplitTunneling
+import com.hambalapps.chameleon.CdnFronting
 import com.hambalapps.chameleon.ui.qr.QrScannerScreen
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.CircularWavyProgressIndicator
@@ -4663,6 +4664,53 @@ fun MainScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (splitTunnelingEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                    }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(brush = secondaryCardBrush, shape = ExpressiveCardShape)
+                                    .border(width = 1.dp, brush = cardBorderBrush, shape = ExpressiveCardShape)
+                                    .clickable { onItemClick(CdnFronting) }
+                                    .pressScaleEffect(),
+                                shape = ExpressiveCardShape,
+                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                            ) {
+                                VibrantCardContent(settings.cardStyle) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text("CDN Fronting & Clean IP Scanner", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                text = if (settings.globalCamouflageEnabled) "Active (${settings.globalCamouflagePreset.replaceFirstChar { it.uppercase() }})" else "Disabled",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(ExpressiveChipShape)
+                                                .background(if (settings.globalCamouflageEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (settings.globalCamouflageEnabled) stringResource(R.string.state_on) else stringResource(R.string.state_off),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (settings.globalCamouflageEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                         Icon(Icons.Default.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))

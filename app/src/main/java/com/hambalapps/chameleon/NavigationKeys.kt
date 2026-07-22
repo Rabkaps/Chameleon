@@ -5,3 +5,4 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object Main : NavKey
 @Serializable data object SplitTunneling : NavKey
+@Serializable data object CdnFronting : NavKey

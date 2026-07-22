@@ -20,6 +20,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.hambalapps.chameleon.ui.main.MainScreen
 import com.hambalapps.chameleon.ui.split.SplitTunnelingScreen
+import com.hambalapps.chameleon.ui.cdn.CdnFrontingScreen
 
 import androidx.compose.ui.unit.IntOffset
 
@@ -67,6 +68,9 @@ fun MainNavigation() {
         }
         entry<SplitTunneling> {
           SplitTunnelingScreen(onBack = { backStack.removeLastOrNull() }, modifier = Modifier.fillMaxSize())
+        }
+        entry<CdnFronting> {
+          CdnFrontingScreen(onBack = { backStack.removeLastOrNull() }, modifier = Modifier.fillMaxSize())
         }
       },
   )

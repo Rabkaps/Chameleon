@@ -948,12 +948,18 @@ object ConfigInjector {
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
 
-        val targetSni = when (config.preset) {
-            "cloudflare" -> "speedtest.net" // Default Cloudflare SNI
-            "cloudfront" -> "aws.amazon.com" // Default Cloudfront SNI
-            else -> config.customSni.ifEmpty { "microsoft.com" }
+        val existingSni = tls.optString("server_name")
+        val targetSni = if (existingSni.isNotEmpty()) {
+            existingSni // Preserve existing SNI if outbound already has one (e.g. Cloudflare Workers / NovaProxy / BPB)
+        } else {
+            when (config.preset) {
+                "cloudflare" -> "speedtest.net"
+                "cloudfront" -> "aws.amazon.com"
+                else -> config.customSni.ifEmpty { "microsoft.com" }
+            }
         }
         tls.put("server_name", targetSni)
+        android.util.Log.i("Chameleon", "[CDN Fronting] Overrode server with clean CDN IP: $cleanIp (SNI: $targetSni)")
 
         // 3. Setup Transport Host Header (WS/HTTPUpgrade/xHTTP)
         val transport = outbound.optJSONObject("transport") ?: JSONObject().apply {
