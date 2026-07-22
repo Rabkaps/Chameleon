@@ -821,6 +821,7 @@ object ConfigInjector {
             out.remove("_original_link") // Clean up temporary key
 
             // Detect Cloudflare Workers, Pages, and WebSocket CDN panels
+            val tls = out.optJSONObject("tls")
             val serverHost = out.optString("server")
             val serverName = tls?.optString("server_name") ?: ""
             val transport = out.optJSONObject("transport")
