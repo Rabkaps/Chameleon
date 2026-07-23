@@ -2400,6 +2400,49 @@ fun MainScreen(
                                             }
                                         }
 
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        LazyRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            item {
+                                                androidx.compose.material3.FilterChip(
+                                                    selected = selectedSubGroupFilter == "All Groups",
+                                                    onClick = { selectedSubGroupFilter = "All Groups" },
+                                                    label = { Text("All Nodes") },
+                                                    shape = ExpressivePillShape
+                                                )
+                                            }
+                                            item {
+                                                androidx.compose.material3.FilterChip(
+                                                    selected = selectedSubGroupFilter == "Favorites",
+                                                    onClick = { selectedSubGroupFilter = "Favorites" },
+                                                    label = {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Star,
+                                                                contentDescription = null,
+                                                                tint = if (selectedSubGroupFilter == "Favorites") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Text("Favorites")
+                                                        }
+                                                    },
+                                                    shape = ExpressivePillShape
+                                                )
+                                            }
+                                            items(subscriptions) { sub ->
+                                                androidx.compose.material3.FilterChip(
+                                                    selected = selectedSubGroupFilter == sub.name,
+                                                    onClick = { selectedSubGroupFilter = sub.name },
+                                                    label = { Text(sub.name, maxLines = 1) },
+                                                    shape = ExpressivePillShape
+                                                )
+                                            }
+                                        }
+
                                         AnimatedVisibility(
                                             visible = isSearchVisible,
                                             enter = expandVertically() + fadeIn(),
