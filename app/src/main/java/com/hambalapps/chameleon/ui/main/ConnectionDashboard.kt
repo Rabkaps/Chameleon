@@ -944,7 +944,7 @@ fun ConnectionDashboard(
                 .pressScaleEffect()
                 .clickable { onNavigateToServers() },
             brush = secondaryCardBrush,
-            shape = if (cardSize == "2x1") ExpressivePillShape else ExpressiveCardShape,
+            shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
@@ -1310,7 +1310,7 @@ fun ConnectionDashboard(
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
-            shape = if (cardSize == "2x1") ExpressivePillShape else ExpressiveCardShape,
+            shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
@@ -1499,7 +1499,7 @@ fun ConnectionDashboard(
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
-            shape = if (cardSize == "2x1") ExpressivePillShape else ExpressiveCardShape,
+            shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
@@ -1670,7 +1670,7 @@ fun ConnectionDashboard(
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
-            shape = if (cardSize == "2x1") ExpressivePillShape else ExpressiveCardShape,
+            shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
@@ -2065,7 +2065,7 @@ fun ConnectionDashboard(
                 .fillMaxWidth()
                 .clickable { onNavigateToCdnFronting?.invoke() },
             brush = secondaryCardBrush,
-            shape = if (cardSize == "2x1") ExpressivePillShape else ExpressiveCardShape,
+            shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
