@@ -979,6 +979,11 @@ fun ConnectionDashboard(
                     }
                 }
             } else if (isExpanded) {
+                val nodeList = remember(activeSubscription, activeProfile) {
+                    val serversStr = activeSubscription?.servers ?: ""
+                    val parsed = serversStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    if (parsed.isNotEmpty()) parsed else if (activeProfile.isNotEmpty()) listOf(activeProfile) else emptyList()
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1009,27 +1014,71 @@ fun ConnectionDashboard(
                                     text = serverName,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
                                 )
                             }
                         }
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = "Select Server",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        IconButton(onClick = { onNavigateToServers() }) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = "Select Server",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Quick Node Switch",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier.weight(1f).padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Quick Node Select",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val maxDisplayNodes = if (cardSize == "2x3") 4 else 2
+                        nodeList.take(maxDisplayNodes).forEach { nodeUri ->
+                            val sName = ProxyNameResolver.getProxyName(nodeUri, context)
+                            val sFlag = getFlagEmoji(sName, null)
+                            val isSelected = nodeUri == activeProfile
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch {
+                                            settingsManager.setActiveProfile(nodeUri)
+                                            if (state == "CONNECTED") startVpnService(context)
+                                        }
+                                    },
+                                shape = ExpressiveButtonShape,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        Text(sFlag, fontSize = 14.sp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = sName,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    if (isSelected) {
+                                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Button(
                         onClick = { onNavigateToServers() },
                         modifier = Modifier.fillMaxWidth(),
@@ -1037,7 +1086,7 @@ fun ConnectionDashboard(
                     ) {
                         Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Browse & Select Node", fontSize = 12.sp)
+                        Text("Browse All Servers", fontSize = 12.sp)
                     }
                 }
             } else {
@@ -2039,60 +2088,99 @@ fun ConnectionDashboard(
                     }
                 }
             } else if (isExpanded) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text("CDN Fronting & Clean IP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(if (cdnEnabled) "Active ($activeIpText)" else "Disabled", style = MaterialTheme.typography.bodySmall, color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Switch(
-                            checked = cdnEnabled,
-                            onCheckedChange = { checked ->
-                                scope.launch {
-                                    settingsManager.setGlobalCamouflageEnabled(checked)
-                                    if (state == "CONNECTED") startVpnService(context)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("CDN Fronting & Clean IP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(if (cdnEnabled) "Active ($activeIpText)" else "Disabled", style = MaterialTheme.typography.bodySmall, color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("CDN Preset Provider", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("cloudflare" to "Cloudflare", "cloudfront" to "CloudFront", "fastly" to "Fastly").forEach { (presetKey, presetName) ->
-                            FilterChip(
-                                selected = cdnPreset == presetKey,
-                                onClick = {
+                            Switch(
+                                checked = cdnEnabled,
+                                onCheckedChange = { checked ->
                                     scope.launch {
-                                        settingsManager.setGlobalCamouflagePreset(presetKey)
+                                        settingsManager.setGlobalCamouflageEnabled(checked)
                                         if (state == "CONNECTED") startVpnService(context)
                                     }
-                                },
-                                label = {
-                                    Text(
-                                        text = presetName,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = ExpressiveButtonShape
+                                }
                             )
                         }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text("CDN Preset Provider", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf("cloudflare" to "Cloudflare", "cloudfront" to "CloudFront", "fastly" to "Fastly").forEach { (presetKey, presetName) ->
+                                FilterChip(
+                                    selected = cdnPreset == presetKey,
+                                    onClick = {
+                                        scope.launch {
+                                            settingsManager.setGlobalCamouflagePreset(presetKey)
+                                            if (state == "CONNECTED") startVpnService(context)
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            text = presetName,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = ExpressiveButtonShape
+                                )
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    if (cardSize == "2x3" && lastResults.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("Top Clean Anycast IPs", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            lastResults.take(3).forEach { res ->
+                                val isPinned = cdnPinnedIp == res.ip
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            scope.launch { settingsManager.setGlobalCamouflagePinnedIp(if (isPinned) "" else res.ip) }
+                                        },
+                                    shape = ExpressiveButtonShape,
+                                    color = if (isPinned) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(res.ip, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)) {
+                                            Text("${res.latencyMs} ms", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Button(
                         onClick = { onNavigateToCdnFronting?.invoke() },
                         modifier = Modifier.fillMaxWidth(),
