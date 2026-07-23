@@ -1346,8 +1346,9 @@ fun ConnectionDashboard(
                         )
                     }
 
+                    val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
                     AnimatedVisibility(
-                        visible = vpnMode == "ai_bypass",
+                        visible = vpnMode == "ai_bypass" && isExpanded,
                         enter = expandVertically() + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {
@@ -1439,6 +1440,8 @@ fun ConnectionDashboard(
     @Composable
     fun GamingModeCard(cardSize: String = "2x1") {
         val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
@@ -1457,10 +1460,53 @@ fun ConnectionDashboard(
                         Text(if (vpnMode == "gaming") "Gaming Mode" else "Standard", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            } else if (!isExpanded) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = "Routing Mode",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Routing Mode",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (vpnMode == "gaming") "Gaming Mode Active" else "Standard Mode Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    FilterChip(
+                        selected = vpnMode == "gaming",
+                        onClick = {
+                            scope.launch {
+                                val targetMode = if (vpnMode == "gaming") "standard" else "gaming"
+                                settingsManager.setVpnMode(targetMode)
+                                if (state == "CONNECTED") {
+                                    startVpnService(context)
+                                }
+                            }
+                        },
+                        label = { Text(if (vpnMode == "gaming") "Gaming" else "Standard", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        shape = ExpressiveButtonShape
+                    )
+                }
             } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     Row(
@@ -2521,6 +2567,8 @@ fun ConnectionDashboard(
         if (Config.IS_SPECIAL && !activeCardIds.contains("love_notes")) {
             LoveNotesCard()
         }
+
+        Spacer(modifier = Modifier.height(110.dp))
     }
 
     if (showAddCardSheet) {
