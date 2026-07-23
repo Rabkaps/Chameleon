@@ -1004,7 +1004,15 @@ fun ConnectionDashboard(
                             Text("IP & Security Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
                         if (ipFlagEmoji != "🌐") {
-                            Text(ipFlagEmoji, style = MaterialTheme.typography.titleLarge)
+                            if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
+                                Image(
+                                    painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
+                                    contentDescription = "Iran Flag",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            } else {
+                                Text(ipFlagEmoji, style = MaterialTheme.typography.titleLarge)
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -1024,7 +1032,15 @@ fun ConnectionDashboard(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
                         if (ipFlagEmoji != "🌐") {
-                            Text(ipFlagEmoji, style = MaterialTheme.typography.titleMedium)
+                            if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
+                                Image(
+                                    painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
+                                    contentDescription = "Iran Flag",
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            } else {
+                                Text(ipFlagEmoji, style = MaterialTheme.typography.titleMedium)
+                            }
                         }
                     }
                     Column {
