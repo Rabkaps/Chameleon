@@ -191,11 +191,11 @@ fun getCardTitle(cardId: String): String = when (cardId) {
 }
 
 enum class BentoGridSize(val widthSlots: Int, val heightSlots: Int, val heightDp: Dp) {
-    SIZE_1X1(1, 1, 110.dp),
-    SIZE_2X1(2, 1, 110.dp),
-    SIZE_1X2(1, 2, 232.dp),
-    SIZE_2X2(2, 2, 232.dp),
-    SIZE_2X3(2, 3, 354.dp);
+    SIZE_1X1(1, 1, 88.dp),
+    SIZE_2X1(2, 1, 88.dp),
+    SIZE_1X2(1, 2, 188.dp),
+    SIZE_2X2(2, 2, 200.dp),
+    SIZE_2X3(2, 3, 288.dp);
 
     companion object {
         fun parse(str: String): BentoGridSize = when (str) {
@@ -238,11 +238,11 @@ fun BentoSizeSelectorSheet(
             }
 
             listOf(
-                "1x1" to ("1x1 Compact Tile" to "Half width, small height (110 dp)"),
-                "2x1" to ("2x1 Wide Banner" to "Full width, small height (110 dp)"),
-                "1x2" to ("1x2 Tall Module" to "Half width, double height (232 dp)"),
-                "2x2" to ("2x2 Large Card" to "Full width, double height (232 dp)"),
-                "2x3" to ("2x3 Feature Module" to "Full width, triple height (354 dp)")
+                "1x1" to ("1x1 Compact Tile" to "Half width, compact height (88 dp)"),
+                "2x1" to ("2x1 Wide Banner" to "Full width, compact height (88 dp)"),
+                "1x2" to ("1x2 Tall Module" to "Half width, double height (188 dp)"),
+                "2x2" to ("2x2 Large Card" to "Full width, double height (200 dp)"),
+                "2x3" to ("2x3 Feature Module" to "Full width, triple height (288 dp)")
             ).forEach { (sizeKey, info) ->
                 val isSelected = currentSizeStr == sizeKey
                 Card(
