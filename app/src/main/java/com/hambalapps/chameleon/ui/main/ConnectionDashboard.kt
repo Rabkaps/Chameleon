@@ -48,6 +48,8 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.defaultMinSize
@@ -775,9 +777,10 @@ fun ConnectionDashboard(
             } else {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp, horizontal = 16.dp)
+                        .fillMaxSize()
+                        .padding(vertical = 16.dp, horizontal = 16.dp)
                 ) {
                     val buttonCornerRadius by animateDpAsState(
                         targetValue = if (state == "CONNECTED") 32.dp else 58.dp,
@@ -1108,7 +1111,7 @@ fun ConnectionDashboard(
                     }
                 }
             } else if (isExpanded) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
@@ -1175,7 +1178,7 @@ fun ConnectionDashboard(
             cardStyle = cardStyle
         ) {
             if (isExpanded) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1701,8 +1704,9 @@ fun ConnectionDashboard(
                         )
                     }
 
+                    val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
                     AnimatedVisibility(
-                        visible = enableMtProxy,
+                        visible = enableMtProxy && isExpanded,
                         enter = expandVertically() + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {
@@ -2114,7 +2118,7 @@ fun ConnectionDashboard(
                     }
                 }
             } else {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2131,11 +2135,11 @@ fun ConnectionDashboard(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize().weight(1f),
                         shape = RoundedCornerShape(16.dp),
                         color = Color.Black.copy(alpha = 0.85f)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.fillMaxSize().padding(12.dp).verticalScroll(rememberScrollState())) {
                             logLines.forEach { line ->
                                 Text(
                                     text = line,
@@ -2177,9 +2181,9 @@ fun ConnectionDashboard(
             "current_ip" -> IpAddressCard(cardSize = cardSize)
             "cdn_fronting" -> CdnFrontingDashboardCard(cardSize = cardSize)
             "live_logs" -> LiveLogsDashboardCard(cardSize = cardSize)
-            "mode_selector" -> GamingModeCard()
-            "warp_status" -> BypassCard()
-            "telegram_proxy" -> TelegramProxyCard()
+            "mode_selector" -> GamingModeCard(cardSize = cardSize)
+            "warp_status" -> BypassCard(cardSize = cardSize)
+            "telegram_proxy" -> TelegramProxyCard(cardSize = cardSize)
             else -> {}
         }
     }
