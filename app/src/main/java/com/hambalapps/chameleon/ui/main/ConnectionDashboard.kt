@@ -2154,18 +2154,18 @@ fun ConnectionDashboard(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = ExpressiveCardShape,
-                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Customize Dashboard", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text("Drag handle at bottom-right to resize cards", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Editing Bento Dashboard", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text("Drag corner handles or tap pill chips to resize", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                     }
                     Button(
                         onClick = { showAddCardSheet = true },
@@ -2186,6 +2186,7 @@ fun ConnectionDashboard(
                 "connect_button" -> "2x2"
                 "live_logs" -> "2x2"
                 "current_ip" -> "1x1"
+                "traffic" -> "1x1"
                 else -> "2x1"
             }
             val rawSize1 = cardSizes[cardId1] ?: defaultSize1
@@ -2197,6 +2198,7 @@ fun ConnectionDashboard(
                     "connect_button" -> "2x2"
                     "live_logs" -> "2x2"
                     "current_ip" -> "1x1"
+                    "traffic" -> "1x1"
                     else -> "2x1"
                 }
                 val rawSize2 = cardSizes[cardId2] ?: defaultSize2
@@ -2207,7 +2209,7 @@ fun ConnectionDashboard(
                     val idx2 = i + 1
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         DashboardCardWrapper(
                             cardId = cardId1,
@@ -2240,17 +2242,38 @@ fun ConnectionDashboard(
             }
 
             val idx = i
-            DashboardCardWrapper(
-                cardId = cardId1,
-                index = idx,
-                cardSize = rawSize1,
-                onMoveUp = { moveCard(idx, -1) },
-                onMoveDown = { moveCard(idx, 1) },
-                onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
-                onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                RenderCardById(cardId1, rawSize1)
+            if (isWidthHalf1) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    DashboardCardWrapper(
+                        cardId = cardId1,
+                        index = idx,
+                        cardSize = rawSize1,
+                        onMoveUp = { moveCard(idx, -1) },
+                        onMoveDown = { moveCard(idx, 1) },
+                        onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
+                        onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        RenderCardById(cardId1, rawSize1)
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            } else {
+                DashboardCardWrapper(
+                    cardId = cardId1,
+                    index = idx,
+                    cardSize = rawSize1,
+                    onMoveUp = { moveCard(idx, -1) },
+                    onMoveDown = { moveCard(idx, 1) },
+                    onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
+                    onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    RenderCardById(cardId1, rawSize1)
+                }
             }
             i += 1
         }
