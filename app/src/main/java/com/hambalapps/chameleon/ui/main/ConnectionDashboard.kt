@@ -37,6 +37,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.hambalapps.chameleon.vpn.ConfigInjector
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
@@ -1942,6 +1944,8 @@ fun ConnectionDashboard(
         }
     }
 
+
+
     @Composable
     fun DashboardCardWrapper(
         cardId: String,
@@ -1954,57 +1958,44 @@ fun ConnectionDashboard(
         modifier: Modifier = Modifier,
         content: @Composable () -> Unit
     ) {
-        val parsedWidth = if (cardSize.startsWith("1x") || cardSize == "half" || cardSize == "compact") "1" else "2"
-        val parsedHeight = when {
-            cardSize.endsWith("x3") -> "3"
-            cardSize.endsWith("x2") || cardSize == "tall" || cardSize == "large" -> "2"
-            else -> "1"
-        }
-        val currentGridLabel = "${parsedWidth}x${parsedHeight}"
+        val bentoSize = remember(cardSize) { BentoGridSize.parse(cardSize) }
+        val currentGridLabel = "${bentoSize.widthSlots}x${bentoSize.heightSlots}"
 
         if (!isEditMode) {
-            val minH = when (parsedHeight) {
-                "3" -> 340.dp
-                "2" -> 220.dp
-                else -> 100.dp
+            Box(modifier = modifier.height(bentoSize.heightDp)) {
+                content()
             }
-            Box(modifier = modifier.defaultMinSize(minHeight = minH)) { content() }
         } else {
+            var isDragging by remember { mutableStateOf(false) }
             var totalDragX by remember { mutableStateOf(0f) }
             var totalDragY by remember { mutableStateOf(0f) }
-            var isDragging by remember { mutableStateOf(false) }
+
+            val targetHeightDp = bentoSize.heightDp
+            val animatedHeightDp by animateDpAsState(
+                targetValue = if (isDragging) (targetHeightDp + (totalDragY / 2.5f).dp).coerceIn(100.dp, 400.dp) else targetHeightDp,
+                animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow),
+                label = "animatedHeightDp"
+            )
 
             val liveScaleX by animateFloatAsState(
-                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.85f, 1.15f) else 1f,
+                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.88f, 1.12f) else 1f,
                 animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
-                label = "springScaleX"
+                label = "liveScaleX"
             )
-            val liveScaleY by animateFloatAsState(
-                targetValue = if (isDragging) (1f + totalDragY / 400f).coerceIn(0.85f, 1.15f) else 1f,
-                animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
-                label = "springScaleY"
-            )
-
-            val minH = when (parsedHeight) {
-                "3" -> 340.dp
-                "2" -> 220.dp
-                else -> 100.dp
-            }
 
             Card(
                 modifier = modifier
-                    .defaultMinSize(minHeight = minH)
+                    .height(animatedHeightDp)
                     .graphicsLayer {
                         scaleX = liveScaleX
-                        scaleY = liveScaleY
                     }
-                    .animateContentSize(animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow))
+                    .animateContentSize(animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow))
                     .border(2.dp, MaterialTheme.colorScheme.primary, ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2023,11 +2014,10 @@ fun ConnectionDashboard(
                                 modifier = Modifier.weight(1f)
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                listOf("1x1", "2x1", "2x2", "2x3").forEach { sizeOpt ->
+                                listOf("1x1", "2x1", "1x2", "2x2", "2x3").forEach { sizeOpt ->
                                     val isSelected = currentGridLabel == sizeOpt
                                     Surface(
-                                        modifier = Modifier
-                                            .clickable { onSetSize(sizeOpt) },
+                                        modifier = Modifier.clickable { onSetSize(sizeOpt) },
                                         shape = ExpressivePillShape,
                                         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                                     ) {
@@ -2050,33 +2040,15 @@ fun ConnectionDashboard(
                                 }
                             }
                         }
-                        Box(modifier = Modifier.padding(6.dp)) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             content()
                         }
                     }
 
                     // Android Launcher Corner Handles Accent
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .offset(x = 4.dp, y = 4.dp)
-                            .size(6.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-4).dp, y = 4.dp)
-                            .size(6.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .offset(x = 4.dp, y = (-4).dp)
-                            .size(6.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    )
+                    Box(modifier = Modifier.align(Alignment.TopStart).offset(x = 4.dp, y = 4.dp).size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                    Box(modifier = Modifier.align(Alignment.TopEnd).offset(x = (-4).dp, y = 4.dp).size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                    Box(modifier = Modifier.align(Alignment.BottomStart).offset(x = 4.dp, y = (-4).dp).size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
 
                     // Drag-to-Resize Handle at Bottom Right
                     Surface(
@@ -2093,6 +2065,19 @@ fun ConnectionDashboard(
                                     },
                                     onDragEnd = {
                                         isDragging = false
+                                        var targetW = bentoSize.widthSlots
+                                        var targetH = bentoSize.heightSlots
+
+                                        if (totalDragX > 60f) targetW = 2
+                                        else if (totalDragX < -60f) targetW = 1
+
+                                        if (totalDragY > 80f) {
+                                            targetH = if (bentoSize.heightSlots == 1) 2 else 3
+                                        } else if (totalDragY < -80f) {
+                                            targetH = if (bentoSize.heightSlots == 3) 2 else 1
+                                        }
+
+                                        onSetSize("${targetW}x${targetH}")
                                         totalDragX = 0f
                                         totalDragY = 0f
                                     },
@@ -2105,23 +2090,6 @@ fun ConnectionDashboard(
                                         change.consume()
                                         totalDragX += dragAmount.x
                                         totalDragY += dragAmount.y
-
-                                        var targetWidth = parsedWidth
-                                        var targetHeight = parsedHeight
-
-                                        if (totalDragX > 50f) targetWidth = "2"
-                                        else if (totalDragX < -50f) targetWidth = "1"
-
-                                        if (totalDragY > 70f) {
-                                            targetHeight = if (parsedHeight == "1") "2" else "3"
-                                        } else if (totalDragY < -70f) {
-                                            targetHeight = if (parsedHeight == "3") "2" else "1"
-                                        }
-
-                                        val newSize = "${targetWidth}x${targetHeight}"
-                                        if (newSize != currentGridLabel) {
-                                            onSetSize(newSize)
-                                        }
                                     }
                                 )
                             },
@@ -2423,6 +2391,25 @@ fun ConnectedButtonGroup(
                     }
                 }
             }
+        }
+    }
+}
+
+enum class BentoGridSize(val widthSlots: Int, val heightSlots: Int, val heightDp: Dp) {
+    SIZE_1X1(1, 1, 110.dp),
+    SIZE_2X1(2, 1, 110.dp),
+    SIZE_1X2(1, 2, 232.dp),
+    SIZE_2X2(2, 2, 232.dp),
+    SIZE_2X3(2, 3, 354.dp);
+
+    companion object {
+        fun parse(str: String): BentoGridSize = when (str) {
+            "1x1" -> SIZE_1X1
+            "2x1" -> SIZE_2X1
+            "1x2" -> SIZE_1X2
+            "2x2" -> SIZE_2X2
+            "2x3" -> SIZE_2X3
+            else -> SIZE_2X1
         }
     }
 }
