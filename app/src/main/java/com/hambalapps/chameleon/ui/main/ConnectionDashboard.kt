@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -895,157 +896,153 @@ fun ConnectionDashboard(
     }
 
     @Composable
-    fun PingProtocolRow() {
+    fun TrafficCard(cardSize: String = "2x1") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            brush = secondaryCardBrush,
+            shape = ExpressiveCardShape,
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
+        ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Column {
+                        Text("Down: ${formatBytes(sessionDownBytesProvider())}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold))
+                        Text("Up: ${formatBytes(sessionUpBytesProvider())}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else if (isExpanded) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Live Session Traffic", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Downloaded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(formatBytes(sessionDownBytesProvider()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Uploaded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            }
+                            Text(formatBytes(sessionUpBytesProvider()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxWidth().height(90.dp)) {
+                    val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawLine(color = outlineVariantColor, start = Offset(0f, size.height), end = Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
+                    }
+                    Column(modifier = Modifier.align(Alignment.TopStart).padding(top = 10.dp, start = 14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Down", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                        }
+                        Text(formatBytes(sessionDownBytesProvider()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Column(modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 10.dp, end = 14.dp), horizontalAlignment = Alignment.End) {
+                        Text(formatBytes(sessionUpBytesProvider()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Up", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(13.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun IpAddressCard(cardSize: String = "1x1") {
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+
+        ExpressiveCard(
+            modifier = Modifier.fillMaxWidth(),
+            brush = secondaryCardBrush,
+            shape = ExpressiveCardShape,
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
+        ) {
+            if (isExpanded) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("IP & Security Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                        if (ipFlagEmoji != "🌐") {
+                            Text(ipFlagEmoji, style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("PUBLIC IP ADDRESS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(userIpAddress, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("DNS Leak Protection Active", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
+                        if (ipFlagEmoji != "🌐") {
+                            Text(ipFlagEmoji, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Column {
+                        Text("IP ADDRESS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+                        Text(userIpAddress, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun PingProtocolRow(cardSize: String = "2x1") {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ExpressiveCard(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(100.dp),
-                brush = secondaryCardBrush,
-                shape = ExpressiveCardShape,
-                borderBrush = cardBorderBrush,
-                cardStyle = cardStyle
-            ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ) {
-                        val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawLine(
-                                color = outlineVariantColor,
-                                start = Offset(0f, size.height),
-                                end = Offset(size.width, 0f),
-                                strokeWidth = 1.dp.toPx()
-                            )
-                        }
-
-                        // Top-Left: Download
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(top = 10.dp, start = 12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDownward,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = "Down",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(
-                                text = formatBytes(sessionDownBytesProvider()),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        // Bottom-Right: Upload
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(bottom = 10.dp, end = 12.dp),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Text(
-                                text = formatBytes(sessionUpBytesProvider()),
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Up",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Icon(
-                                    imageVector = Icons.Default.ArrowUpward,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                        }
-                    }
-            }
-
-            ExpressiveCard(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(100.dp),
-                brush = secondaryCardBrush,
-                shape = ExpressiveCardShape,
-                borderBrush = cardBorderBrush,
-                cardStyle = cardStyle
-            ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = "IP Address",
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            if (ipFlagEmoji != "🌐") {
-                                if (ipFlagEmoji == "🇮🇷") {
-                                    Image(
-                                        painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
-                                        contentDescription = "Iran Flag",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                } else {
-                                    Text(
-                                        text = ipFlagEmoji,
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
-                                }
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "IP ADDRESS",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = userIpAddress,
-                                fontSize = ipTextSize,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-            }
+            Box(modifier = Modifier.weight(1f)) { TrafficCard(cardSize = "1x1") }
+            Box(modifier = Modifier.weight(1f)) { IpAddressCard(cardSize = "1x1") }
         }
     }
 
@@ -1662,7 +1659,10 @@ fun ConnectionDashboard(
             val mutable = activeCardIds.toMutableList()
             val item = mutable.removeAt(index)
             mutable.add(nextIndex, item)
-            scope.launch { settingsManager.setDashboardCards(mutab    @Composable
+            scope.launch { settingsManager.setDashboardCards(mutable) }
+        }
+    }
+    @Composable
     fun CdnFrontingDashboardCard(cardSize: String = "2x1") {
         val cdnEnabled by settingsManager.globalCamouflageEnabled.collectAsState(initial = false)
         val cdnPreset by settingsManager.globalCamouflagePreset.collectAsState(initial = "cloudflare")
