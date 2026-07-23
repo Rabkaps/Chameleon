@@ -981,8 +981,9 @@ fun ConnectionDashboard(
             } else if (isExpanded) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1042,8 +1043,8 @@ fun ConnectionDashboard(
             } else {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1140,7 +1141,7 @@ fun ConnectionDashboard(
                     }
                 }
             } else {
-                Box(modifier = Modifier.fillMaxWidth().height(90.dp)) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawLine(color = outlineVariantColor, start = Offset(0f, size.height), end = Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
@@ -1281,8 +1282,9 @@ fun ConnectionDashboard(
             } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1465,7 +1467,7 @@ fun ConnectionDashboard(
                 }
             } else if (!isExpanded) {
                 Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 14.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1615,6 +1617,7 @@ fun ConnectionDashboard(
     @Composable
     fun TelegramProxyCard(cardSize: String = "2x1") {
         val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
@@ -1636,11 +1639,49 @@ fun ConnectionDashboard(
                         Text(if (enableMtProxy) "Proxy Active" else "Disabled", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            } else if (!isExpanded) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = Icons.Default.Send,
+                            contentDescription = "Telegram Proxy",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Telegram Proxy",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (enableMtProxy) "MTProxy Active" else "Disabled",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = enableMtProxy,
+                        onCheckedChange = { checked ->
+                            scope.launch {
+                                settingsManager.setEnableMtProxy(checked)
+                                if (state == "CONNECTED") startVpnService(context)
+                            }
+                        }
+                    )
+                }
             } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 14.dp)
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1853,9 +1894,7 @@ fun ConnectionDashboard(
         var currentLoveNote by remember { mutableStateOf("") }
 
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Card(
                 modifier = Modifier
@@ -2066,7 +2105,7 @@ fun ConnectionDashboard(
                 }
             } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
