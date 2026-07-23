@@ -471,7 +471,10 @@ fun ConnectionDashboard(
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     @Composable
-    fun ConnectCard(paddingVertical: Int = 32) {
+    fun ConnectCard(cardSize: String = "2x2") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isWideBar = cardSize == "2x1"
+        
         ExpressiveCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -481,165 +484,267 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = paddingVertical.dp, horizontal = 16.dp)
-            ) {
-                val buttonCornerRadius by animateDpAsState(
-                    targetValue = if (state == "CONNECTED") 32.dp else 58.dp,
-                    animationSpec = spring(
-                        dampingRatio = 0.55f,
-                        stiffness = Spring.StiffnessMediumLow
-                    ),
-                    label = "ButtonShapeMorph"
-                )
-                val buttonShape = RoundedCornerShape(buttonCornerRadius)
-
-                val auraScale by animateFloatAsState(
-                    targetValue = if (state == "CONNECTED") 1.25f else 0.8f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    ),
-                    label = "AuraScale"
-                )
-                val auraAlpha by animateFloatAsState(
-                    targetValue = if (state == "CONNECTED") 0.25f else 0f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    ),
-                    label = "AuraAlpha"
-                )
-
+            if (isCompactTile) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
-                    if (isActivityResumed && (state == "CONNECTED" || state == "CONNECTING")) {
-                        WaveVisualizer(
-                            state = state,
-                            primaryColor = MaterialTheme.colorScheme.primary,
-                            secondaryColor = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(180.dp)
-                        )
-                    }
-
-                    if (isVpnActive) {
-                        Box(
-                            modifier = Modifier
-                                .size(136.dp)
-                                .graphicsLayer {
-                                    scaleX = finalScale * pulseScale
-                                    scaleY = finalScale * pulseScale
-                                    alpha = 0.15f
-                                }
-                                .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                        )
-                    }
-
-                    // Ambient glowing aura behind the button
+                    val auraAlpha by animateFloatAsState(targetValue = if (state == "CONNECTED") 0.3f else 0f, label = "MiniAura")
                     Box(
                         modifier = Modifier
-                            .size(116.dp)
-                            .graphicsLayer {
-                                scaleX = auraScale
-                                scaleY = auraScale
-                                alpha = auraAlpha
+                            .size(60.dp)
+                            .graphicsLayer { alpha = auraAlpha }
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                            .blur(16.dp)
+                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(buttonColor)
+                    ) {
+                        if (state == "CONNECTING") {
+                            androidx.compose.material3.LoadingIndicator(modifier = Modifier.size(24.dp), color = buttonIconColor)
+                        } else {
+                            Icon(
+                                imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
+                                contentDescription = null,
+                                tint = buttonIconColor,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                    }
+                }
+            } else if (isWideBar) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(buttonColor)
+                        ) {
+                            if (state == "CONNECTING") {
+                                androidx.compose.material3.LoadingIndicator(modifier = Modifier.size(24.dp), color = buttonIconColor)
+                            } else {
+                                Icon(
+                                    imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
+                                    contentDescription = null,
+                                    tint = buttonIconColor,
+                                    modifier = Modifier.size(26.dp)
+                                )
                             }
-                            .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                            .blur(24.dp)
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stateText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = contentColor
+                            )
+                            if (state == "CONNECTED") {
+                                val durationVal = remember { mutableStateOf("00:00:00") }
+                                val serviceManager = VpnServiceWrapper.vpnState
+                                LaunchedEffect(state) {
+                                    val startTime = System.currentTimeMillis()
+                                    while (serviceManager.value == "CONNECTED") {
+                                        val elapsed = System.currentTimeMillis() - startTime
+                                        val sec = (elapsed / 1000) % 60
+                                        val min = (elapsed / (1000 * 60)) % 60
+                                        val hr = elapsed / (1000 * 60 * 60)
+                                        durationVal.value = String.format(java.util.Locale.US, "%02d:%02d:%02d", hr, min, sec)
+                                        delay(1000)
+                                    }
+                                }
+                                Text(
+                                    text = durationVal.value,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+                                    color = contentColor.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = contentColor.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp, horizontal = 16.dp)
+                ) {
+                    val buttonCornerRadius by animateDpAsState(
+                        targetValue = if (state == "CONNECTED") 32.dp else 58.dp,
+                        animationSpec = spring(
+                            dampingRatio = 0.55f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        label = "ButtonShapeMorph"
+                    )
+                    val buttonShape = RoundedCornerShape(buttonCornerRadius)
+
+                    val auraScale by animateFloatAsState(
+                        targetValue = if (state == "CONNECTED") 1.25f else 0.8f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "AuraScale"
+                    )
+                    val auraAlpha by animateFloatAsState(
+                        targetValue = if (state == "CONNECTED") 0.25f else 0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "AuraAlpha"
                     )
 
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(116.dp)
-                            .graphicsLayer {
-                                scaleX = finalScale
-                                scaleY = finalScale
-                            }
-                            .pressScaleEffect()
-                            .clip(buttonShape)
-                            .background(buttonColor)
-                            .border(
-                                width = 4.dp,
-                                color = if (state == "CONNECTED" || state == "CONNECTING") {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                                } else {
-                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
-                                },
-                                shape = buttonShape
-                            )
+                        modifier = Modifier.size(180.dp)
                     ) {
-                        if (state == "CONNECTING") {
-                            androidx.compose.material3.LoadingIndicator(
-                                modifier = Modifier.size(56.dp),
-                                color = buttonIconColor
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
-                                contentDescription = stringResource(R.string.connect_toggle),
-                                tint = buttonIconColor,
-                                modifier = Modifier.size(40.dp)
+                        if (isActivityResumed && (state == "CONNECTED" || state == "CONNECTING")) {
+                            WaveVisualizer(
+                                state = state,
+                                primaryColor = MaterialTheme.colorScheme.primary,
+                                secondaryColor = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(180.dp)
                             )
                         }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                        if (isVpnActive) {
+                            Box(
+                                modifier = Modifier
+                                    .size(136.dp)
+                                    .graphicsLayer {
+                                        scaleX = finalScale * pulseScale
+                                        scaleY = finalScale * pulseScale
+                                        alpha = 0.15f
+                                    }
+                                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                            )
+                        }
 
-                AnimatedContent(
-                    targetState = stateText,
-                    transitionSpec = {
-                        (slideInVertically { height -> height } + fadeIn())
-                            .togetherWith(slideOutVertically { height -> -height } + fadeOut())
-                    },
-                    label = "StateTextTransition"
-                ) { targetText ->
-                    Text(
-                        text = targetText,
-                        color = contentColor,
-                        fontWeight = FontWeight.Black,
-                        style = MaterialTheme.typography.titleMedium,
-                        letterSpacing = 2.sp
-                    )
-                }
+                        Box(
+                            modifier = Modifier
+                                .size(116.dp)
+                                .graphicsLayer {
+                                    scaleX = auraScale
+                                    scaleY = auraScale
+                                    alpha = auraAlpha
+                                }
+                                .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                                .blur(24.dp)
+                        )
 
-                if (state == "CONNECTED") {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    val durationVal = remember { mutableStateOf("00:00:00") }
-                    val serviceManager = VpnServiceWrapper.vpnState
-                    LaunchedEffect(state) {
-                        val startTime = System.currentTimeMillis()
-                        while (serviceManager.value == "CONNECTED") {
-                            val elapsed = System.currentTimeMillis() - startTime
-                            val sec = (elapsed / 1000) % 60
-                            val min = (elapsed / (1000 * 60)) % 60
-                            val hr = elapsed / (1000 * 60 * 60)
-                            durationVal.value = String.format(java.util.Locale.US, "%02d:%02d:%02d", hr, min, sec)
-                            delay(1000)
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(116.dp)
+                                .graphicsLayer {
+                                    scaleX = finalScale
+                                    scaleY = finalScale
+                                }
+                                .pressScaleEffect()
+                                .clip(buttonShape)
+                                .background(buttonColor)
+                                .border(
+                                    width = 4.dp,
+                                    color = if (state == "CONNECTED" || state == "CONNECTING") {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                                    } else {
+                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
+                                    },
+                                    shape = buttonShape
+                                )
+                        ) {
+                            if (state == "CONNECTING") {
+                                androidx.compose.material3.LoadingIndicator(
+                                    modifier = Modifier.size(56.dp),
+                                    color = buttonIconColor
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
+                                    contentDescription = stringResource(R.string.connect_toggle),
+                                    tint = buttonIconColor,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
                         }
                     }
-                    Text(
-                        text = durationVal.value,
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 32.sp,
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    AnimatedContent(
+                        targetState = stateText,
+                        transitionSpec = {
+                            (slideInVertically { height -> height } + fadeIn())
+                                .togetherWith(slideOutVertically { height -> -height } + fadeOut())
+                        },
+                        label = "StateTextTransition"
+                    ) { targetText ->
+                        Text(
+                            text = targetText,
+                            color = contentColor,
                             fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace
-                        ),
-                        color = contentColor.copy(alpha = 0.9f)
-                    )
+                            style = MaterialTheme.typography.titleMedium,
+                            letterSpacing = 2.sp
+                        )
+                    }
+
+                    if (state == "CONNECTED") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val durationVal = remember { mutableStateOf("00:00:00") }
+                        val serviceManager = VpnServiceWrapper.vpnState
+                        LaunchedEffect(state) {
+                            val startTime = System.currentTimeMillis()
+                            while (serviceManager.value == "CONNECTED") {
+                                val elapsed = System.currentTimeMillis() - startTime
+                                val sec = (elapsed / 1000) % 60
+                                val min = (elapsed / (1000 * 60)) % 60
+                                val hr = elapsed / (1000 * 60 * 60)
+                                durationVal.value = String.format(java.util.Locale.US, "%02d:%02d:%02d", hr, min, sec)
+                                delay(1000)
+                            }
+                        }
+                        Text(
+                            text = durationVal.value,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = contentColor.copy(alpha = 0.9f)
+                        )
+                    }
                 }
             }
         }
     }
 
     @Composable
-    fun ServerCard() {
+    fun ServerCard(cardSize: String = "2x1") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+
         ExpressiveCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -650,6 +755,98 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Dns,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column {
+                        Text(
+                            text = serverName,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = activeSubName,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            } else if (isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Dns,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = activeSubName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = serverName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "Select Server",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Quick Node Switch",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { onNavigateToServers() },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressivePillShape
+                    ) {
+                        Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Browse & Select Node", fontSize = 12.sp)
+                    }
+                }
+            } else {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -693,6 +890,7 @@ fun ConnectionDashboard(
                         modifier = Modifier.size(20.dp)
                     )
                 }
+            }
         }
     }
 
@@ -1464,17 +1662,15 @@ fun ConnectionDashboard(
             val mutable = activeCardIds.toMutableList()
             val item = mutable.removeAt(index)
             mutable.add(nextIndex, item)
-            scope.launch { settingsManager.setDashboardCards(mutable) }
-        }
-    }
-
-    @Composable
-    fun CdnFrontingDashboardCard() {
+            scope.launch { settingsManager.setDashboardCards(mutab    @Composable
+    fun CdnFrontingDashboardCard(cardSize: String = "2x1") {
         val cdnEnabled by settingsManager.globalCamouflageEnabled.collectAsState(initial = false)
         val cdnPreset by settingsManager.globalCamouflagePreset.collectAsState(initial = "cloudflare")
         val cdnPinnedIp by settingsManager.globalCamouflagePinnedIp.collectAsState(initial = "")
         val lastResults = remember(cdnPreset) { CdnIpScanner.lastScanResults[cdnPreset] ?: emptyList() }
         val activeIpText = if (cdnPinnedIp.isNotEmpty()) cdnPinnedIp else (lastResults.firstOrNull()?.ip ?: "Auto-Scanning...")
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
 
         ExpressiveCard(
             modifier = Modifier
@@ -1485,39 +1681,93 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp)
-            ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(if (cdnEnabled) Color(0xFF64FFDA) else Color.Gray, CircleShape)
+                        )
+                    }
+                    Column {
+                        Text("CDN Fronting", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(if (cdnEnabled) "Active" else "Off", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else if (isExpanded) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text("CDN Fronting & Clean IP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(if (cdnEnabled) "Active ($activeIpText)" else "Disabled", style = MaterialTheme.typography.bodySmall, color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Switch(
+                            checked = cdnEnabled,
+                            onCheckedChange = { checked ->
+                                scope.launch {
+                                    settingsManager.setGlobalCamouflageEnabled(checked)
+                                    if (state == "CONNECTED") startVpnService(context)
+                                }
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("CDN Preset Provider", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("cloudflare" to "Cloudflare", "cloudfront" to "CloudFront", "fastly" to "Fastly").forEach { (presetKey, presetName) ->
+                            FilterChip(
+                                selected = cdnPreset == presetKey,
+                                onClick = {
+                                    scope.launch {
+                                        settingsManager.setGlobalCamouflagePreset(presetKey)
+                                        if (state == "CONNECTED") startVpnService(context)
+                                    }
+                                },
+                                label = { Text(presetName, fontSize = 11.sp) },
+                                modifier = Modifier.weight(1f),
+                                shape = ExpressiveButtonShape
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = { onNavigateToCdnFronting?.invoke() },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = ExpressivePillShape
+                    ) {
+                        Icon(Icons.Default.Radar, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open Full Clean IP Scanner", fontSize = 12.sp)
+                    }
+                }
+            } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Radar,
-                            contentDescription = "CDN Fronting",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Radar, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
-                            Text(
-                                text = "CDN Fronting & Clean IP",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (cdnEnabled) "Active ($activeIpText)" else "Disabled",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("CDN Fronting & Clean IP", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(if (cdnEnabled) "Active ($activeIpText)" else "Disabled", style = MaterialTheme.typography.bodySmall, color = if (cdnEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Switch(
@@ -1525,9 +1775,7 @@ fun ConnectionDashboard(
                         onCheckedChange = { checked ->
                             scope.launch {
                                 settingsManager.setGlobalCamouflageEnabled(checked)
-                                if (state == "CONNECTED") {
-                                    startVpnService(context)
-                                }
+                                if (state == "CONNECTED") startVpnService(context)
                             }
                         }
                     )
@@ -1537,11 +1785,13 @@ fun ConnectionDashboard(
     }
 
     @Composable
-    fun LiveLogsDashboardCard() {
+    fun LiveLogsDashboardCard(cardSize: String = "2x2") {
         val rawVpnLogs by VpnServiceWrapper.vpnLogs.collectAsStateWithLifecycle()
-        val logLines = remember(rawVpnLogs) {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val maxLinesToTake = if (cardSize.endsWith("x3")) 12 else 6
+        val logLines = remember(rawVpnLogs, maxLinesToTake) {
             if (rawVpnLogs.isEmpty()) listOf("No engine logs recorded yet")
-            else rawVpnLogs.split("\n").takeLast(6)
+            else rawVpnLogs.split("\n").takeLast(maxLinesToTake)
         }
 
         ExpressiveCard(
@@ -1551,52 +1801,49 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Terminal,
-                            contentDescription = "Live Logs",
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Live Engine Stream",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    TextButton(onClick = { VpnServiceWrapper.clearLogs() }) {
-                        Text("Clear", style = MaterialTheme.typography.labelSmall)
+            if (isCompactTile) {
+                Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    Icon(Icons.Default.Terminal, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                    Column {
+                        Text("Live Logs", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text("${logLines.size} entries", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Black.copy(alpha = 0.85f)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        logLines.forEach { line ->
-                            Text(
-                                text = line,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp
-                                ),
-                                color = if (line.contains("ERROR", true) || line.contains("failed", true)) Color(0xFFFF5252) else Color(0xFF64FFDA),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+            } else {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Terminal, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Live Engine Stream", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        TextButton(onClick = { VpnServiceWrapper.clearLogs() }) {
+                            Text("Clear", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.Black.copy(alpha = 0.85f)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            logLines.forEach { line ->
+                                Text(
+                                    text = line,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp
+                                    ),
+                                    color = if (line.contains("ERROR", true) || line.contains("failed", true)) Color(0xFFFF5252) else Color(0xFF64FFDA),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -1618,13 +1865,14 @@ fun ConnectionDashboard(
     }
 
     @Composable
-    fun RenderCardById(cardId: String) {
+    fun RenderCardById(cardId: String, cardSize: String) {
         when (cardId) {
-            "connect_button" -> ConnectCard(paddingVertical = 24)
-            "selected_server" -> ServerCard()
-            "traffic" -> PingProtocolRow()
-            "cdn_fronting" -> CdnFrontingDashboardCard()
-            "live_logs" -> LiveLogsDashboardCard()
+            "connect_button" -> ConnectCard(cardSize = cardSize)
+            "selected_server" -> ServerCard(cardSize = cardSize)
+            "traffic" -> PingProtocolRow(cardSize = cardSize)
+            "current_ip" -> IpAddressCard(cardSize = cardSize)
+            "cdn_fronting" -> CdnFrontingDashboardCard(cardSize = cardSize)
+            "live_logs" -> LiveLogsDashboardCard(cardSize = cardSize)
             "mode_selector" -> GamingModeCard()
             "warp_status" -> BypassCard()
             "telegram_proxy" -> TelegramProxyCard()
@@ -1636,7 +1884,7 @@ fun ConnectionDashboard(
     fun DashboardCardWrapper(
         cardId: String,
         index: Int,
-        cardSize: String, // "1x1", "2x1", "1x2", "2x2"
+        cardSize: String, // "1x1", "2x1", "1x2", "2x2", "2x3"
         onMoveUp: () -> Unit,
         onMoveDown: () -> Unit,
         onSetSize: (String) -> Unit,
@@ -1645,28 +1893,40 @@ fun ConnectionDashboard(
         content: @Composable () -> Unit
     ) {
         val parsedWidth = if (cardSize.startsWith("1x") || cardSize == "half" || cardSize == "compact") "1" else "2"
-        val parsedHeight = if (cardSize.endsWith("x2") || cardSize == "tall" || cardSize == "large") "2" else "1"
+        val parsedHeight = when {
+            cardSize.endsWith("x3") -> "3"
+            cardSize.endsWith("x2") || cardSize == "tall" || cardSize == "large" -> "2"
+            else -> "1"
+        }
         val currentGridLabel = "${parsedWidth}x${parsedHeight}"
 
         if (!isEditMode) {
-            val cardHeightModifier = if (parsedHeight == "2") Modifier.height(240.dp) else Modifier
-            Box(modifier = modifier.then(cardHeightModifier)) { content() }
+            val minH = when (parsedHeight) {
+                "3" -> 340.dp
+                "2" -> 220.dp
+                else -> 100.dp
+            }
+            Box(modifier = modifier.defaultMinSize(minHeight = minH)) { content() }
         } else {
             var totalDragX by remember { mutableStateOf(0f) }
             var totalDragY by remember { mutableStateOf(0f) }
 
-            val containerHeightModifier = if (parsedHeight == "2") Modifier.height(240.dp) else Modifier
+            val minH = when (parsedHeight) {
+                "3" -> 340.dp
+                "2" -> 220.dp
+                else -> 100.dp
+            }
 
             Card(
                 modifier = modifier
-                    .then(containerHeightModifier)
+                    .defaultMinSize(minHeight = minH)
                     .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-                    .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), ExpressiveCardShape),
+                    .border(2.dp, MaterialTheme.colorScheme.primary, ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1710,10 +1970,33 @@ fun ConnectionDashboard(
                                 }
                             }
                         }
-                        Box(modifier = Modifier.weight(1f).padding(6.dp)) {
+                        Box(modifier = Modifier.padding(6.dp)) {
                             content()
                         }
                     }
+
+                    // Android Launcher Corner Handles Accent
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .size(6.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = (-4).dp, y = 4.dp)
+                            .size(6.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .size(6.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
 
                     // Drag-to-Resize Handle at Bottom Right
                     Surface(
@@ -1738,8 +2021,11 @@ fun ConnectionDashboard(
                                         if (totalDragX > 60f) targetWidth = "2"
                                         else if (totalDragX < -60f) targetWidth = "1"
 
-                                        if (totalDragY > 60f) targetHeight = "2"
-                                        else if (totalDragY < -60f) targetHeight = "1"
+                                        if (totalDragY > 80f) {
+                                            targetHeight = if (parsedHeight == "1") "2" else "3"
+                                        } else if (totalDragY < -80f) {
+                                            targetHeight = if (parsedHeight == "3") "2" else "1"
+                                        }
 
                                         val newSize = "${targetWidth}x${targetHeight}"
                                         if (newSize != currentGridLabel) {
@@ -1805,12 +2091,24 @@ fun ConnectionDashboard(
         var i = 0
         while (i < activeCardIds.size) {
             val cardId1 = activeCardIds[i]
-            val rawSize1 = cardSizes[cardId1] ?: "2x1"
+            val defaultSize1 = when (cardId1) {
+                "connect_button" -> "2x2"
+                "live_logs" -> "2x2"
+                "current_ip" -> "1x1"
+                else -> "2x1"
+            }
+            val rawSize1 = cardSizes[cardId1] ?: defaultSize1
             val isWidthHalf1 = rawSize1.startsWith("1x") || rawSize1 == "half" || rawSize1 == "compact"
 
             if (isWidthHalf1 && i + 1 < activeCardIds.size) {
                 val cardId2 = activeCardIds[i + 1]
-                val rawSize2 = cardSizes[cardId2] ?: "2x1"
+                val defaultSize2 = when (cardId2) {
+                    "connect_button" -> "2x2"
+                    "live_logs" -> "2x2"
+                    "current_ip" -> "1x1"
+                    else -> "2x1"
+                }
+                val rawSize2 = cardSizes[cardId2] ?: defaultSize2
                 val isWidthHalf2 = rawSize2.startsWith("1x") || rawSize2 == "half" || rawSize2 == "compact"
 
                 if (isWidthHalf2) {
@@ -1830,7 +2128,7 @@ fun ConnectionDashboard(
                             onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
                             modifier = Modifier.weight(1f)
                         ) {
-                            RenderCardById(cardId1)
+                            RenderCardById(cardId1, rawSize1)
                         }
                         DashboardCardWrapper(
                             cardId = cardId2,
@@ -1842,7 +2140,7 @@ fun ConnectionDashboard(
                             onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId2) } },
                             modifier = Modifier.weight(1f)
                         ) {
-                            RenderCardById(cardId2)
+                            RenderCardById(cardId2, rawSize2)
                         }
                     }
                     i += 2
@@ -1861,7 +2159,7 @@ fun ConnectionDashboard(
                 onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                RenderCardById(cardId1)
+                RenderCardById(cardId1, rawSize1)
             }
             i += 1
         }
