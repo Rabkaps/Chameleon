@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.hambalapps.chameleon.vpn.ConfigInjector
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.blur
@@ -1047,15 +1048,30 @@ fun ConnectionDashboard(
     }
 
     @Composable
-    fun BypassCard() {
+    fun BypassCard(cardSize: String = "2x1") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
         ExpressiveCard(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Box(modifier = Modifier.size(8.dp).background(if (vpnMode == "ai_bypass") Color(0xFF64FFDA) else Color.Gray, CircleShape))
+                    }
+                    Column {
+                        Text("WARP Detour", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(if (vpnMode == "ai_bypass") "Bypass Active" else "Off", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1212,19 +1228,32 @@ fun ConnectionDashboard(
                         }
                     }
                 }
+            }
         }
     }
 
     @Composable
-    fun GamingModeCard() {
+    fun GamingModeCard(cardSize: String = "2x1") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
         ExpressiveCard(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Icon(Icons.Default.SportsEsports, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Column {
+                        Text("Routing Mode", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(if (vpnMode == "gaming") "Gaming Mode" else "Standard", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1326,19 +1355,35 @@ fun ConnectionDashboard(
                         }
                     }
                 }
+            }
         }
     }
 
     @Composable
-    fun TelegramProxyCard() {
+    fun TelegramProxyCard(cardSize: String = "2x1") {
+        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
         ExpressiveCard(
-            modifier = Modifier
-                .fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
+            if (isCompactTile) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Icon(Icons.Default.Send, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Box(modifier = Modifier.size(8.dp).background(if (enableMtProxy) Color(0xFF64FFDA) else Color.Gray, CircleShape))
+                    }
+                    Column {
+                        Text("Telegram MTProxy", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(if (enableMtProxy) "Proxy Active" else "Disabled", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            } else {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1543,6 +1588,7 @@ fun ConnectionDashboard(
                             }
                         }
                     }
+                }
             }
         }
     }
@@ -1869,7 +1915,7 @@ fun ConnectionDashboard(
         when (cardId) {
             "connect_button" -> ConnectCard(cardSize = cardSize)
             "selected_server" -> ServerCard(cardSize = cardSize)
-            "traffic" -> PingProtocolRow(cardSize = cardSize)
+            "traffic" -> TrafficCard(cardSize = cardSize)
             "current_ip" -> IpAddressCard(cardSize = cardSize)
             "cdn_fronting" -> CdnFrontingDashboardCard(cardSize = cardSize)
             "live_logs" -> LiveLogsDashboardCard(cardSize = cardSize)
@@ -1910,6 +1956,18 @@ fun ConnectionDashboard(
         } else {
             var totalDragX by remember { mutableStateOf(0f) }
             var totalDragY by remember { mutableStateOf(0f) }
+            var isDragging by remember { mutableStateOf(false) }
+
+            val liveScaleX by animateFloatAsState(
+                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.85f, 1.15f) else 1f,
+                animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                label = "springScaleX"
+            )
+            val liveScaleY by animateFloatAsState(
+                targetValue = if (isDragging) (1f + totalDragY / 400f).coerceIn(0.85f, 1.15f) else 1f,
+                animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                label = "springScaleY"
+            )
 
             val minH = when (parsedHeight) {
                 "3" -> 340.dp
@@ -1920,7 +1978,11 @@ fun ConnectionDashboard(
             Card(
                 modifier = modifier
                     .defaultMinSize(minHeight = minH)
-                    .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                    .graphicsLayer {
+                        scaleX = liveScaleX
+                        scaleY = liveScaleY
+                    }
+                    .animateContentSize(animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow))
                     .border(2.dp, MaterialTheme.colorScheme.primary, ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -1931,12 +1993,12 @@ fun ConnectionDashboard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "${getCardTitle(cardId)} ($currentGridLabel)",
+                                text = getCardTitle(cardId),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -1944,29 +2006,31 @@ fun ConnectionDashboard(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        val nextWidth = if (parsedWidth == "1") "2" else "1"
-                                        onSetSize("${nextWidth}x${parsedHeight}")
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AspectRatio,
-                                        contentDescription = "Quick Toggle Width",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                listOf("1x1", "2x1", "2x2", "2x3").forEach { sizeOpt ->
+                                    val isSelected = currentGridLabel == sizeOpt
+                                    Surface(
+                                        modifier = Modifier
+                                            .clickable { onSetSize(sizeOpt) },
+                                        shape = ExpressivePillShape,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                    ) {
+                                        Text(
+                                            text = sizeOpt,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
-                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
+                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
                                 }
-                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
+                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
                                 }
-                                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
                                 }
                             }
                         }
@@ -2007,6 +2071,17 @@ fun ConnectionDashboard(
                             .pointerInput(cardSize) {
                                 detectDragGestures(
                                     onDragStart = {
+                                        isDragging = true
+                                        totalDragX = 0f
+                                        totalDragY = 0f
+                                    },
+                                    onDragEnd = {
+                                        isDragging = false
+                                        totalDragX = 0f
+                                        totalDragY = 0f
+                                    },
+                                    onDragCancel = {
+                                        isDragging = false
                                         totalDragX = 0f
                                         totalDragY = 0f
                                     },
@@ -2018,12 +2093,12 @@ fun ConnectionDashboard(
                                         var targetWidth = parsedWidth
                                         var targetHeight = parsedHeight
 
-                                        if (totalDragX > 60f) targetWidth = "2"
-                                        else if (totalDragX < -60f) targetWidth = "1"
+                                        if (totalDragX > 50f) targetWidth = "2"
+                                        else if (totalDragX < -50f) targetWidth = "1"
 
-                                        if (totalDragY > 80f) {
+                                        if (totalDragY > 70f) {
                                             targetHeight = if (parsedHeight == "1") "2" else "3"
-                                        } else if (totalDragY < -80f) {
+                                        } else if (totalDragY < -70f) {
                                             targetHeight = if (parsedHeight == "3") "2" else "1"
                                         }
 
