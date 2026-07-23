@@ -3277,26 +3277,51 @@ fun MainScreen(
                                              expanded = isSubDropdownExpanded,
                                              onDismissRequest = { isSubDropdownExpanded = false }
                                          ) {
-                                             DropdownMenuItem(
-                                                 text = { Text("Manual Config") },
-                                                 onClick = {
-                                                     scope.launch {
-                                                         settingsManager.setActiveSubId("manual")
-                                                     }
-                                                     isSubDropdownExpanded = false
-                                                 }
-                                             )
-                                             subscriptions.forEach { sub ->
-                                                 DropdownMenuItem(
-                                                     text = { Text(sub.name) },
-                                                     onClick = {
-                                                         scope.launch {
-                                                             settingsManager.setActiveSubId(sub.id)
-                                                         }
-                                                         isSubDropdownExpanded = false
-                                                     }
-                                                 )
-                                             }
+                                              DropdownMenuItem(
+                                                  text = {
+                                                      Row(verticalAlignment = Alignment.CenterVertically) {
+                                                          Icon(
+                                                              imageVector = Icons.Default.Star,
+                                                              contentDescription = null,
+                                                              tint = MaterialTheme.colorScheme.primary,
+                                                              modifier = Modifier.size(16.dp)
+                                                          )
+                                                          Spacer(modifier = Modifier.width(6.dp))
+                                                          Text("Favorites")
+                                                      }
+                                                  },
+                                                  onClick = {
+                                                      selectedSubGroupFilter = "Favorites"
+                                                      scope.launch {
+                                                          settingsManager.setActiveSubId("favorites")
+                                                      }
+                                                      isSubDropdownExpanded = false
+                                                  }
+                                              )
+                                              DropdownMenuItem(
+                                                  text = { Text("Manual Config") },
+                                                  onClick = {
+                                                      selectedSubGroupFilter = "All Groups"
+                                                      scope.launch {
+                                                          settingsManager.setActiveSubId("manual")
+                                                      }
+                                                      isSubDropdownExpanded = false
+                                                  }
+                                              )
+                                              subscriptions.distinctBy { it.name }.forEach { sub ->
+                                                  if (sub.name != "Manual Config" && sub.name != "Manual / Custom Configs") {
+                                                      DropdownMenuItem(
+                                                          text = { Text(sub.name) },
+                                                          onClick = {
+                                                              selectedSubGroupFilter = sub.name
+                                                              scope.launch {
+                                                                  settingsManager.setActiveSubId(sub.id)
+                                                              }
+                                                              isSubDropdownExpanded = false
+                                                          }
+                                                      )
+                                                  }
+                                              }
                                          }
                                      }
                                  }
