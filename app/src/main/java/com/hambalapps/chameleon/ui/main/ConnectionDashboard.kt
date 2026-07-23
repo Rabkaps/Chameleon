@@ -45,6 +45,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.blur
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -97,6 +99,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hambalapps.chameleon.vpn.CdnIpScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -170,6 +173,189 @@ internal fun stopVpnService(context: Context) {
         action = VpnServiceWrapper.ACTION_STOP
     }
     context.startService(intent)
+}
+
+fun getCardTitle(cardId: String): String = when (cardId) {
+    "connect_button" -> "Main Connection Button"
+    "selected_server" -> "Active Server Node"
+    "traffic" -> "Down / Up Live Traffic"
+    "current_ip" -> "IP Address & Location"
+    "cdn_fronting" -> "CDN Fronting & Clean IP"
+    "live_logs" -> "Live Engine Logs Stream"
+    "mode_selector" -> "VPN Routing Mode"
+    "warp_status" -> "WARP Detour Bypass"
+    "telegram_proxy" -> "Telegram MTProxy Server"
+    else -> cardId
+}
+
+enum class BentoGridSize(val widthSlots: Int, val heightSlots: Int, val heightDp: Dp) {
+    SIZE_1X1(1, 1, 110.dp),
+    SIZE_2X1(2, 1, 110.dp),
+    SIZE_1X2(1, 2, 232.dp),
+    SIZE_2X2(2, 2, 232.dp),
+    SIZE_2X3(2, 3, 354.dp);
+
+    companion object {
+        fun parse(str: String): BentoGridSize = when (str) {
+            "1x1" -> SIZE_1X1
+            "2x1" -> SIZE_2X1
+            "1x2" -> SIZE_1X2
+            "2x2" -> SIZE_2X2
+            "2x3" -> SIZE_2X3
+            else -> SIZE_2X1
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BentoSizeSelectorSheet(
+    cardId: String,
+    currentSizeStr: String,
+    onSetSize: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = ExpressiveCardShape,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.AspectRatio, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text("Resize ${getCardTitle(cardId)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Select a Bento grid dimension for this card", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            listOf(
+                "1x1" to ("1x1 Compact Tile" to "Half width, small height (110 dp)"),
+                "2x1" to ("2x1 Wide Banner" to "Full width, small height (110 dp)"),
+                "1x2" to ("1x2 Tall Module" to "Half width, double height (232 dp)"),
+                "2x2" to ("2x2 Large Card" to "Full width, double height (232 dp)"),
+                "2x3" to ("2x3 Feature Module" to "Full width, triple height (354 dp)")
+            ).forEach { (sizeKey, info) ->
+                val isSelected = currentSizeStr == sizeKey
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSetSize(sizeKey)
+                            onDismiss()
+                        },
+                    shape = ExpressiveCardShape,
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(info.first, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                            Text(info.second, style = MaterialTheme.typography.bodySmall, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+@Composable
+fun ConnectedButtonGroup(
+    selectedIndex: Int,
+    options: List<String>,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+    indicatorColor: Color = MaterialTheme.colorScheme.primary,
+    selectedTextColor: Color = MaterialTheme.colorScheme.onPrimary,
+    unselectedTextColor: Color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+) {
+    BoxWithConstraints(
+        modifier = modifier
+            .height(42.dp)
+            .clip(CircleShape)
+            .background(containerColor)
+            .border(1.dp, indicatorColor.copy(alpha = 0.25f), CircleShape)
+            .padding(4.dp)
+    ) {
+        val totalWidth = maxWidth
+        val count = options.size
+        if (count > 0) {
+            val itemWidth = totalWidth / count
+            val targetOffset = itemWidth * selectedIndex
+            
+            val animatedOffset by animateDpAsState(
+                targetValue = targetOffset,
+                animationSpec = spring(
+                    dampingRatio = 0.65f,
+                    stiffness = Spring.StiffnessLow
+                ),
+                label = "indicatorOffset"
+            )
+            
+            Box(
+                modifier = Modifier
+                    .offset(x = animatedOffset)
+                    .width(itemWidth)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(indicatorColor)
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                options.forEachIndexed { index, text ->
+                    val isSelected = index == selectedIndex
+                    val textColor by animateColorAsState(
+                        targetValue = if (isSelected) selectedTextColor else unselectedTextColor,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "textColor"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .clickable { onSelect(index) }
+                            .pressScaleEffect(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                            color = textColor,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
@@ -1793,7 +1979,7 @@ fun ConnectionDashboard(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text("CDN Preset Provider", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("cloudflare" to "Cloudflare", "cloudfront" to "CloudFront", "fastly" to "Fastly").forEach { (presetKey, presetName) ->
                             FilterChip(
                                 selected = cdnPreset == presetKey,
@@ -1803,7 +1989,15 @@ fun ConnectionDashboard(
                                         if (state == "CONNECTED") startVpnService(context)
                                     }
                                 },
-                                label = { Text(presetName, fontSize = 11.sp) },
+                                label = {
+                                    Text(
+                                        text = presetName,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                },
                                 modifier = Modifier.weight(1f),
                                 shape = ExpressiveButtonShape
                             )
@@ -1960,6 +2154,16 @@ fun ConnectionDashboard(
     ) {
         val bentoSize = remember(cardSize) { BentoGridSize.parse(cardSize) }
         val currentGridLabel = "${bentoSize.widthSlots}x${bentoSize.heightSlots}"
+        var showSizeSheet by remember { mutableStateOf(false) }
+
+        if (showSizeSheet) {
+            BentoSizeSelectorSheet(
+                cardId = cardId,
+                currentSizeStr = cardSize,
+                onSetSize = onSetSize,
+                onDismiss = { showSizeSheet = false }
+            )
+        }
 
         if (!isEditMode) {
             Box(modifier = modifier.height(bentoSize.heightDp)) {
@@ -2000,42 +2204,39 @@ fun ConnectionDashboard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = getCardTitle(cardId),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
-                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                listOf("1x1", "2x1", "1x2", "2x2", "2x3").forEach { sizeOpt ->
-                                    val isSelected = currentGridLabel == sizeOpt
-                                    Surface(
-                                        modifier = Modifier.clickable { onSetSize(sizeOpt) },
-                                        shape = ExpressivePillShape,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                                    ) {
-                                        Text(
-                                            text = sizeOpt,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.clickable { showSizeSheet = true },
+                                    shape = ExpressivePillShape,
+                                    color = MaterialTheme.colorScheme.primary
+                                ) {
+                                    Text(
+                                        text = "$currentGridLabel ▾",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
                                 }
-                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(24.dp)) {
+                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(22.dp)) {
                                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
                                 }
-                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(24.dp)) {
+                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(22.dp)) {
                                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
                                 }
-                                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                                IconButton(onClick = onRemove, modifier = Modifier.size(22.dp)) {
                                     Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
                                 }
                             }
@@ -2111,10 +2312,81 @@ fun ConnectionDashboard(
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun BentoSizeSelectorSheet(
+        cardId: String,
+        currentSizeStr: String,
+        onSetSize: (String) -> Unit,
+        onDismiss: () -> Unit
+    ) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            shape = ExpressiveCardShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AspectRatio, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("Resize ${getCardTitle(cardId)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Select a Bento grid dimension for this card", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                listOf(
+                    "1x1" to ("1x1 Compact Tile" to "Half width, small height (110 dp)"),
+                    "2x1" to ("2x1 Wide Banner" to "Full width, small height (110 dp)"),
+                    "1x2" to ("1x2 Tall Module" to "Half width, double height (232 dp)"),
+                    "2x2" to ("2x2 Large Hub" to "Full width, double height (232 dp)"),
+                    "2x3" to ("2x3 Feature Module" to "Full width, triple height (354 dp)")
+                ).forEach { (sizeKey, info) ->
+                    val isSelected = currentSizeStr == sizeKey
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSetSize(sizeKey)
+                                onDismiss()
+                            },
+                        shape = ExpressiveCardShape,
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ),
+                        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(info.first, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
+                                Text(info.second, style = MaterialTheme.typography.bodySmall, color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -2256,6 +2528,7 @@ fun ConnectionDashboard(
             "connect_button" to ("Main Connection Button" to "Primary VPN connect button and wave visualizer"),
             "selected_server" to ("Active Server Node" to "Current server flag, name, and 1-tap picker"),
             "traffic" to ("Down / Up Live Traffic" to "Session download and upload bytes counter"),
+            "current_ip" to ("IP Address & Location" to "Public IP address, country flag, and DNS security status"),
             "cdn_fronting" to ("CDN Fronting & Clean IP" to "Quick toggle and clean IP status card"),
             "live_logs" to ("Live Engine Stream" to "Real-time sing-box terminal log console"),
             "mode_selector" to ("VPN Routing Mode" to "Standard vs Gaming routing mode chips"),
@@ -2276,7 +2549,7 @@ fun ConnectionDashboard(
             ) {
                 Text("Add Card to Dashboard", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 if (inactiveCards.isEmpty()) {
-                    Text("All available cards are already active on your dashboard!", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("All available cards are active on your dashboard!", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     inactiveCards.forEach { (cardId, info) ->
                         Card(
@@ -2307,110 +2580,30 @@ fun ConnectionDashboard(
                         }
                     }
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                Button(
+                    onClick = {
+                        scope.launch {
+                            settingsManager.setDashboardCards(listOf("connect_button", "selected_server", "traffic", "current_ip"))
+                            showAddCardSheet = false
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = ExpressivePillShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Reset Dashboard Layout to Default")
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
 }
 
-@androidx.compose.runtime.Composable
-fun ConnectedButtonGroup(
-    selectedIndex: Int,
-    options: List<String>,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-    indicatorColor: Color = MaterialTheme.colorScheme.primary,
-    selectedTextColor: Color = MaterialTheme.colorScheme.onPrimary,
-    unselectedTextColor: Color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-) {
-    BoxWithConstraints(
-        modifier = modifier
-            .height(42.dp)
-            .clip(CircleShape)
-            .background(containerColor)
-            .border(1.dp, indicatorColor.copy(alpha = 0.25f), CircleShape)
-            .padding(4.dp)
-    ) {
-        val totalWidth = maxWidth
-        val count = options.size
-        if (count > 0) {
-            val itemWidth = totalWidth / count
-            val targetOffset = itemWidth * selectedIndex
-            
-            val animatedOffset by animateDpAsState(
-                targetValue = targetOffset,
-                animationSpec = spring(
-                    dampingRatio = 0.65f, // moderate bounce (expressive spatial)
-                    stiffness = Spring.StiffnessLow
-                ),
-                label = "indicatorOffset"
-            )
-            
-            // Sliding background capsule
-            Box(
-                modifier = Modifier
-                    .offset(x = animatedOffset)
-                    .width(itemWidth)
-                    .fillMaxHeight()
-                    .clip(CircleShape)
-                    .background(indicatorColor)
-            )
-            
-            // Buttons Row
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                options.forEachIndexed { index, text ->
-                    val isSelected = index == selectedIndex
-                    val textColor by animateColorAsState(
-                        targetValue = if (isSelected) selectedTextColor else unselectedTextColor,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy, // expressive effects (no overshoot)
-                            stiffness = Spring.StiffnessLow
-                        ),
-                        label = "textColor"
-                    )
-                    
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clip(CircleShape)
-                            .clickable { onSelect(index) }
-                            .pressScaleEffect(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                            color = textColor,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
-enum class BentoGridSize(val widthSlots: Int, val heightSlots: Int, val heightDp: Dp) {
-    SIZE_1X1(1, 1, 110.dp),
-    SIZE_2X1(2, 1, 110.dp),
-    SIZE_1X2(1, 2, 232.dp),
-    SIZE_2X2(2, 2, 232.dp),
-    SIZE_2X3(2, 3, 354.dp);
-
-    companion object {
-        fun parse(str: String): BentoGridSize = when (str) {
-            "1x1" -> SIZE_1X1
-            "2x1" -> SIZE_2X1
-            "1x2" -> SIZE_1X2
-            "2x2" -> SIZE_2X2
-            "2x3" -> SIZE_2X3
-            else -> SIZE_2X1
-        }
-    }
-}
 
