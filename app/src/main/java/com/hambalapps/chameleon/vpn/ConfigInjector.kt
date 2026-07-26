@@ -76,6 +76,15 @@ object ConfigInjector {
         "ai.google.dev", "notebooklm.google.com", "antigravity.google.com", "aiplatform.googleapis.com"
     )
 
+    val WHITELISTED_FALLBACK_SNIS = listOf(
+        "www.apple.com",
+        "www.microsoft.com",
+        "speedtest.net",
+        "www.bing.com",
+        "digikala.com",
+        "soft98.ir"
+    )
+
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
         dohWorking = true
         try {
@@ -843,9 +852,9 @@ object ConfigInjector {
             val isVision = flow.contains("vision")
             val isReality = tls?.has("reality") ?: false
 
-            if (isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision && !isCloudflare) {
+            if (settings.enableFragment && isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision && !isCloudflare) {
                 injectFragmentToOutbound(out, settings)
-            } else if (tls != null && isCloudflare) {
+            } else if (tls != null) {
                 tls.remove("fragment")
                 tls.remove("record_fragment")
                 tls.remove("fragment_fallback_delay")
@@ -856,7 +865,7 @@ object ConfigInjector {
             val isXhttp = transType == "xhttp"
             val isTcpOrWs = (type == "vless" || type == "vmess" || type == "trojan" || type == "shadowsocks")
 
-            if (isProxyOrRelay && isTcpOrWs && !isWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && !isCloudflareWorker && settings.vpnMode != "gaming") {
+            if (settings.enableMux && isProxyOrRelay && isTcpOrWs && !isWs && !isGrpc && !isReality && !isVision && !isXhttp && !isOpenVpn && !isWireGuard && !isCloudflareWorker && settings.vpnMode != "gaming") {
                 val mux = JSONObject().apply {
                     put("enabled", true)
                     put("protocol", "h2mux")
@@ -923,7 +932,10 @@ object ConfigInjector {
     }
 
     private fun applyCamouflage(outbound: JSONObject, config: CamouflageConfig, settings: InjectorSettings) {
-        if (outbound.optString("type") == "openvpn") return
+        val type = outbound.optString("type")
+        val tlsObj = outbound.optJSONObject("tls")
+        val isReality = tlsObj?.has("reality") ?: false
+        if (type == "openvpn" || type == "wireguard" || type == "hysteria2" || type == "tuic" || isReality) return
         val originalServer = outbound.optString("server")
         if (originalServer.isEmpty()) return
 
@@ -955,7 +967,7 @@ object ConfigInjector {
             when (config.preset) {
                 "cloudflare" -> "speedtest.net"
                 "cloudfront" -> "aws.amazon.com"
-                else -> config.customSni.ifEmpty { "microsoft.com" }
+                else -> config.customSni.ifEmpty { WHITELISTED_FALLBACK_SNIS.first() }
             }
         }
         tls.put("server_name", targetSni)
@@ -997,9 +1009,13 @@ object ConfigInjector {
         if (outbound.optString("type") == "openvpn") return
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
-        tls.put("fragment", true)
+        val fragObj = JSONObject().apply {
+            put("enabled", true)
+            put("size", settings.fragmentLength.ifEmpty { "10-20" })
+            put("sleep", settings.fragmentInterval.ifEmpty { "10-20" })
+        }
+        tls.put("fragment", fragObj)
         tls.put("record_fragment", true)
-        tls.put("fragment_fallback_delay", "500ms")
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
@@ -1556,12 +1572,12 @@ object ConfigInjector {
                     }
                 }
 
-                val obfsType = queryParams["obfs"] ?: queryParams["obfs.type"] ?: queryParams["obfs_type"]
-                val obfsPassword = queryParams["obfs-password"] ?: queryParams["obfs.password"] ?: queryParams["obfs_password"]
+                val obfsType = queryParams["obfs"] ?: queryParams["obfs.type"] ?: queryParams["obfs_type"] ?: if (!queryParams["obfs-password"].isNullOrEmpty() || !queryParams["obfs_password"].isNullOrEmpty()) "salamander" else null
+                val obfsPassword = queryParams["obfs-password"] ?: queryParams["obfs.password"] ?: queryParams["obfs_password"] ?: ""
                 if (obfsType != null && obfsType.isNotEmpty() && obfsType != "none") {
                     val obfsObj = JSONObject()
                     obfsObj.put("type", obfsType)
-                    if (obfsPassword != null && obfsPassword.isNotEmpty()) {
+                    if (obfsPassword.isNotEmpty()) {
                         obfsObj.put("password", obfsPassword)
                     }
                     outbound.put("obfs", obfsObj)

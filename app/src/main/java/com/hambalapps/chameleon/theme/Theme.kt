@@ -455,11 +455,11 @@ private fun generateColorSchemeFromSeed(seed: Color, isDark: Boolean): androidx.
             tertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.40f).coerceIn(0.12f, 0.30f), 0.26f),
             onTertiaryContainer = colorFromHsl((hue + 10f) % 360f, (saturation * 0.25f).coerceAtMost(0.15f), 0.86f),
             
-            background = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.05f), 0.06f), // Rich dynamic dark background
+            background = colorFromHsl(hue, (saturation * 0.30f).coerceIn(0.10f, 0.25f), 0.08f), // Rich dynamic dark background adapting seed hue
             onBackground = Color(0xFFEAE5E9),
-            surface = colorFromHsl(hue, (saturation * 0.08f).coerceIn(0.02f, 0.05f), 0.08f), // Rich dynamic dark surface
+            surface = colorFromHsl(hue, (saturation * 0.30f).coerceIn(0.10f, 0.25f), 0.08f), // Rich dynamic dark surface adapting seed hue
             onSurface = Color(0xFFEAE5E9),
-            surfaceVariant = colorFromHsl(hue, (saturation * 0.15f).coerceIn(0.04f, 0.10f), 0.14f), // Muted tint
+            surfaceVariant = colorFromHsl(hue, (saturation * 0.35f).coerceIn(0.12f, 0.30f), 0.14f), // Muted tint
             onSurfaceVariant = Color(0xFFCAC4D0),
             outline = Color(0xFF9E99A3)
         )
@@ -568,13 +568,29 @@ fun ChameleonTheme(
 
         // Material Expressive Color & Surface Strategy
         if (cardStyle == "tonal") {
-            baseScheme.copy(
-                surfaceContainerLowest = baseScheme.surface,
-                surfaceContainerLow = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.04f else 0.03f),
-                surfaceContainer = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.08f else 0.05f),
-                surfaceContainerHigh = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.12f else 0.08f),
-                surfaceContainerHighest = tintColor(baseScheme.surface, baseScheme.primary, ratio = if (isDark) 0.16f else 0.12f)
-            )
+            if (isDark) {
+                baseScheme.copy(
+                    surfaceContainerLowest = baseScheme.surface,
+                    surfaceContainerLow = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.04f),
+                    surfaceContainer = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.08f),
+                    surfaceContainerHigh = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainerHighest = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.16f)
+                )
+            } else {
+                val tintedBg = tintColor(Color.White, baseScheme.primary, ratio = 0.09f)
+                baseScheme.copy(
+                    background = tintedBg,
+                    surface = tintedBg,
+                    surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.15f),
+                    surfaceContainerLowest = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
+                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.16f),
+                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.20f),
+                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.24f),
+                    outline = tintColor(Color.Black, baseScheme.primary, ratio = 0.25f),
+                    outlineVariant = tintColor(baseScheme.primary, Color.White, ratio = 0.70f)
+                )
+            }
         } else if (isDark) {
             if (cardStyle == "vibrant" || cardStyle == "solid") {
                 baseScheme.copy(

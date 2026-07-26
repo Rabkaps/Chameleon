@@ -24,6 +24,8 @@ suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatc
     }
 }
 
+suspend fun measureDetailedPingDelay(host: String, port: Int): DetailedPingResult = CensorshipDiagnostics.diagnoseConnection(host, port)
+
 fun tryBase64Decode(str: String): String? {
     try {
         val flags = listOf(

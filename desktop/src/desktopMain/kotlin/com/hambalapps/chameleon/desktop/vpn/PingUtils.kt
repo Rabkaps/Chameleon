@@ -11,7 +11,7 @@ suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatc
     val startTime = System.currentTimeMillis()
     try {
         Socket().use { socket ->
-            socket.connect(InetSocketAddress(host, port), 2000) // 2-second timeout
+            socket.connect(InetSocketAddress(host, port), 2000)
         }
         (System.currentTimeMillis() - startTime).toInt()
     } catch (e: Exception) {
@@ -19,42 +19,46 @@ suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatc
     }
 }
 
+/**
+ * Safely decodes Base64 strings recursively (up to 3 levels for double-base64 subscriptions)
+ * without mangling plain text multiline URL lists or JSON configs.
+ */
 fun tryBase64Decode(str: String): String? {
-    val clean = str.trim().replace("\r", "").replace("\n", "").replace(" ", "")
-    
-    // Try URL Decoder
-    try {
-        val decoded = java.util.Base64.getUrlDecoder().decode(clean)
-        val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-        if (decodedStr.isNotEmpty()) return decodedStr
-    } catch (e: Exception) {}
+    var current = str.trim()
+    if (current.isEmpty()) return null
 
-    // Try Standard Decoder
-    try {
-        val decoded = java.util.Base64.getDecoder().decode(clean)
-        val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-        if (decodedStr.isNotEmpty()) return decodedStr
-    } catch (e: Exception) {}
-
-    // Try padded Base64
-    val padded = when (clean.length % 4) {
-        2 -> "$clean=="
-        3 -> "$clean="
-        else -> clean
+    // If string already contains URI scheme, return intact
+    if (current.contains("://")) {
+        return current
     }
-    try {
-        val decoded = java.util.Base64.getDecoder().decode(padded)
-        val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-        if (decodedStr.isNotEmpty()) return decodedStr
-    } catch (e: Exception) {}
 
-    try {
-        val decoded = java.util.Base64.getUrlDecoder().decode(padded)
-        val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-        if (decodedStr.isNotEmpty()) return decodedStr
-    } catch (e: Exception) {}
+    for (pass in 0 until 3) {
+        if (current.contains("://")) return current
+        val clean = current.replace("\r", "").replace("\n", "").replace(" ", "").replace("\t", "")
+        if (clean.length < 4) break
 
-    return null
+        var decodedSuccess = false
+        val padded = when (clean.length % 4) {
+            2 -> "$clean=="
+            3 -> "$clean="
+            else -> clean
+        }
+
+        for (decoder in listOf(java.util.Base64.getDecoder(), java.util.Base64.getUrlDecoder())) {
+            try {
+                val decodedBytes = decoder.decode(padded)
+                val decodedStr = String(decodedBytes, StandardCharsets.UTF_8).trim()
+                if (decodedStr.isNotEmpty() && (decodedStr.contains("://") || decodedStr.contains("\n") || decodedStr.contains("#"))) {
+                    current = decodedStr
+                    decodedSuccess = true
+                    break
+                }
+            } catch (e: Exception) {}
+        }
+        if (!decodedSuccess) break
+    }
+
+    return if (current.contains("://") || current.contains("\n") || current.startsWith("{")) current else null
 }
 
 fun getHostAndPortFromLink(link: String): Pair<String, Int>? {

@@ -1,6 +1,8 @@
 package com.hambalapps.chameleon.desktop.vpn
 
 import com.hambalapps.chameleon.desktop.data.SettingsManager
+import com.hambalapps.chameleon.desktop.data.serializeSubscriptions
+import com.hambalapps.chameleon.desktop.ui.subs.fetchSubscription
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +60,40 @@ object SingboxManager {
         }
     }
 
+    fun autoUpdateSubscriptionsIfNeeded(settingsManager: SettingsManager) {
+        scope.launch {
+            try {
+                val settings = settingsManager.currentSettings
+                if (!settings.autoUpdateSubs) return@launch
+
+                val intervalMs = settings.autoUpdateIntervalHours * 3600 * 1000L
+                val now = System.currentTimeMillis()
+
+                if ((now - settings.lastSubsUpdateTime) >= intervalMs) {
+                    log("[AutoUpdate] Running background subscription refresh...")
+                    val subs = settings.deserializedSubscriptions
+                    val updatedSubs = subs.map { sub ->
+                        if (sub.url.startsWith("http")) {
+                            val res = fetchSubscription(sub.url)
+                            sub.copy(
+                                servers = res.servers.joinToString("\n"),
+                                upload = res.upload ?: sub.upload,
+                                download = res.download ?: sub.download,
+                                total = res.total ?: sub.total,
+                                expire = res.expire ?: sub.expire
+                            )
+                        } else sub
+                    }
+                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs))
+                    settingsManager.setLastSubsUpdateTime(now)
+                    log("[AutoUpdate] Subscriptions refreshed successfully.")
+                }
+            } catch (e: Exception) {
+                log("[AutoUpdate Error] ${e.message}")
+            }
+        }
+    }
+
     private fun downloadWintunIfNeeded() {
         val wintunFile = File(workingDir, "wintun.dll")
         if (wintunFile.exists()) return
@@ -76,7 +112,7 @@ object SingboxManager {
                     arch.contains("amd64") || arch.contains("x86_64") -> "amd64"
                     arch.contains("arm") || arch.contains("aarch64") -> "arm64"
                     arch.contains("x86") || arch.contains("i386") -> "x86"
-                    else -> "amd64" // Fallback to amd64
+                    else -> "amd64"
                 }
                 val targetEntry = "wintun/bin/$archDir/wintun.dll"
                 log("Extracting $targetEntry for architecture: $arch")
@@ -111,36 +147,54 @@ object SingboxManager {
         _vpnLogs.value = "Starting sing-box...\n"
         
         try {
+            // Trigger subscription auto-update check on connection start
+            autoUpdateSubscriptionsIfNeeded(settingsManager)
+
             // Check for admin privileges if TUN is enabled
-            if (settingsManager.currentSettings.enableTun) {
-                if (!isRunningAsAdmin()) {
-                    log("CRITICAL ERROR: TUN Mode is enabled but Chameleon is not running as Administrator!")
-                    log("Please restart the app as Administrator (Right click -> Run as Administrator), or disable TUN Mode in Settings.")
-                    stop()
-                    return false
-                }
-                // Ensure wintun.dll is present
+            val isElevated = isRunningAsAdmin()
+            val wantTun = settingsManager.currentSettings.enableTun
+            val useTun = wantTun && isElevated
+
+            if (wantTun && !isElevated) {
+                log("[Notice] WinTUN Mode requires Administrator privileges. Auto-falling back to System Proxy Mode...")
+            }
+
+            if (useTun) {
                 downloadWintunIfNeeded()
             }
 
-            // Ensure geosite and geoip database resources are extracted to working directory
+            val effectiveSettings = if (wantTun != useTun) {
+                settingsManager.currentSettings.copy(enableTun = false)
+            } else {
+                settingsManager.currentSettings
+            }
+
             extractResource("geoip-ir.srs", geoip)
             extractResource("geosite-ir.srs", geosite)
 
-            // 1. Generate Config
+            val profileToUse = if (rawProfile.isNotEmpty()) rawProfile else {
+                val allServers = settingsManager.currentSettings.allSubscriptionServers + "\n" + settingsManager.currentSettings.manualServers
+                allServers.lines().firstOrNull { it.trim().isNotEmpty() } ?: ""
+            }
+
+            if (profileToUse.isEmpty()) {
+                log("[ERROR] No proxy node selected and no nodes found in subscriptions/manual links!")
+                log("Please add a subscription URL or paste nodes in the Subscriptions screen.")
+                stop()
+                return false
+            }
+
             val configJson = ConfigInjector.injectConfig(
-                rawProfile = rawProfile,
-                settings = settingsManager.currentSettings,
+                rawProfile = profileToUse,
+                settings = effectiveSettings,
                 geoipPath = geoip.absolutePath.replace("\\", "/"),
                 geositePath = geosite.absolutePath.replace("\\", "/"),
                 logPath = logFile.absolutePath.replace("\\", "/")
             )
             configFile.writeText(configJson)
 
-            // 2. Clear old log file
             if (logFile.exists()) logFile.delete()
 
-            // 3. Launch Subprocess
             val pb = ProcessBuilder(exeFile.absolutePath, "run", "-c", configFile.absolutePath)
             pb.directory(workingDir)
             pb.redirectErrorStream(true)
@@ -148,7 +202,6 @@ object SingboxManager {
             val proc = pb.start()
             process = proc
 
-            // Start log reading
             scope.launch {
                 proc.inputStream.bufferedReader().use { reader ->
                     while (proc.isAlive) {
@@ -158,7 +211,6 @@ object SingboxManager {
                 }
             }
 
-            // Monitor process lifetime
             scope.launch {
                 try {
                     proc.waitFor()
@@ -169,7 +221,6 @@ object SingboxManager {
                 } catch (e: Exception) {}
             }
 
-            // Wait a moment and check if the process exited immediately
             delay(1000)
             if (!proc.isAlive) {
                 val exitCode = proc.exitValue()
@@ -188,9 +239,7 @@ object SingboxManager {
                 return false
             }
 
-            // 4. Configure Windows System Proxy (Standard user mode)
-            // Port 2080 is the default inbound port in our generated config
-            if (!settingsManager.currentSettings.enableTun) {
+            if (!useTun) {
                 val proxyPort = 2080
                 SystemProxy.enable("127.0.0.1", proxyPort)
             } else {
@@ -200,7 +249,6 @@ object SingboxManager {
             _vpnState.value = "CONNECTED"
             log("VPN Connected successfully.")
 
-            // 5. Start Traffic Stats polling (Clash API / HTTP)
             startStatsPolling()
 
             return true
@@ -215,15 +263,12 @@ object SingboxManager {
     fun stop() {
         _vpnState.value = "DISCONNECTING"
         
-        // Disable Windows Proxy
         SystemProxy.disable()
         
-        // Stop stats polling
         statsJob?.cancel()
         statsJob = null
         _trafficStats.value = Pair(0L, 0L)
 
-        // Kill Process cleanly to allow routing table/DNS restoration
         process?.let { proc ->
             proc.destroy()
             runBlocking {
@@ -268,13 +313,12 @@ object SingboxManager {
                     val conn = url.openConnection() as HttpURLConnection
                     conn.requestMethod = "GET"
                     conn.connectTimeout = 5000
-                    conn.readTimeout = 0 // Stream reader should not timeout
+                    conn.readTimeout = 0
                     
                     if (conn.responseCode == 200) {
                         conn.inputStream.bufferedReader().use { reader ->
                             while (isActive) {
                                 val line = reader.readLine() ?: break
-                                // line format: {"up":1234,"down":5678}
                                 val up = line.substringAfter("\"up\":").substringBefore(",").trim().toLongOrNull() ?: 0L
                                 val down = line.substringAfter("\"down\":").substringBefore("}").trim().toLongOrNull() ?: 0L
                                 _trafficStats.value = Pair(up, down)
@@ -285,7 +329,7 @@ object SingboxManager {
                 } catch (e: Exception) {
                     _trafficStats.value = Pair(0L, 0L)
                 }
-                delay(2000) // delay before reconnecting on failure
+                delay(2000)
             }
         }
     }

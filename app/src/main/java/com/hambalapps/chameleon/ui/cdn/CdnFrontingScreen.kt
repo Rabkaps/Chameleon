@@ -15,7 +15,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import com.hambalapps.chameleon.ui.main.pressScaleEffect
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -84,6 +86,18 @@ fun CdnFrontingScreen(
     var scanResults by remember { mutableStateOf<List<ScannedIp>>(emptyList()) }
     var scanSummary by remember { mutableStateOf<String?>(null) }
     var triggerScan by remember { mutableStateOf(0) }
+    
+    var sampleDensity by remember { mutableFloatStateOf(50f) }
+    var isCustomDensity by remember { mutableStateOf(false) }
+    var customDensityInput by remember { mutableStateOf("50") }
+
+    val activeSampleCount = remember(sampleDensity, isCustomDensity, customDensityInput) {
+        if (isCustomDensity) {
+            customDensityInput.toIntOrNull()?.coerceAtLeast(1) ?: 50
+        } else {
+            sampleDensity.toInt()
+        }
+    }
 
     val motionScheme = MaterialTheme.motionScheme
     val spatialSpec = remember(motionScheme) { motionScheme.defaultSpatialSpec<Float>() }
@@ -103,12 +117,12 @@ fun CdnFrontingScreen(
         Toast.makeText(context, "$label copied to clipboard", Toast.LENGTH_SHORT).show()
     }
 
-    fun startIpScan() {
+    fun startIpScan(count: Int = activeSampleCount) {
         if (isScanning) return
         scope.launch {
             isScanning = true
-            scanSummary = "Scanning CDN Edges..."
-            val customIpsList = if (preset == "custom") {
+            scanSummary = "Scanning CDN Edges ($count IPs)..."
+            val customIpsList = if (preset == "custom" || customIps.isNotEmpty()) {
                 customIps.split(",", "\n").map { it.trim() }.filter { it.isNotEmpty() }
             } else {
                 emptyList()
@@ -116,17 +130,28 @@ fun CdnFrontingScreen(
             val timeoutMs = timeoutStr.toIntOrNull() ?: 600
 
             val result: ScanResult = withContext(Dispatchers.IO) {
-                CdnIpScanner.performScan(
-                    preset = preset,
-                    customIps = customIpsList,
-                    port = 443,
-                    timeoutMs = timeoutMs
-                )
+                if (customIpsList.any { it.contains("/") }) {
+                    CdnIpScanner.performCidrScan(
+                        cidrs = customIpsList,
+                        sampleCount = count,
+                        port = 443,
+                        timeoutMs = timeoutMs
+                    )
+                } else {
+                    CdnIpScanner.performScan(
+                        preset = preset,
+                        customIps = customIpsList,
+                        port = 443,
+                        timeoutMs = timeoutMs
+                    )
+                }
             }
 
             scanResults = result.workingIps
             if (result.workingIpsCount > 0) {
                 scanSummary = "Found ${result.workingIpsCount} clean CDN edge IPs. Fastest: ${result.fastestIp} (${result.fastestLatencyMs} ms)"
+                val cleanPoolStr = result.workingIps.take(5).map { it.ip }.joinToString(",")
+                settingsManager.setGlobalCamouflageCleanPool(cleanPoolStr)
             } else {
                 scanSummary = "No clean CDN edge IPs responded within ${timeoutMs}ms"
             }
@@ -303,16 +328,19 @@ fun CdnFrontingScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(
+                        LazyRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
                         ) {
-                            listOf(
-                                "cloudflare" to "Cloudflare",
-                                "cloudfront" to "CloudFront",
-                                "fastly" to "Fastly",
-                                "custom" to "Custom"
-                            ).forEach { (presetVal, label) ->
+                            items(
+                                listOf(
+                                    "cloudflare" to "Cloudflare",
+                                    "cloudfront" to "CloudFront",
+                                    "fastly" to "Fastly",
+                                    "custom" to "Custom"
+                                )
+                            ) { (presetVal, label) ->
                                 FilterChip(
                                     selected = preset == presetVal,
                                     onClick = {
@@ -328,15 +356,145 @@ fun CdnFrontingScreen(
                                             if (vpnState == "CONNECTED") restartVpnService(context)
                                         }
                                     },
-                                    label = { Text(label) },
-                                    shape = ExpressivePillShape
+                                    label = { Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold) },
+                                    shape = ExpressivePillShape,
+                                    modifier = Modifier.pressScaleEffect()
                                 )
                             }
                         }
                     }
                 }
 
-                // Custom Configuration Fields
+                // Subnet Range Chips & CIDR Scanner Controls (Always Visible)
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+                        shape = ExpressiveCardShape,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("Subnet Ranges & Power-User Scanner", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            
+                            Text("Preset Subnet Ranges (Tap to Select / Scan)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                items(CdnIpScanner.PRESET_SUBNETS.toList()) { (label, cidr) ->
+                                    FilterChip(
+                                        selected = customIps.contains(cidr),
+                                        onClick = {
+                                            val updated = if (customIps.contains(cidr)) {
+                                                customIps.replace(cidr, "").replace(",,", ",").trim(',', ' ')
+                                            } else {
+                                                if (customIps.isBlank()) cidr else "$customIps, $cidr"
+                                            }
+                                            scope.launch {
+                                                settingsManager.setGlobalCamouflageCustomIps(updated)
+                                                if (updated.isNotEmpty()) settingsManager.setGlobalCamouflagePreset("custom")
+                                            }
+                                        },
+                                        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                                        shape = ExpressivePillShape,
+                                        modifier = Modifier.pressScaleEffect()
+                                    )
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = customIps,
+                                onValueChange = { input ->
+                                    scope.launch {
+                                        settingsManager.setGlobalCamouflageCustomIps(input)
+                                        if (input.isNotEmpty()) settingsManager.setGlobalCamouflagePreset("custom")
+                                    }
+                                },
+                                label = { Text("Target Subnet Ranges / CIDR IP Pool") },
+                                placeholder = { Text("e.g. 104.16.0.0/13, 172.64.0.0/13, 162.159.0.0/16") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+
+                            // M3 Expressive Spring Motion Slider & Custom Input Field
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Concurrent IP Scan Density", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                Surface(
+                                    shape = ExpressivePillShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ) {
+                                    Text(
+                                        text = "$activeSampleCount IPs",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            if (!isCustomDensity) {
+                                Slider(
+                                    value = sampleDensity,
+                                    onValueChange = { sampleDensity = it },
+                                    valueRange = 10f..300f,
+                                    steps = 28,
+                                    modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                                )
+                            } else {
+                                OutlinedTextField(
+                                    value = customDensityInput,
+                                    onValueChange = { input -> customDensityInput = input.filter { char -> char.isDigit() } },
+                                    label = { Text("Custom Concurrent IP Count (e.g. 500)") },
+                                    placeholder = { Text("Enter any integer number of IPs") },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                            }
+
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp)
+                            ) {
+                                items(listOf(20, 50, 100, 250)) { presetCount ->
+                                    FilterChip(
+                                        selected = !isCustomDensity && sampleDensity.toInt() == presetCount,
+                                        onClick = {
+                                            isCustomDensity = false
+                                            sampleDensity = presetCount.toFloat()
+                                        },
+                                        label = { Text("$presetCount IPs", fontWeight = FontWeight.Bold) },
+                                        shape = ExpressivePillShape,
+                                        modifier = Modifier.pressScaleEffect()
+                                    )
+                                }
+                                item {
+                                    FilterChip(
+                                        selected = isCustomDensity,
+                                        onClick = { isCustomDensity = !isCustomDensity },
+                                        label = { Text(if (isCustomDensity) "Use Slider" else "Custom Count...", fontWeight = FontWeight.Bold) },
+                                        leadingIcon = { Icon(if (isCustomDensity) Icons.Default.Tune else Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                        shape = ExpressivePillShape,
+                                        modifier = Modifier.pressScaleEffect()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Custom SNI & Host Override Fields
                 if (preset == "custom") {
                     item {
                         Card(
@@ -345,11 +503,11 @@ fun CdnFrontingScreen(
                                 .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
                             shape = ExpressiveCardShape,
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
                             )
                         ) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Custom CDN Settings", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                                Text("Custom SNI & Host Overrides", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                                 OutlinedTextField(
                                     value = customSni,
                                     onValueChange = { scope.launch { settingsManager.setGlobalCamouflageSni(it) } },
@@ -366,14 +524,6 @@ fun CdnFrontingScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(16.dp)
                                 )
-                                OutlinedTextField(
-                                    value = customIps,
-                                    onValueChange = { scope.launch { settingsManager.setGlobalCamouflageCustomIps(it) } },
-                                    label = { Text("Custom CDN IP Pool (comma separated)") },
-                                    placeholder = { Text("104.16.85.20, 104.16.86.20") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(16.dp)
-                                )
                             }
                         }
                     }
@@ -382,7 +532,7 @@ fun CdnFrontingScreen(
                 // Scan Action Card
                 item {
                     Button(
-                        onClick = { startIpScan() },
+                        onClick = { startIpScan(activeSampleCount) },
                         enabled = !isScanning,
                         modifier = Modifier.fillMaxWidth(),
                         shape = ExpressivePillShape,

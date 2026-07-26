@@ -54,6 +54,27 @@ data class UserSettings(
     val delayTestUrl: String = "http://cp.cloudflare.com/generate_204",
     val warpDetourMode: String = "proxy",
     val warpPort: String = "2408",
+    val warpPrivateKey: String = "",
+    val warpPublicKey: String = "",
+    val warpIpAddress: String = "",
+    val warpClientId: String = "",
+    val warpPeerIp: String = "engage.cloudflareclient.com",
+    val globalCamouflageEnabled: Boolean = false,
+    val globalCamouflagePreset: String = "cloudflare",
+    val globalCamouflageSni: String = "",
+    val globalCamouflageHost: String = "",
+    val globalCamouflageCustomIps: String = "",
+    val globalCamouflageTimeout: String = "600",
+    val globalCamouflagePinnedIp: String = "",
+    val vpnMtu: Int = 1280,
+    val autoUpdateIntervalHours: Int = 1,
+    val enableMtproxy: Boolean = false,
+    val mtproxyPort: String = "8080",
+    val mtproxySecret: String = "",
+    val dashboardCards: String = "",
+    val dashboardCardSizes: String = "",
+    val minimizeToTray: Boolean = true,
+    val launchAtStartup: Boolean = false,
     val proxyChains: String = ""
 ) {
     val deserializedSubscriptions: List<Subscription>
@@ -68,6 +89,12 @@ data class UserSettings(
                 ))
             }
             return list
+        }
+
+    val allSubscriptionServers: String
+        get() {
+            val fromList = deserializedSubscriptions.filter { it.id != "manual" }.joinToString("\n") { it.servers }
+            return if (fromList.isNotEmpty()) fromList else subscriptionServers
         }
 }
 
@@ -206,6 +233,25 @@ class SettingsManager {
     fun setDelayTestUrl(value: String) { saveSettings(currentSettings.copy(delayTestUrl = value)) }
     fun setWarpDetourMode(value: String) { saveSettings(currentSettings.copy(warpDetourMode = value)) }
     fun setWarpPort(value: String) { saveSettings(currentSettings.copy(warpPort = value)) }
+    fun setWarpPrivateKey(value: String) { saveSettings(currentSettings.copy(warpPrivateKey = value)) }
+    fun setWarpPublicKey(value: String) { saveSettings(currentSettings.copy(warpPublicKey = value)) }
+    fun setWarpIpAddress(value: String) { saveSettings(currentSettings.copy(warpIpAddress = value)) }
+    fun setWarpClientId(value: String) { saveSettings(currentSettings.copy(warpClientId = value)) }
+    fun setWarpPeerIp(value: String) { saveSettings(currentSettings.copy(warpPeerIp = value)) }
+    fun setGlobalCamouflageEnabled(value: Boolean) { saveSettings(currentSettings.copy(globalCamouflageEnabled = value)) }
+    fun setGlobalCamouflagePreset(value: String) { saveSettings(currentSettings.copy(globalCamouflagePreset = value)) }
+    fun setGlobalCamouflageSni(value: String) { saveSettings(currentSettings.copy(globalCamouflageSni = value)) }
+    fun setGlobalCamouflageHost(value: String) { saveSettings(currentSettings.copy(globalCamouflageHost = value)) }
+    fun setGlobalCamouflageCustomIps(value: String) { saveSettings(currentSettings.copy(globalCamouflageCustomIps = value)) }
+    fun setGlobalCamouflageTimeout(value: String) { saveSettings(currentSettings.copy(globalCamouflageTimeout = value)) }
+    fun setGlobalCamouflagePinnedIp(value: String) { saveSettings(currentSettings.copy(globalCamouflagePinnedIp = value)) }
+    fun setVpnMtu(value: Int) { saveSettings(currentSettings.copy(vpnMtu = value)) }
+    fun setAutoUpdateIntervalHours(value: Int) { saveSettings(currentSettings.copy(autoUpdateIntervalHours = value)) }
+    fun setEnableMtproxy(value: Boolean) { saveSettings(currentSettings.copy(enableMtproxy = value)) }
+    fun setMtproxyPort(value: String) { saveSettings(currentSettings.copy(mtproxyPort = value)) }
+    fun setMtproxySecret(value: String) { saveSettings(currentSettings.copy(mtproxySecret = value)) }
+    fun setMinimizeToTray(value: Boolean) { saveSettings(currentSettings.copy(minimizeToTray = value)) }
+    fun setLaunchAtStartup(value: Boolean) { saveSettings(currentSettings.copy(launchAtStartup = value)) }
     fun setProxyChains(value: String) { saveSettings(currentSettings.copy(proxyChains = value)) }
 
     fun toggleAutoConnectSub(subId: String) {

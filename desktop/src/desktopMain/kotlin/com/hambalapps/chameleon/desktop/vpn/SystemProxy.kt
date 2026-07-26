@@ -8,7 +8,7 @@ object SystemProxy {
     fun enable(host: String, port: Int): Boolean {
         return try {
             // Setup mixed proxy format for Windows (HTTP and HTTPS)
-            val serverValue = "http=$host:$port;https=$host:$port"
+            val serverValue = "$host:$port"
             
             runCommand("reg", "add", REG_KEY, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f")
             runCommand("reg", "add", REG_KEY, "/v", "ProxyServer", "/t", "REG_SZ", "/d", serverValue, "/f")

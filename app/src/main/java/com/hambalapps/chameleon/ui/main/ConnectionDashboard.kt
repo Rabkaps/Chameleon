@@ -575,7 +575,7 @@ fun ConnectionDashboard(
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
         when (cardStyle) {
             "solid" -> SolidColor(outlineVariant)
-            "tonal" -> SolidColor(outlineVariant.copy(alpha = 0.25f))
+            "tonal" -> SolidColor(primaryColor.copy(alpha = if (isDark) 0.25f else 0.12f))
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
@@ -584,8 +584,9 @@ fun ConnectionDashboard(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.60f),
-                        Color.Black.copy(alpha = 0.10f)
+                        primaryColor.copy(alpha = 0.55f),
+                        Color.White.copy(alpha = 0.85f),
+                        primaryColor.copy(alpha = 0.30f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -619,8 +620,9 @@ fun ConnectionDashboard(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.15f)
+                        Color.White.copy(alpha = 0.75f),
+                        primaryColor.copy(alpha = 0.22f),
+                        surfaceContainerHigh.copy(alpha = 0.40f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -648,8 +650,9 @@ fun ConnectionDashboard(
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.15f)
+                        Color.White.copy(alpha = 0.75f),
+                        secondaryColor.copy(alpha = 0.22f),
+                        surfaceContainer.copy(alpha = 0.40f)
                     )
                 }
                 Brush.linearGradient(colors = colors)

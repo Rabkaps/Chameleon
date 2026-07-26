@@ -64,6 +64,7 @@ class SettingsManager(private val context: Context) {
         val GLOBAL_CAMOUFLAGE_CUSTOM_IPS = stringPreferencesKey("global_camouflage_custom_ips")
         val GLOBAL_CAMOUFLAGE_TIMEOUT = stringPreferencesKey("global_camouflage_timeout")
         val GLOBAL_CAMOUFLAGE_PINNED_IP = stringPreferencesKey("global_camouflage_pinned_ip")
+        val GLOBAL_CAMOUFLAGE_CLEAN_POOL = stringPreferencesKey("global_camouflage_clean_pool")
         val ROOT_MODE = booleanPreferencesKey("root_mode")
         val ENABLE_MTPROXY = booleanPreferencesKey("enable_mtproxy")
         val MTPROXY_PORT = stringPreferencesKey("mtproxy_port")
@@ -82,10 +83,10 @@ class SettingsManager(private val context: Context) {
             bypassIran = true,
             secureDns = "https://8.8.8.8/dns-query",
             tunStack = "mixed",
-            enableFragment = false,
+            enableFragment = true,
             fragmentLength = "10-20",
             fragmentInterval = "10-20",
-            enableMux = false,
+            enableMux = true,
             vpnMtu = 1280,
             autoUpdateIntervalHours = 1,
             activeProfile = "",
@@ -159,10 +160,10 @@ class SettingsManager(private val context: Context) {
             bypassIran = prefs[BYPASS_IRAN] ?: true,
             secureDns = prefs[SECURE_DNS] ?: "https://8.8.8.8/dns-query",
             tunStack = prefs[TUN_STACK] ?: "mixed",
-            enableFragment = prefs[ENABLE_FRAGMENT] ?: false,
+            enableFragment = prefs[ENABLE_FRAGMENT] ?: true,
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10-20",
-            enableMux = prefs[ENABLE_MUX] ?: false,
+            enableMux = prefs[ENABLE_MUX] ?: true,
             vpnMtu = prefs[VPN_MTU] ?: 1280,
             autoUpdateIntervalHours = prefs[AUTO_UPDATE_INTERVAL_HOURS] ?: 1,
             activeProfile = prefs[ACTIVE_PROFILE] ?: "",
@@ -222,10 +223,10 @@ class SettingsManager(private val context: Context) {
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://8.8.8.8/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
-    val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: false }.distinctUntilChanged()
+    val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
-    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
+    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: true }.distinctUntilChanged()
     val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1280 }.distinctUntilChanged()
     val autoUpdateIntervalHours: Flow<Int> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL_HOURS] ?: 1 }.distinctUntilChanged()
     val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }.distinctUntilChanged()
@@ -373,6 +374,7 @@ class SettingsManager(private val context: Context) {
     val globalCamouflageCustomIps: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] ?: "" }.distinctUntilChanged()
     val globalCamouflageTimeout: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_TIMEOUT] ?: "600" }.distinctUntilChanged()
     val globalCamouflagePinnedIp: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_PINNED_IP] ?: "" }.distinctUntilChanged()
+    val globalCamouflageCleanPool: Flow<String> = context.dataStore.data.map { it[GLOBAL_CAMOUFLAGE_CLEAN_POOL] ?: "" }.distinctUntilChanged()
 
     suspend fun setGlobalCamouflageEnabled(value: Boolean) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_ENABLED] = value } }
     suspend fun setGlobalCamouflagePreset(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_PRESET] = value } }
@@ -381,6 +383,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setGlobalCamouflageCustomIps(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_CUSTOM_IPS] = value } }
     suspend fun setGlobalCamouflageTimeout(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_TIMEOUT] = value } }
     suspend fun setGlobalCamouflagePinnedIp(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_PINNED_IP] = value } }
+    suspend fun setGlobalCamouflageCleanPool(value: String) { context.dataStore.edit { it[GLOBAL_CAMOUFLAGE_CLEAN_POOL] = value } }
 
     val autoConnectSubs: Flow<Set<String>> = context.dataStore.data.map { it[AUTO_CONNECT_SUBS] ?: emptySet() }.distinctUntilChanged()
 

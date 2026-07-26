@@ -82,6 +82,7 @@ class NodesPopupActivity : ComponentActivity() {
                 var isSearchVisible by remember { mutableStateOf(false) }
                 var selectedTab by remember { mutableStateOf(0) }
                 var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
+                var diagnosticMap by remember { mutableStateOf(mapOf<String, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult>()) }
                 var isTestingPings by remember { mutableStateOf(false) }
 
                 val filteredServerList = remember(serverList, searchQuery, selectedTab) {
@@ -252,23 +253,24 @@ class NodesPopupActivity : ComponentActivity() {
                                         IconButton(
                                             onClick = {
                                                 if (!isTestingPings) {
-                                                    scope.launch {
-                                                        isTestingPings = true
-                                                        val jobs = serverList.map { link ->
-                                                            scope.async(Dispatchers.IO) {
-                                                                val hostPort = getHostAndPortFromLink(link)
-                                                                val ping = if (hostPort != null) {
-                                                                    measurePingDelay(hostPort.first, hostPort.second)
-                                                                } else {
-                                                                    -1
-                                                                }
-                                                                link to ping
-                                                            }
-                                                        }
-                                                        val results = jobs.awaitAll()
-                                                        pingsMap = pingsMap + results.toMap()
-                                                        isTestingPings = false
-                                                    }
+                                                     scope.launch {
+                                                         isTestingPings = true
+                                                         val jobs = serverList.map { link ->
+                                                             scope.async(Dispatchers.IO) {
+                                                                 val hostPort = getHostAndPortFromLink(link)
+                                                                 if (hostPort != null) {
+                                                                     val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                                                                     Triple(link, res.delayMs, res.status)
+                                                                 } else {
+                                                                     Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                                                                 }
+                                                             }
+                                                         }
+                                                         val results = jobs.awaitAll()
+                                                         pingsMap = pingsMap + results.associate { it.first to it.second }
+                                                         diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
+                                                         isTestingPings = false
+                                                     }
                                                 }
                                             },
                                             enabled = !isTestingPings
@@ -584,8 +586,19 @@ class NodesPopupActivity : ComponentActivity() {
                                                                 .background(pingColor)
                                                         )
                                                         Spacer(modifier = Modifier.width(4.dp))
+                                                        val diagStatus = diagnosticMap[serverLink]
+                                                        val statusText = if (isTimeout) {
+                                                            when (diagStatus) {
+                                                                com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED -> "DNS Block"
+                                                                com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED -> "SNI Block"
+                                                                com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED -> "IP Block"
+                                                                com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.SERVER_DOWN -> "Offline"
+                                                                com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.LOCAL_OFFLINE -> "No Net"
+                                                                else -> "IP Block"
+                                                            }
+                                                        } else "${ping} ms"
                                                         Text(
-                                                            text = if (isTimeout) "Timeout" else "${ping} ms",
+                                                            text = statusText,
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = pingColor,
                                                             fontWeight = FontWeight.Bold,

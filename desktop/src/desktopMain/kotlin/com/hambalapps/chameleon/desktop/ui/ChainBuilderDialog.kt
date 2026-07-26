@@ -20,9 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hambalapps.chameleon.desktop.data.SettingsManager
 import com.hambalapps.chameleon.desktop.data.deserializeProxyChains
+import com.hambalapps.chameleon.desktop.ui.components.ExpressiveButtonShape
 
-private val ExpressiveCardShape = RoundedCornerShape(topStart = 24.dp, bottomEnd = 24.dp, topEnd = 8.dp, bottomStart = 8.dp)
-private val ExpressiveButtonShape = RoundedCornerShape(topStart = 12.dp, bottomEnd = 12.dp, topEnd = 4.dp, bottomStart = 4.dp)
+private fun getProxyName(link: String): String {
+    return if (link.contains("#")) link.substringAfter("#") else link
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

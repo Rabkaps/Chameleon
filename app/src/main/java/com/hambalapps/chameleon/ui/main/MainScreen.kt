@@ -630,6 +630,7 @@ fun MainScreen(
     var selectedCountryFilter by remember { mutableStateOf("All Countries") }
     var selectedSubGroupFilter by remember(activeSubscription) { mutableStateOf(activeSubscription?.name ?: "All Groups") }
     var pingsMap by remember { mutableStateOf(mapOf<String, Int>()) }
+    var diagnosticMap by remember { mutableStateOf(mapOf<String, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult>()) }
     var isMultiSelectMode by remember { mutableStateOf(false) }
     var selectedNodes by remember { mutableStateOf(setOf<String>()) }
     var resolvedCountries by remember { mutableStateOf(mapOf<String, String>()) }
@@ -883,7 +884,7 @@ fun MainScreen(
     val cardBorderBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, outlineVariant) {
         when (cardStyle) {
             "solid" -> SolidColor(outlineVariant)
-            "tonal" -> SolidColor(outlineVariant.copy(alpha = 0.25f))
+            "tonal" -> SolidColor(primaryColor.copy(alpha = if (isDark) 0.25f else 0.12f))
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
@@ -892,8 +893,9 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        primaryColor.copy(alpha = 0.25f),
-                        Color.White.copy(alpha = 0.50f)
+                        primaryColor.copy(alpha = 0.55f),
+                        Color.White.copy(alpha = 0.85f),
+                        primaryColor.copy(alpha = 0.30f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -927,8 +929,9 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        primaryColor.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.65f)
+                        Color.White.copy(alpha = 0.75f),
+                        primaryColor.copy(alpha = 0.22f),
+                        surfaceContainerHigh.copy(alpha = 0.40f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -956,8 +959,9 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        secondaryColor.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.65f)
+                        Color.White.copy(alpha = 0.75f),
+                        secondaryColor.copy(alpha = 0.22f),
+                        surfaceContainer.copy(alpha = 0.40f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -985,8 +989,9 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        tertiaryColor.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.65f)
+                        Color.White.copy(alpha = 0.75f),
+                        tertiaryColor.copy(alpha = 0.22f),
+                        surfaceContainerLow.copy(alpha = 0.40f)
                     )
                 }
                 Brush.linearGradient(colors = colors)
@@ -1045,9 +1050,9 @@ fun MainScreen(
                     )
                 } else {
                     listOf(
-                        primaryColor.copy(alpha = 0.12f),
-                        secondaryColor.copy(alpha = 0.08f),
-                        Color.Black.copy(alpha = 0.02f)
+                        primaryColor.copy(alpha = 0.30f),
+                        secondaryColor.copy(alpha = 0.20f),
+                        Color.White.copy(alpha = 0.60f)
                     )
                 }
                 Brush.linearGradient(
@@ -2357,16 +2362,17 @@ fun MainScreen(
                                                                 val jobs = serverList.map { link ->
                                                                     scope.async(kotlinx.coroutines.Dispatchers.IO) {
                                                                         val hostPort = getHostAndPortFromLink(link)
-                                                                        val ping = if (hostPort != null) {
-                                                                            measurePingDelay(hostPort.first, hostPort.second)
+                                                                        if (hostPort != null) {
+                                                                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                                                                            Triple(link, res.delayMs, res.status)
                                                                         } else {
-                                                                            -1
+                                                                            Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
                                                                         }
-                                                                        link to ping
                                                                     }
                                                                 }
                                                                 val results = jobs.awaitAll()
-                                                                pingsMap = pingsMap + results.toMap()
+                                                                pingsMap = pingsMap + results.associate { it.first to it.second }
+                                                                diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
                                                                 isTestingPings = false
                                                             }
                                                         }
@@ -2557,16 +2563,17 @@ fun MainScreen(
                                                                     val jobs = serverList.map { link ->
                                                                         scope.async(kotlinx.coroutines.Dispatchers.IO) {
                                                                             val hostPort = getHostAndPortFromLink(link)
-                                                                            val ping = if (hostPort != null) {
-                                                                                measurePingDelay(hostPort.first, hostPort.second)
+                                                                            if (hostPort != null) {
+                                                                                val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                                                                                Triple(link, res.delayMs, res.status)
                                                                             } else {
-                                                                                -1
+                                                                                Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
                                                                             }
-                                                                            link to ping
                                                                         }
                                                                     }
                                                                     val results = jobs.awaitAll()
-                                                                    pingsMap = pingsMap + results.toMap()
+                                                                    pingsMap = pingsMap + results.associate { it.first to it.second }
+                                                                    diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
                                                                     isTestingPings = false
                                                                 }
                                                             }
@@ -2831,8 +2838,19 @@ fun MainScreen(
                                                                             .background(pingColor)
                                                                     )
                                                                     Spacer(modifier = Modifier.width(4.dp))
+                                                                    val diagStatus = diagnosticMap[serverLink]
+                                                                    val statusText = if (isTimeout) {
+                                                                        when (diagStatus) {
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED -> "DNS Block"
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED -> "SNI Block"
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED -> "IP Block"
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.SERVER_DOWN -> "Offline"
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.LOCAL_OFFLINE -> "No Net"
+                                                                            else -> "IP Block"
+                                                                        }
+                                                                    } else "${ping} ms"
                                                                     Text(
-                                                                        text = if (isTimeout) "Timeout" else "${ping} ms",
+                                                                        text = statusText,
                                                                         style = MaterialTheme.typography.labelSmall,
                                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                         fontWeight = FontWeight.Bold,
@@ -3671,24 +3689,87 @@ fun MainScreen(
                                                             )
                                                         }
                                                     }
-                                                    
+
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                     ) {
                                                         if (ping != null) {
-                                                            val pingColor = if (isTimeout) Color.Red else if (ping < 150) Color.Green else Color.Yellow
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .background(pingColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp))
-                                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                                            ) {
-                                                                Text(
-                                                                    text = if (isTimeout) "Timeout" else "${ping}ms",
-                                                                    style = MaterialTheme.typography.labelSmall,
-                                                                    color = pingColor,
-                                                                    fontWeight = FontWeight.Bold
+                                                            val diagStatus = diagnosticMap[serverLink]
+                                                            val (badgeBgColor, badgeContentColor) = if (isTimeout) {
+                                                                when (diagStatus) {
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED ->
+                                                                        MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED,
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED ->
+                                                                        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+                                                                    else ->
+                                                                        MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                                                                }
+                                                            } else if (ping < 150) {
+                                                                Color(0xFF1B5E20).copy(alpha = 0.2f) to Color(0xFF4CAF50)
+                                                            } else {
+                                                                Color(0xFFE65100).copy(alpha = 0.2f) to Color(0xFFFF9800)
+                                                            }
+
+                                                            val pingText = if (isTimeout) {
+                                                                when (diagStatus) {
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED -> "DNS Block"
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED -> "SNI Block"
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED -> "IP Block"
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.SERVER_DOWN -> "Offline"
+                                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.LOCAL_OFFLINE -> "No Net"
+                                                                    else -> "IP Block"
+                                                                }
+                                                            } else {
+                                                                "${ping}ms"
+                                                            }
+
+                                                            Surface(
+                                                                color = badgeBgColor,
+                                                                contentColor = badgeContentColor,
+                                                                shape = RoundedCornerShape(50),
+                                                                modifier = Modifier.animateContentSize(
+                                                                    animationSpec = spring(
+                                                                        dampingRatio = 0.65f,
+                                                                        stiffness = Spring.StiffnessMediumLow
+                                                                    )
                                                                 )
+                                                            ) {
+                                                                Row(
+                                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                                ) {
+                                                                    val icon = if (isTimeout) {
+                                                                        when (diagStatus) {
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED -> Icons.Default.Dns
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED -> Icons.Default.Shield
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED -> Icons.Default.Block
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.SERVER_DOWN -> Icons.Default.CloudOff
+                                                                            com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.LOCAL_OFFLINE -> Icons.Default.WifiOff
+                                                                            else -> Icons.Default.Warning
+                                                                        }
+                                                                    } else {
+                                                                        null
+                                                                    }
+
+                                                                    if (icon != null) {
+                                                                        Icon(
+                                                                            imageVector = icon,
+                                                                            contentDescription = null,
+                                                                            modifier = Modifier.size(12.dp),
+                                                                            tint = badgeContentColor
+                                                                        )
+                                                                    }
+
+                                                                    Text(
+                                                                        text = pingText,
+                                                                        style = MaterialTheme.typography.labelSmall,
+                                                                        color = badgeContentColor,
+                                                                        fontWeight = FontWeight.Bold
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                         
@@ -4643,12 +4724,26 @@ fun MainScreen(
                                                             }
                                                             val timeoutVal = settings.globalCamouflageTimeout.toIntOrNull() ?: 600
                                                             
-                                                            val res = com.hambalapps.chameleon.vpn.CdnIpScanner.performScan(
-                                                                preset = settings.globalCamouflagePreset,
-                                                                customIps = customIpsList,
-                                                                port = 443,
-                                                                timeoutMs = timeoutVal
-                                                            )
+                                                            val res = if (customIpsList.any { it.contains("/") }) {
+                                                                com.hambalapps.chameleon.vpn.CdnIpScanner.performCidrScan(
+                                                                    cidrs = customIpsList,
+                                                                    sampleCount = 50,
+                                                                    port = 443,
+                                                                    timeoutMs = timeoutVal
+                                                                )
+                                                            } else {
+                                                                com.hambalapps.chameleon.vpn.CdnIpScanner.performScan(
+                                                                    preset = settings.globalCamouflagePreset,
+                                                                    customIps = customIpsList,
+                                                                    port = 443,
+                                                                    timeoutMs = timeoutVal
+                                                                )
+                                                            }
+                                                            
+                                                            if (res.workingIpsCount > 0) {
+                                                                val cleanPoolStr = res.workingIps.take(5).map { it.ip }.joinToString(",")
+                                                                settingsManager.setGlobalCamouflageCleanPool(cleanPoolStr)
+                                                            }
                                                             
                                                             isScanningCamo = false
                                                             lastScanTrigger++
@@ -7200,8 +7295,19 @@ fun MainScreen(
                                                 .background(pingColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
+                                            val diagStatus = diagnosticMap[serverLink]
+                                            val statusText = if (isTimeout) {
+                                                when (diagStatus) {
+                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DNS_POISONED -> "DNS Block"
+                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.DPI_SNI_BLOCKED -> "SNI Block"
+                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.IP_BLACKBOXED -> "IP Block"
+                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.SERVER_DOWN -> "Offline"
+                                                    com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.LOCAL_OFFLINE -> "No Net"
+                                                    else -> "IP Block"
+                                                }
+                                            } else "${ping}ms"
                                             Text(
-                                                text = if (isTimeout) "Timeout" else "${ping}ms",
+                                                text = statusText,
                                                 color = pingColor,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold

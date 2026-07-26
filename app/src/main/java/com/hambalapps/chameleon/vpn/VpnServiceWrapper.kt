@@ -177,10 +177,41 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                                 override fun writeGroups(groups: OutboundGroupIterator?) {}
                                 override fun writeLogs(logs: LogIterator?) {}
                                 
+                                var lastRxTotal = 0L
+                                var stallCount = 0
+
                                 override fun writeStatus(status: StatusMessage?) {
                                     if (status != null) {
-                                        _sessionDownBytes.value = status.downlinkTotal
+                                        val currentRx = status.downlinkTotal
+                                        _sessionDownBytes.value = currentRx
                                         _sessionUpBytes.value = status.uplinkTotal
+                                        
+                                        if (currentRx == lastRxTotal && currentRx > 0) {
+                                            stallCount++
+                                            if (stallCount >= 12) { // 12s of stall
+                                                stallCount = 0
+                                                serviceScope.launch {
+                                                    val sm = SettingsManager(applicationContext)
+                                                    val cleanPoolStr = sm.globalCamouflageCleanPool.first()
+                                                    val pool = cleanPoolStr.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                                                    if (pool.size > 1) {
+                                                        val currentPinned = sm.globalCamouflagePinnedIp.first()
+                                                        val currentIndex = pool.indexOf(currentPinned)
+                                                        val nextIndex = if (currentIndex == -1 || currentIndex + 1 >= pool.size) 0 else currentIndex + 1
+                                                        val nextIp = pool[nextIndex]
+                                                        log("[Clean IP Failover] Connection stalled for 12s. Auto-failing over to clean IP pool candidate: $nextIp")
+                                                        sm.setGlobalCamouflagePinnedIp(nextIp)
+                                                        val intent = Intent(applicationContext, VpnServiceWrapper::class.java).apply {
+                                                            action = ACTION_START
+                                                        }
+                                                        startService(intent)
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            stallCount = 0
+                                            lastRxTotal = currentRx
+                                        }
                                     }
                                 }
                                 
