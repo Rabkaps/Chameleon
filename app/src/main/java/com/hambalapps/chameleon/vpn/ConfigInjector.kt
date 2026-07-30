@@ -118,18 +118,20 @@ object ConfigInjector {
                 return if (json.has("outbounds")) {
                     json
                 } else if (json.has("type") || json.has("server")) {
-                    json.put("tag", "proxy")
+                    val proxyOutbound = JSONObject(json.toString())
+                    proxyOutbound.put("tag", "proxy")
                     val skeleton = buildDefaultSkeleton(settings)
                     val outbounds = JSONArray()
-                    outbounds.put(json)
+                    outbounds.put(proxyOutbound)
                     skeleton.put("outbounds", outbounds)
                     skeleton
                 } else if (json.has("outbound")) {
                     val out = json.getJSONObject("outbound")
-                    out.put("tag", "proxy")
+                    val proxyOutbound = JSONObject(out.toString())
+                    proxyOutbound.put("tag", "proxy")
                     val skeleton = buildDefaultSkeleton(settings)
                     val outbounds = JSONArray()
-                    outbounds.put(out)
+                    outbounds.put(proxyOutbound)
                     skeleton.put("outbounds", outbounds)
                     skeleton
                 } else {

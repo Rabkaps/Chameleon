@@ -613,24 +613,29 @@ fun ChameleonTheme(
         // Material Expressive Color & Surface Strategy
         if (cardStyle == "tonal") {
             if (isDark) {
+                val darkSurfaceBase = tintColor(Color(0xFF141218), baseScheme.primary, ratio = 0.06f)
                 baseScheme.copy(
-                    surfaceContainerLowest = baseScheme.surface,
-                    surfaceContainerLow = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.04f),
-                    surfaceContainer = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.08f),
-                    surfaceContainerHigh = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.12f),
-                    surfaceContainerHighest = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.16f)
+                    background = darkSurfaceBase,
+                    surface = darkSurfaceBase,
+                    surfaceContainerLowest = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.02f),
+                    surfaceContainerLow = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.05f),
+                    surfaceContainer = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.09f),
+                    surfaceContainerHigh = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.14f),
+                    surfaceContainerHighest = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.18f),
+                    outline = tintColor(Color.White, baseScheme.primary, ratio = 0.30f),
+                    outlineVariant = tintColor(darkSurfaceBase, baseScheme.primary, ratio = 0.25f)
                 )
             } else {
-                val tintedBg = tintColor(Color.White, baseScheme.primary, ratio = 0.09f)
+                val tintedBg = tintColor(Color(0xFFFEF7FF), baseScheme.primary, ratio = 0.07f)
                 baseScheme.copy(
                     background = tintedBg,
                     surface = tintedBg,
-                    surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.15f),
-                    surfaceContainerLowest = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
-                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.12f),
-                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.16f),
-                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.20f),
-                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.24f),
+                    surfaceVariant = tintColor(Color.White, baseScheme.primary, ratio = 0.12f),
+                    surfaceContainerLowest = tintColor(Color.White, baseScheme.primary, ratio = 0.03f),
+                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.07f),
+                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.11f),
+                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.15f),
+                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.20f),
                     outline = tintColor(Color.Black, baseScheme.primary, ratio = 0.25f),
                     outlineVariant = tintColor(baseScheme.primary, Color.White, ratio = 0.70f)
                 )

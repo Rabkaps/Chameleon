@@ -800,7 +800,7 @@ fun MainScreen(
                 
                 if (matchesSearch && matchesGroup && matchesCountry) {
                     ServerItem(
-                        id = "${serverLink}_$originalIndex",
+                        id = "node_${originalIndex}_${serverLink.hashCode()}",
                         link = serverLink,
                         name = name,
                         type = type,
@@ -5548,87 +5548,84 @@ fun MainScreen(
                                 .padding(4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                                val totalWidth = maxWidth
-                                val count = tabs.size
-                                if (count > 0) {
-                                    val itemWidth = totalWidth / count
-                                    val targetOffset = itemWidth * (pagerState.currentPage + pagerState.currentPageOffsetFraction)
-                                    
-                                    val animatedOffset by animateDpAsState(
-                                        targetValue = targetOffset,
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                tabs.forEachIndexed { index, (tabId, label, icon) ->
+                                    val isSelected = pagerState.currentPage == index
+                                    val activeColor = MaterialTheme.colorScheme.onPrimary
+                                    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                    val color by animateColorAsState(
+                                        targetValue = if (isSelected) activeColor else inactiveColor,
+                                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                        label = "navColor"
+                                    )
+                                    val weight by animateFloatAsState(
+                                        targetValue = if (isSelected) 1.8f else 1.0f,
                                         animationSpec = spring(
-                                            dampingRatio = 0.65f, // moderate bounce (expressive spatial)
+                                            dampingRatio = 0.65f, // M3DE spatial spring
                                             stiffness = Spring.StiffnessLow
                                         ),
-                                        label = "navIndicatorOffset"
+                                        label = "navWeight"
                                     )
-                                    
-                                    // Sliding tab background pill (solid primary!)
+                                    val scale by animateFloatAsState(
+                                        targetValue = if (isSelected) 1.08f else 1.0f,
+                                        animationSpec = spring(
+                                            dampingRatio = 0.55f, // bouncy spatial spring
+                                            stiffness = Spring.StiffnessMediumLow
+                                        ),
+                                        label = "navScale"
+                                    )
+
                                     Box(
                                         modifier = Modifier
-                                            .offset(x = animatedOffset)
-                                            .width(itemWidth)
+                                            .weight(weight)
                                             .fillMaxHeight()
                                             .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary)
-                                    )
-                                    
-                                    // Tabs Row
-                                    Row(
-                                        modifier = Modifier.fillMaxSize(),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                            )
+                                            .clickable {
+                                                scope.launch { pagerState.animateScrollToPage(index) }
+                                            }
+                                            .pressScaleEffect(),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        tabs.forEachIndexed { index, (tabId, label, icon) ->
-                                            val isSelected = pagerState.currentPage == index
-                                            val activeColor = MaterialTheme.colorScheme.onPrimary
-                                            val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                            val color by animateColorAsState(
-                                                targetValue = if (isSelected) activeColor else inactiveColor,
-                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                                                label = "navColor"
-                                            )
-                                            val scale by animateFloatAsState(
-                                                targetValue = if (isSelected) 1.18f else 1.0f,
-                                                animationSpec = spring(
-                                                    dampingRatio = 0.55f, // bouncy spatial spring
-                                                    stiffness = Spring.StiffnessMediumLow
-                                                ),
-                                                label = "navScale"
-                                            )
-                                            
-                                            Column(
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier.padding(horizontal = 8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = icon,
+                                                contentDescription = label,
+                                                tint = color,
                                                 modifier = Modifier
-                                                    .weight(1f)
-                                                    .fillMaxHeight()
-                                                    .clip(CircleShape)
-                                                    .clickable {
-                                                        scope.launch { pagerState.animateScrollToPage(index) }
+                                                    .size(20.dp)
+                                                    .graphicsLayer {
+                                                        scaleX = scale
+                                                        scaleY = scale
                                                     }
-                                                    .pressScaleEffect(),
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.Center
+                                            )
+                                            AnimatedVisibility(
+                                                visible = isSelected,
+                                                enter = fadeIn(spring(stiffness = Spring.StiffnessMedium)) + expandHorizontally(spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow)),
+                                                exit = fadeOut(spring(stiffness = Spring.StiffnessMedium)) + shrinkHorizontally(spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow))
                                             ) {
-                                                Icon(
-                                                    imageVector = icon,
-                                                    contentDescription = label,
-                                                    tint = color,
-                                                    modifier = Modifier
-                                                        .size(20.dp)
-                                                        .graphicsLayer {
-                                                            scaleX = scale
-                                                            scaleY = scale
-                                                        }
-                                                )
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = label,
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        fontSize = 9.sp
-                                                    ),
-                                                    color = color
-                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = label,
+                                                        style = MaterialTheme.typography.labelMedium.copy(
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 12.sp
+                                                        ),
+                                                        color = color,
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
                                         }
                                     }

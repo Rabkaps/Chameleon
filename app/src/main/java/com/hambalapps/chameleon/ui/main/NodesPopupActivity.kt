@@ -108,7 +108,7 @@ class NodesPopupActivity : ComponentActivity() {
                             val name = ProxyNameResolver.getProxyName(serverLink, context)
                             if (name.contains(searchQuery, ignoreCase = true)) {
                                 ServerItem(
-                                    id = "${serverLink}_$index",
+                                    id = "node_${index}_${serverLink.hashCode()}",
                                     link = serverLink,
                                     name = name,
                                     type = type,

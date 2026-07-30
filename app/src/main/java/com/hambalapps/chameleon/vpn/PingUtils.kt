@@ -31,6 +31,7 @@ fun tryBase64Decode(str: String): String? {
     if (trimmed.isEmpty() || trimmed.startsWith("{") || trimmed.startsWith("[")) {
         return null
     }
+    val cleaned = trimmed.replace("\r", "").replace("\n", "").replace(" ", "")
     try {
         val flags = listOf(
             Base64.DEFAULT,
@@ -41,9 +42,14 @@ fun tryBase64Decode(str: String): String? {
         )
         for (flag in flags) {
             try {
-                val decoded = Base64.decode(str, flag)
+                val decoded = Base64.decode(cleaned, flag)
                 val decodedStr = String(decoded, StandardCharsets.UTF_8).trim()
-                if (decodedStr.isNotEmpty()) {
+                if (decodedStr.isNotEmpty() && (
+                    decodedStr.contains("://") ||
+                    decodedStr.startsWith("{") ||
+                    decodedStr.startsWith("[") ||
+                    decodedStr.contains("proxies:")
+                )) {
                     return decodedStr
                 }
             } catch (e: Throwable) {

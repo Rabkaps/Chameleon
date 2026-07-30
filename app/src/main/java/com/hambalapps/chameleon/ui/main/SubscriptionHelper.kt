@@ -108,6 +108,9 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
         if (clean.startsWith("{")) {
             val json = org.json.JSONObject(clean)
             val outbounds = json.optJSONArray("outbounds")
+                ?: json.optJSONArray("proxies")
+                ?: json.optJSONArray("nodes")
+                ?: json.optJSONArray("inbounds")
             if (outbounds != null) {
                 for (i in 0 until outbounds.length()) {
                     val out = outbounds.optJSONObject(i) ?: continue
@@ -136,74 +139,82 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
 }
 
 internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
-    try {
-        var currentUrl = urlStr
-        var redirectCount = 0
-        var connection: HttpURLConnection? = null
-        var responseCode = -1
-        var rawData = ""
-        var userInfoHeader: String? = null
+    val userAgents = listOf(
+        "sing-box/1.9.0",
+        "ClashforWindows/0.20.39",
+        "v2rayN/6.39",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
 
-        while (redirectCount < 5) {
-            val url = URL(currentUrl)
-            connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.instanceFollowRedirects = true
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
-            connection.setRequestProperty("Accept-Encoding", "gzip, deflate")
-            connection.setRequestProperty("Accept", "*/*")
-            connection.connect()
+    for (ua in userAgents) {
+        try {
+            var currentUrl = urlStr
+            var redirectCount = 0
+            var connection: HttpURLConnection? = null
+            var responseCode = -1
+            var rawData = ""
+            var userInfoHeader: String? = null
 
-            responseCode = connection.responseCode
-            if (responseCode in 300..399) {
-                val redirectUrl = connection.getHeaderField("Location")
-                if (!redirectUrl.isNullOrEmpty()) {
-                    currentUrl = redirectUrl
-                    redirectCount++
-                    continue
-                }
-            }
-            break
-        }
+            while (redirectCount < 5) {
+                val url = URL(currentUrl)
+                connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 12000
+                connection.readTimeout = 12000
+                connection.instanceFollowRedirects = true
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", ua)
+                connection.setRequestProperty("Accept-Encoding", "gzip, deflate")
+                connection.setRequestProperty("Accept", "*/*")
+                connection.connect()
 
-        if (connection != null && (responseCode == 200 || responseCode in 300..399)) {
-            val stream = if ("gzip".equals(connection.contentEncoding, ignoreCase = true)) {
-                java.util.zip.GZIPInputStream(connection.inputStream)
-            } else {
-                connection.inputStream
-            }
-            rawData = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-
-            for ((key, values) in connection.headerFields) {
-                if (key != null) {
-                    val lowerKey = key.lowercase()
-                    if (lowerKey.contains("userinfo") || lowerKey.contains("user-info")) {
-                        userInfoHeader = values.firstOrNull()
-                        break
+                responseCode = connection.responseCode
+                if (responseCode in 300..399) {
+                    val redirectUrl = connection.getHeaderField("Location")
+                    if (!redirectUrl.isNullOrEmpty()) {
+                        currentUrl = redirectUrl
+                        redirectCount++
+                        continue
                     }
                 }
+                break
             }
 
-            val cleanRaw = sanitizeRawText(rawData)
-            val decoded = if (cleanRaw.startsWith("{") || cleanRaw.startsWith("[")) {
-                cleanRaw
-            } else {
-                val tryDec = tryBase64Decode(cleanRaw)
-                if (tryDec != null) sanitizeRawText(tryDec) else cleanRaw
-            }
+            if (connection != null && (responseCode == 200 || responseCode in 300..399)) {
+                val stream = if ("gzip".equals(connection.contentEncoding, ignoreCase = true)) {
+                    java.util.zip.GZIPInputStream(connection.inputStream)
+                } else {
+                    connection.inputStream
+                }
+                rawData = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
 
-            val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
-            var uploadVal: Long? = parsedInfo?.upload
-            var downloadVal: Long? = parsedInfo?.download
-            var totalVal: Long? = parsedInfo?.total
-            var expireVal: Long? = parsedInfo?.expire
+                for ((key, values) in connection.headerFields) {
+                    if (key != null) {
+                        val lowerKey = key.lowercase()
+                        if (lowerKey.contains("userinfo") || lowerKey.contains("user-info")) {
+                            userInfoHeader = values.firstOrNull()
+                            break
+                        }
+                    }
+                }
 
-            val servers = extractOutboundsFromJson(decoded).toMutableList()
-            if (servers.isEmpty()) {
-                val lines = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                for (line in lines) {
+                val cleanRaw = sanitizeRawText(rawData)
+                val decoded = if (cleanRaw.startsWith("{") || cleanRaw.startsWith("[")) {
+                    cleanRaw
+                } else {
+                    val tryDec = tryBase64Decode(cleanRaw)
+                    if (tryDec != null) sanitizeRawText(tryDec) else cleanRaw
+                }
+
+                val parsedInfo = parseSubscriptionUserInfo(userInfoHeader)
+                var uploadVal: Long? = parsedInfo?.upload
+                var downloadVal: Long? = parsedInfo?.download
+                var totalVal: Long? = parsedInfo?.total
+                var expireVal: Long? = parsedInfo?.expire
+
+                val servers = extractOutboundsFromJson(decoded).toMutableList()
+                if (servers.isEmpty()) {
+                    val lines = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    for (line in lines) {
                 if (line.isEmpty()) continue
                 
                 // 1. Parse comments/metadata lines (starts with # or //)
@@ -319,19 +330,21 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
             }
             }
             
-            FetchResult(
-                servers = servers,
-                upload = uploadVal,
-                download = downloadVal,
-                total = totalVal,
-                expire = expireVal
-            )
-        } else {
-            FetchResult(emptyList())
+            if (servers.isNotEmpty()) {
+                return@withContext FetchResult(
+                    servers = servers,
+                    upload = uploadVal,
+                    download = downloadVal,
+                    total = totalVal,
+                    expire = expireVal
+                )
+            }
         }
-    } catch (e: Exception) {
-        FetchResult(emptyList())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+    FetchResult(emptyList())
 }
 
 internal fun formatBytes(bytes: Long): String {
