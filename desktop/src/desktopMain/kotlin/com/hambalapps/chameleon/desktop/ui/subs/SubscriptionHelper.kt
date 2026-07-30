@@ -108,12 +108,24 @@ suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatc
             connection.readTimeout = 12000
             connection.requestMethod = "GET"
             connection.setRequestProperty("User-Agent", ua)
+            connection.setRequestProperty("Accept-Encoding", "gzip, deflate")
             connection.setRequestProperty("Accept", "*/*")
             connection.connect()
             
-            if (connection.responseCode == 200) {
-                val rawData = connection.inputStream.bufferedReader().use { it.readText() }
-                val decoded = tryBase64Decode(rawData) ?: rawData
+            if (connection.responseCode == 200 || connection.responseCode in 300..399) {
+                val stream = if ("gzip".equals(connection.contentEncoding, ignoreCase = true)) {
+                    java.util.zip.GZIPInputStream(connection.inputStream)
+                } else {
+                    connection.inputStream
+                }
+                val rawData = stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val cleanRaw = rawData.trim().removePrefix("\uFEFF").trim()
+                val decoded = if (cleanRaw.startsWith("{") || cleanRaw.startsWith("[")) {
+                    cleanRaw
+                } else {
+                    val tryDec = tryBase64Decode(cleanRaw)
+                    if (tryDec != null) tryDec.trim().removePrefix("\uFEFF").trim() else cleanRaw
+                }
 
                 var userInfoHeader: String? = null
                 for ((key, values) in connection.headerFields) {
