@@ -1538,6 +1538,12 @@ fun MainScreen(
                         val screenWidthDp = configuration.screenWidthDp
                         val useDropdownMenu = !isLandscape || screenWidthDp < 600
 
+                        val serverListState = androidx.compose.foundation.lazy.rememberLazyListState()
+                        val isHeaderExpanded by remember {
+                            derivedStateOf {
+                                serverListState.firstVisibleItemIndex == 0 && serverListState.firstVisibleItemScrollOffset < 120
+                            }
+                        }
                         var showSubManagerDialog by remember { mutableStateOf(false) }
                         var isGroupDropdownExpanded by remember { mutableStateOf(false) }
                         var isCountryDropdownExpanded by remember { mutableStateOf(false) }
@@ -2677,6 +2683,7 @@ fun MainScreen(
                                             }
                                         } else {
                                             LazyColumn(
+                                                state = serverListState,
                                                 modifier = listModifier,
                                                 contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
                                                 verticalArrangement = Arrangement.spacedBy(6.dp)
