@@ -3046,6 +3046,12 @@ fun MainScreen(
                                 ) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
+                                AnimatedVisibility(
+                                    visible = isHeaderExpanded,
+                                    enter = expandVertically(spring(dampingRatio = 0.65f)) + fadeIn(),
+                                    exit = shrinkVertically(spring(dampingRatio = 0.65f)) + fadeOut()
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 // Top Bento Row
                                  Row(
                                      modifier = Modifier.fillMaxWidth(),
@@ -3580,6 +3586,8 @@ fun MainScreen(
                                          }
                                      }
                                  }
+                                     }
+                                 }
 
                                 // Servers List
                                 if (filteredServerList.isEmpty()) {
@@ -3595,6 +3603,7 @@ fun MainScreen(
                                     }
                                 } else {
                                     LazyColumn(
+                                        state = serverListState,
                                         modifier = Modifier.fillMaxWidth().weight(1f),
                                         contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
