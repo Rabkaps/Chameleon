@@ -2334,12 +2334,6 @@ fun MainScreen(
                                 ) {
                                     VibrantCardContent(settings.cardStyle) {
                                         Column(modifier = Modifier.padding(20.dp)) {
-                                            AnimatedVisibility(
-                                                visible = isHeaderExpanded,
-                                                enter = expandVertically(spring(dampingRatio = 0.65f)) + fadeIn(),
-                                                exit = shrinkVertically(spring(dampingRatio = 0.65f)) + fadeOut()
-                                            ) {
-                                                Column {
                                                     Row(
                                                         modifier = Modifier.fillMaxWidth(),
                                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -2487,8 +2481,6 @@ fun MainScreen(
                                                     shape = ExpressivePillShape
                                                 )
                                             }
-                                        }
-                                        }
                                         }
 
                                         AnimatedVisibility(
