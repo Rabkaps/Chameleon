@@ -25,7 +25,7 @@ suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatc
  */
 fun tryBase64Decode(str: String): String? {
     var current = str.trim()
-    if (current.isEmpty()) return null
+    if (current.isEmpty() || current.startsWith("{") || current.startsWith("[")) return null
 
     // If string already contains URI scheme, return intact
     if (current.contains("://")) {

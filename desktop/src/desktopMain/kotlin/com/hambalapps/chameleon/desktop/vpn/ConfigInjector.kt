@@ -1120,6 +1120,7 @@ object ConfigInjector {
 
     fun tryBase64Decode(src: String): String? {
         val clean = src.trim().replace("\r", "").replace("\n", "").replace(" ", "")
+        if (clean.isEmpty() || clean.startsWith("{") || clean.startsWith("[")) return null
         return try {
             val bytes = java.util.Base64.getDecoder().decode(clean)
             String(bytes, java.nio.charset.StandardCharsets.UTF_8)
