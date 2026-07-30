@@ -25,7 +25,7 @@ data class UserSettings(
     val bypassIran: Boolean = true,
     val secureDns: String = "https://8.8.8.8/dns-query",
     val tunStack: String = "mixed",
-    val enableFragment: Boolean = false,
+    val enableFragment: Boolean = true,
     val fragmentLength: String = "10-20",
     val fragmentInterval: String = "10-20",
     val enableMux: Boolean = false,

@@ -85,6 +85,25 @@ object ConfigInjector {
         "soft98.ir"
     )
 
+    fun isCloudflareDomain(host: String = "", sni: String = "", hostHeader: String = ""): Boolean {
+        val targets = listOf(host, sni, hostHeader).filter { it.isNotEmpty() }.map { it.lowercase() }
+        if (targets.isEmpty()) return false
+
+        return targets.any { target ->
+            target.contains(".workers.dev") || target.contains(".pages.dev") ||
+            target.contains(".trycloudflare.com") || target.contains(".argotunnel.com") ||
+            target.contains(".cloudflare.com") || target.contains(".cloudflareaccess.com") ||
+            target.contains(".cloudflarestorage.com") || target.contains(".cloudflare-dns.com") ||
+            target.contains(".cloudflareclient.com") || target.contains(".cf-ipfs.com") ||
+            target.contains(".cf-dns.com") || target.contains(".cf-ns.com") ||
+            target.contains(".cf-ns.net") || target.contains(".cf-ns.org") ||
+            target.contains("novaproxy") || target.contains("bpb") ||
+            target.contains("marzban") || target.contains("x-ui") || target.contains("3x-ui") ||
+            target.contains("cloudflared") || target.contains("cf-panel") ||
+            target.contains("cdn-panel") || target.contains("cf-edge")
+        }
+    }
+
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
         dohWorking = true
         try {
@@ -837,10 +856,7 @@ object ConfigInjector {
             val transType = transport?.optString("type") ?: ""
             val isWs = transType == "ws"
             val hostHeader = transport?.optJSONObject("headers")?.optString("Host") ?: transport?.optString("host") ?: ""
-            val isCloudflareWorker = serverHost.contains(".workers.dev") || serverHost.contains(".pages.dev") ||
-                    serverName.contains(".workers.dev") || serverName.contains(".pages.dev") ||
-                    hostHeader.contains(".workers.dev") || hostHeader.contains(".pages.dev") ||
-                    serverHost.contains("novaproxy") || hostHeader.contains("novaproxy")
+            val isCloudflareWorker = isCloudflareDomain(serverHost, serverName, hostHeader)
             val isCloudflare = isCloudflareWorker || isWs
 
             // Inject fragmentation into proxy outbound with strict safety checks (skips Cloudflare edge & WS)
@@ -961,8 +977,14 @@ object ConfigInjector {
         tls.put("enabled", true)
 
         val existingSni = tls.optString("server_name")
+        val existingTransport = outbound.optJSONObject("transport")
+        val existingHost = existingTransport?.optJSONObject("headers")?.optString("Host") ?: existingTransport?.optString("host") ?: ""
+        val isCfPanelOrWorker = isCloudflareDomain(originalServer, existingSni, existingHost)
+
         val targetSni = if (existingSni.isNotEmpty()) {
             existingSni // Preserve existing SNI if outbound already has one (e.g. Cloudflare Workers / NovaProxy / BPB)
+        } else if (isCfPanelOrWorker) {
+            if (existingHost.isNotEmpty()) existingHost else originalServer
         } else {
             when (config.preset) {
                 "cloudflare" -> "speedtest.net"

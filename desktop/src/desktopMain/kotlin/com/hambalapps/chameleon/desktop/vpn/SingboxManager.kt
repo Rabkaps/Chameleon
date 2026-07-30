@@ -151,26 +151,22 @@ object SingboxManager {
             autoUpdateSubscriptionsIfNeeded(settingsManager)
 
             // Check for admin privileges if TUN is enabled
-            val isElevated = isRunningAsAdmin()
-            val wantTun = settingsManager.currentSettings.enableTun
-            val useTun = wantTun && isElevated
-
-            if (wantTun && !isElevated) {
-                log("[Notice] WinTUN Mode requires Administrator privileges. Auto-falling back to System Proxy Mode...")
-            }
-
+            val useTun = settingsManager.currentSettings.enableTun
             if (useTun) {
+                if (!isRunningAsAdmin()) {
+                    log("[ERROR] TUN Mode requires Administrator privileges!")
+                    log("Please right click Chameleon.exe and select 'Run as Administrator'.")
+                    stop()
+                    return false
+                }
                 downloadWintunIfNeeded()
             }
 
-            val effectiveSettings = if (wantTun != useTun) {
-                settingsManager.currentSettings.copy(enableTun = false)
-            } else {
-                settingsManager.currentSettings
-            }
+            val effectiveSettings = settingsManager.currentSettings
 
             extractResource("geoip-ir.srs", geoip)
             extractResource("geosite-ir.srs", geosite)
+            extractResource("wintun.dll", File(workingDir, "wintun.dll"))
 
             val profileToUse = if (rawProfile.isNotEmpty()) rawProfile else {
                 val allServers = settingsManager.currentSettings.allSubscriptionServers + "\n" + settingsManager.currentSettings.manualServers

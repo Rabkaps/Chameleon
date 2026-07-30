@@ -102,15 +102,11 @@ object ConfigInjector {
                 put("type", "tun")
                 put("tag", "tun-in")
                 put("interface_name", "sing-box-tun")
-                put("address", JSONArray(listOf("172.19.0.1/30", "fdfe:dcba:9876::1/126")))
+                put("address", JSONArray(listOf("172.19.0.1/30")))
+                put("mtu", 1280)
                 put("auto_route", true)
                 put("strict_route", true)
                 put("stack", settings.tunStack.ifEmpty { "mixed" })
-                put("platform", JSONObject().apply {
-                    put("http_proxy", JSONObject().apply {
-                        put("enabled", false)
-                    })
-                })
             }
             newInbounds.put(tunInbound)
         }
@@ -166,7 +162,11 @@ object ConfigInjector {
             val tls = JSONObject().apply {
                 put("enabled", true)
                 put("insecure", true)
-                if (hostPart == "8.8.8.8" || hostPart == "8.8.4.4") {
+                if (hostPart == "10.202.10.10") {
+                    put("server_name", "radar.game")
+                } else if (hostPart == "185.51.200.2" || hostPart == "178.22.122.100") {
+                    put("server_name", "shecan.ir")
+                } else if (hostPart == "8.8.8.8" || hostPart == "8.8.4.4") {
                     put("server_name", "dns.google")
                 } else if (hostPart == "1.1.1.1" || hostPart == "1.0.0.1") {
                     put("server_name", "cloudflare-dns.com")
@@ -205,25 +205,32 @@ object ConfigInjector {
 
     private fun injectDns(config: JSONObject, settings: UserSettings) {
         val dns = JSONObject()
+        dns.put("reverse_mapping", true)
+        dns.put("strategy", "ipv4_only")
         val servers = JSONArray()
 
         // 1. Secure DNS Server (routes via the proxy)
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
-        servers.put(secureServer)
 
-        // 2. Local Bypass & Bootstrap DNS Servers (anti-filtering Shecan, Radar, 403.online fallbacks)
-        val directServer = createDnsServer("dns-direct", "8.8.8.8", "direct")
+        // 2. Local Bypass & Bootstrap DNS Servers
+        val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
         val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
         val bootstrapServer = createDnsServer("dns-bootstrap", "178.22.122.100", "direct")
 
-        servers.put(secureServer)
-        servers.put(shecanServer)
-        servers.put(radarServer)
-        servers.put(online403Server)
-        servers.put(directServer)
-        servers.put(bootstrapServer)
+        if (settings.bypassIran) {
+            servers.put(secureServer)
+            servers.put(directServer)
+            servers.put(shecanServer)
+            servers.put(radarServer)
+            servers.put(online403Server)
+            servers.put(bootstrapServer)
+        } else {
+            servers.put(secureServer)
+            servers.put(directServer)
+            servers.put(bootstrapServer)
+        }
 
         dns.put("servers", servers)
         dns.put("final", "dns-secure")
@@ -326,6 +333,7 @@ object ConfigInjector {
         // Add sniffing rule at the beginning
         val sniffRule = JSONObject().apply {
             put("action", "sniff")
+            put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
         }
         newRules.put(sniffRule)
 
@@ -386,9 +394,9 @@ object ConfigInjector {
             directIps.add(defaultDirectDns)
         }
         
-        // Dynamic bootstrap DNS address matching the one in injectDns
-        val bootstrapDnsAddr = if (systemDnsList.isNotEmpty()) systemDnsList[0] else "8.8.8.8"
-        if (!directIps.contains(bootstrapDnsAddr) && isIpAddress(bootstrapDnsAddr)) {
+        // Dynamic bootstrap DNS address matching the one in injectDns (Shecan 178.22.122.100)
+        val bootstrapDnsAddr = "178.22.122.100"
+        if (!directIps.contains(bootstrapDnsAddr)) {
             directIps.add(bootstrapDnsAddr)
         }
 
@@ -500,18 +508,37 @@ object ConfigInjector {
             newRules.put(originalRules.getJSONObject(i))
         }
 
-        // If split tunneling is set to only route specific apps, everything else must bypass (direct)
-        if (settings.splitTunnelingEnabled && settings.splitTunnelingApps.isNotEmpty() && 
-            (settings.splitTunnelingMode == "only_route" || settings.splitTunnelingMode == "proxy")) {
-            val catchAllDirectRule = JSONObject().apply {
-                put("outbound", "direct")
+        // Catch-all rule to route all remaining traffic to the proxy outbound
+        if (!(settings.splitTunnelingEnabled && settings.splitTunnelingApps.isNotEmpty() && 
+            (settings.splitTunnelingMode == "only_route" || settings.splitTunnelingMode == "proxy"))) {
+            val catchAllRule = JSONObject().apply {
+                put("outbound", "proxy")
             }
-            newRules.put(catchAllDirectRule)
+            newRules.put(catchAllRule)
         }
 
         route.put("rules", newRules)
         route.put("default_domain_resolver", "dns-bootstrap")
         route.put("auto_detect_interface", true)
+    }
+
+    private fun isCloudflareDomain(host: String = "", sni: String = "", hostHeader: String = ""): Boolean {
+        val targets = listOf(host, sni, hostHeader).filter { it.isNotEmpty() }.map { it.lowercase() }
+        if (targets.isEmpty()) return false
+
+        return targets.any { target ->
+            target.contains(".workers.dev") || target.contains(".pages.dev") ||
+            target.contains(".trycloudflare.com") || target.contains(".argotunnel.com") ||
+            target.contains(".cloudflare.com") || target.contains(".cloudflareaccess.com") ||
+            target.contains(".cloudflarestorage.com") || target.contains(".cloudflare-dns.com") ||
+            target.contains(".cloudflareclient.com") || target.contains(".cf-ipfs.com") ||
+            target.contains(".cf-dns.com") || target.contains(".cf-ns.com") ||
+            target.contains(".cf-ns.net") || target.contains(".cf-ns.org") ||
+            target.contains("novaproxy") || target.contains("bpb") ||
+            target.contains("marzban") || target.contains("x-ui") || target.contains("3x-ui") ||
+            target.contains("cloudflared") || target.contains("cf-panel") ||
+            target.contains("cdn-panel") || target.contains("cf-edge")
+        }
     }
 
     private fun injectOutbounds(config: JSONObject, settings: UserSettings) {
@@ -530,17 +557,40 @@ object ConfigInjector {
             if (tag == "direct") hasDirect = true
             if (tag == "block") hasBlock = true
 
-            if (tag == "proxy" && settings.enableFragment) {
+            val tls = out.optJSONObject("tls")
+            val serverHost = out.optString("server")
+            val serverName = tls?.optString("server_name") ?: ""
+            val transport = out.optJSONObject("transport")
+            val transType = transport?.optString("type") ?: ""
+            val isWs = transType == "ws"
+            val isCloudflareWorker = isCloudflareDomain(serverHost, serverName, hostHeader)
+            val isCloudflare = isCloudflareWorker || isWs
+
+            val isProxyOrRelay = (tag == "proxy" || tag == "relay-out")
+            val isOpenVpn = type == "openvpn"
+            val isWireGuard = type == "wireguard" || type == "amneziawg"
+            val hasTls = tls?.optBoolean("enabled", false) ?: (tls != null)
+            val flow = out.optString("flow")
+            val isVision = flow.contains("vision")
+            val isReality = tls?.has("reality") ?: false
+
+            if (settings.enableFragment && isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision && !isCloudflare) {
                 injectFragmentToOutbound(out, settings)
+            } else if (tls != null) {
+                tls.remove("fragment")
+                tls.remove("record_fragment")
+                tls.remove("fragment_fallback_delay")
             }
-            if (tag == "proxy" && settings.enableMux) {
+
+            if (tag == "proxy" && settings.enableMux && !isWs && !isReality && !isVision) {
                 val mux = JSONObject().apply {
                     put("enabled", true)
-                    put("protocol", "smux")
-                    put("max_connections", 4)
-                    put("min_streams", 4)
+                    put("protocol", "h2mux")
+                    put("max_connections", 8)
                 }
                 out.put("multiplex", mux)
+            } else {
+                out.remove("multiplex")
             }
             cleanOutbounds.put(out)
         }
@@ -561,18 +611,21 @@ object ConfigInjector {
     }
 
     private fun injectFragmentToOutbound(outbound: JSONObject, settings: UserSettings) {
+        if (outbound.optString("type") == "openvpn") return
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
         tls.put("fragment", true)
         tls.put("record_fragment", true)
         
         val interval = settings.fragmentInterval.trim()
-        val delayStr = if (interval.isEmpty()) {
-            "20ms"
+        val delayStr = if (interval.contains("-")) {
+            val lastNum = interval.substringAfter("-").filter { it.isDigit() }
+            if (lastNum.isNotEmpty()) "${lastNum}ms" else "20ms"
         } else if (interval.endsWith("ms")) {
             interval
         } else {
-            "${interval}ms"
+            val cleanNum = interval.filter { it.isDigit() }
+            if (cleanNum.isNotEmpty()) "${cleanNum}ms" else "20ms"
         }
         tls.put("fragment_fallback_delay", delayStr)
     }
@@ -1244,7 +1297,8 @@ object ConfigInjector {
             val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
             
             val atIdx = mainPart.indexOf("@")
-            val userInfo = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val userInfoRaw = if (atIdx >= 0) mainPart.substring(0, atIdx) else ""
+            val userInfo = try { URLDecoder.decode(userInfoRaw.replace("+", "%2B"), "UTF-8") } catch (e: Exception) { userInfoRaw }
             val serverPart = if (atIdx >= 0) mainPart.substring(atIdx + 1) else mainPart
             
             val colonIdx = serverPart.lastIndexOf(":")
@@ -1274,7 +1328,9 @@ object ConfigInjector {
                     }
                 }
 
-                val hasTls = security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1"
+                val isTlsOrReality = security != "none" && (security == "tls" || isReality || queryParams["tls"] == "true" || queryParams["tls"] == "1" || ((port == 443 || port == 8443) && headerType != "http"))
+                val isObfuscatedHttp = (type == null || type.equals("tcp", ignoreCase = true)) && headerType == "http" && !isTlsOrReality
+                val hasTls = isTlsOrReality && !isObfuscatedHttp
                 if (hasTls) {
                     val tls = JSONObject()
                     tls.put("enabled", true)
