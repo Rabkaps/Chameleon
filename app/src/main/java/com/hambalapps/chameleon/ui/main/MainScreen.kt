@@ -1539,9 +1539,10 @@ fun MainScreen(
                         val useDropdownMenu = !isLandscape || screenWidthDp < 600
 
                         val serverListState = androidx.compose.foundation.lazy.rememberLazyListState()
-                        val isHeaderExpanded by remember {
+                        val collapseProgress by remember {
                             derivedStateOf {
-                                serverListState.firstVisibleItemIndex == 0 && serverListState.firstVisibleItemScrollOffset < 120
+                                if (serverListState.firstVisibleItemIndex > 0) 1f
+                                else (serverListState.firstVisibleItemScrollOffset / 140f).coerceIn(0f, 1f)
                             }
                         }
                         var showSubManagerDialog by remember { mutableStateOf(false) }
@@ -3046,548 +3047,323 @@ fun MainScreen(
                                 ) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 
-                                AnimatedVisibility(
-                                    visible = isHeaderExpanded,
-                                    enter = expandVertically(spring(dampingRatio = 0.65f)) + fadeIn(),
-                                    exit = shrinkVertically(spring(dampingRatio = 0.65f)) + fadeOut()
-                                ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                // Top Bento Row
-                                 Row(
-                                     modifier = Modifier.fillMaxWidth(),
-                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                 ) {
-                                     // QR Scanner Bento Card
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(68.dp)
-                                             .clip(RoundedCornerShape(28.dp))
-                                             .clickable {
-                                                 scanResultCallback = { result ->
-                                                     handleScannedQrResult(
-                                                         result = result,
-                                                         scope = scope,
-                                                         context = context,
-                                                         settingsManager = settingsManager,
-                                                         subscriptions = subscriptions,
-                                                         manualServersStr = manualServersStr,
-                                                         vpnState = vpnState
-                                                     )
-                                                 }
-                                             }
-                                             .background(brush = primaryCardBrush, shape = RoundedCornerShape(28.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(28.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(28.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle) {
-                                             Column(
-                                                 modifier = Modifier
-                                                     .fillMaxSize()
-                                                     .padding(12.dp),
-                                                 verticalArrangement = Arrangement.SpaceBetween
-                                             ) {
-                                                 Row(
-                                                     modifier = Modifier.fillMaxWidth(),
-                                                     horizontalArrangement = Arrangement.SpaceBetween,
-                                                     verticalAlignment = Alignment.CenterVertically
-                                                 ) {
-                                                     Icon(
-                                                         imageVector = Icons.Default.QrCodeScanner,
-                                                         contentDescription = "Scan QR Code",
-                                                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                         modifier = Modifier.size(20.dp)
-                                                     )
-                                                 }
-                                                 Column {
-                                                     Text(
-                                                         text = "Scan QR Code",
-                                                         fontSize = bentoTitleSize,
-                                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                                         fontWeight = FontWeight.Bold,
-                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
+                                val animatedCardHeight = (68 - (26 * collapseProgress)).dp
+                                val animatedTextAlpha = (1f - collapseProgress * 2.5f).coerceIn(0f, 1f)
+                                val animatedFilterHeight = (50 - (14 * collapseProgress)).dp
+                                val animatedCornerRadius = (28 - (12 * collapseProgress)).dp
 
-                                     // Subscriptions Manager Card
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(68.dp)
-                                             .clip(RoundedCornerShape(28.dp))
-                                             .clickable { showSubManagerDialog = true }
-                                             .background(brush = secondaryCardBrush, shape = RoundedCornerShape(28.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(28.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(28.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle, isSecondary = true) {
-                                             Column(
-                                                 modifier = Modifier
-                                                     .fillMaxSize()
-                                                     .padding(12.dp),
-                                                 verticalArrangement = Arrangement.SpaceBetween
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Default.Folder,
-                                                     contentDescription = "Subscriptions",
-                                                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                     modifier = Modifier.size(20.dp)
-                                                 )
-                                                 Column {
-                                                     Text(
-                                                         text = "Subscriptions",
-                                                         fontSize = bentoTitleSize,
-                                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                                         fontWeight = FontWeight.Bold,
-                                                         color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
-                                 }
+                                Column(verticalArrangement = Arrangement.spacedBy((12 * (1f - collapseProgress * 0.5f)).dp)) {
+                                    // Top Bento Row (QR Scanner + Subscriptions)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy((12 * (1f - collapseProgress * 0.5f)).dp)
+                                    ) {
+                                        // QR Scanner Card
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedCardHeight)
+                                                .clip(RoundedCornerShape(animatedCornerRadius))
+                                                .clickable {
+                                                    scanResultCallback = { result ->
+                                                        handleScannedQrResult(
+                                                            result = result, scope = scope, context = context,
+                                                            settingsManager = settingsManager, subscriptions = subscriptions,
+                                                            manualServersStr = manualServersStr, vpnState = vpnState
+                                                        )
+                                                    }
+                                                }
+                                                .background(brush = primaryCardBrush, shape = RoundedCornerShape(animatedCornerRadius))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(animatedCornerRadius)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                                    horizontalArrangement = if (collapseProgress > 0.5f) Arrangement.Center else Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.QrCodeScanner,
+                                                        contentDescription = "Scan QR Code",
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.size((20 - (2 * collapseProgress)).dp)
+                                                    )
+                                                    if (animatedTextAlpha > 0.05f) {
+                                                        Text(
+                                                            text = "Scan QR",
+                                                            fontSize = bentoTitleSize,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            modifier = Modifier.graphicsLayer { alpha = animatedTextAlpha }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
 
-                                 // Import & Create Node Bento Row
-                                 Row(
-                                     modifier = Modifier.fillMaxWidth(),
-                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                 ) {
-                                     // Import Card
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(68.dp)
-                                             .clip(RoundedCornerShape(28.dp))
-                                             .clickable { showImportDialog = true }
-                                             .background(brush = primaryCardBrush, shape = RoundedCornerShape(28.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(28.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(28.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle) {
-                                             Column(
-                                                 modifier = Modifier.fillMaxSize().padding(12.dp),
-                                                 verticalArrangement = Arrangement.SpaceBetween
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Default.AddLink,
-                                                     contentDescription = "Import",
-                                                     tint = MaterialTheme.colorScheme.primary,
-                                                     modifier = Modifier.size(20.dp)
-                                                 )
-                                                 Column {
-                                                     Text(
-                                                         text = "Import Link",
-                                                         fontSize = bentoTitleSize,
-                                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                                         fontWeight = FontWeight.Bold,
-                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
+                                        // Subscriptions Manager Card
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedCardHeight)
+                                                .clip(RoundedCornerShape(animatedCornerRadius))
+                                                .clickable { showSubManagerDialog = true }
+                                                .background(brush = secondaryCardBrush, shape = RoundedCornerShape(animatedCornerRadius))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(animatedCornerRadius)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle, isSecondary = true) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                                    horizontalArrangement = if (collapseProgress > 0.5f) Arrangement.Center else Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Folder,
+                                                        contentDescription = "Subscriptions",
+                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                        modifier = Modifier.size((20 - (2 * collapseProgress)).dp)
+                                                    )
+                                                    if (animatedTextAlpha > 0.05f) {
+                                                        Text(
+                                                            text = "Subscriptions",
+                                                            fontSize = bentoTitleSize,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                            modifier = Modifier.graphicsLayer { alpha = animatedTextAlpha }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
 
-                                     // Search Card
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(68.dp)
-                                             .clip(RoundedCornerShape(28.dp))
-                                             .clickable {
-                                                 isSearchVisible = true
-                                             }
-                                             .background(brush = secondaryCardBrush, shape = RoundedCornerShape(28.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(28.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(28.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle, isSecondary = true) {
-                                             Column(
-                                                 modifier = Modifier.fillMaxSize().padding(12.dp),
-                                                 verticalArrangement = Arrangement.SpaceBetween
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Default.Search,
-                                                     contentDescription = "Search",
-                                                     tint = MaterialTheme.colorScheme.secondary,
-                                                     modifier = Modifier.size(20.dp)
-                                                 )
-                                                 Column {
-                                                     Text(
-                                                         text = "Search Nodes",
-                                                         fontSize = bentoTitleSize,
-                                                         style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
-                                                         fontWeight = FontWeight.Bold,
-                                                         color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                     )
-                                                 }
-                                             }
-                                         }
-                                     }
-                                 }
+                                    // Import & Search Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy((12 * (1f - collapseProgress * 0.5f)).dp)
+                                    ) {
+                                        // Import Card
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedCardHeight)
+                                                .clip(RoundedCornerShape(animatedCornerRadius))
+                                                .clickable { showImportDialog = true }
+                                                .background(brush = primaryCardBrush, shape = RoundedCornerShape(animatedCornerRadius))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(animatedCornerRadius)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                                    horizontalArrangement = if (collapseProgress > 0.5f) Arrangement.Center else Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AddLink,
+                                                        contentDescription = "Import",
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size((20 - (2 * collapseProgress)).dp)
+                                                    )
+                                                    if (animatedTextAlpha > 0.05f) {
+                                                        Text(
+                                                            text = "Import Link",
+                                                            fontSize = bentoTitleSize,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            modifier = Modifier.graphicsLayer { alpha = animatedTextAlpha }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
 
-                                 // Side-by-side Filtering Cards
-                                 Row(
-                                     modifier = Modifier.fillMaxWidth(),
-                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                 ) {
-                                     // Country Filtering Card
-                                     var isCountryDropdownExpanded by remember { mutableStateOf(false) }
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(50.dp)
-                                             .clip(RoundedCornerShape(16.dp))
-                                             .clickable { isCountryDropdownExpanded = true }
-                                             .background(brush = cardBorderBrush, shape = RoundedCornerShape(16.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(16.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(16.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle) {
-                                             Row(
-                                                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                                 verticalAlignment = Alignment.CenterVertically
-                                             ) {
-                                                 Column {
-                                                     Text(
-                                                         text = "COUNTRY",
-                                                         style = MaterialTheme.typography.labelSmall,
-                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                         fontWeight = FontWeight.Bold,
-                                                         letterSpacing = 0.5.sp
-                                                     )
-                                                     FlagTextRow(
-                                                         text = selectedCountryFilter,
-                                                         style = MaterialTheme.typography.bodyMedium,
-                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                         maxLines = 1,
-                                                         overflow = TextOverflow.Ellipsis
-                                                     )
-                                                 }
-                                                 Icon(
-                                                     imageVector = Icons.Default.FilterAlt,
-                                                     contentDescription = null,
-                                                     tint = MaterialTheme.colorScheme.primary,
-                                                     modifier = Modifier.size(18.dp)
-                                                 )
-                                             }
-                                         }
-                                         DropdownMenu(
-                                             expanded = isCountryDropdownExpanded,
-                                             onDismissRequest = { isCountryDropdownExpanded = false }
-                                         ) {
-                                             uniqueCountries.forEach { country ->
-                                                 DropdownMenuItem(
-                                                     text = { FlagTextRow(country) },
-                                                     onClick = {
-                                                         selectedCountryFilter = country
-                                                         isCountryDropdownExpanded = false
-                                                     }
-                                                 )
-                                             }
-                                         }
-                                     }
+                                        // Search Card
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedCardHeight)
+                                                .clip(RoundedCornerShape(animatedCornerRadius))
+                                                .clickable { isSearchVisible = !isSearchVisible }
+                                                .background(brush = secondaryCardBrush, shape = RoundedCornerShape(animatedCornerRadius))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(animatedCornerRadius)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(animatedCornerRadius)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle, isSecondary = true) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                                    horizontalArrangement = if (collapseProgress > 0.5f) Arrangement.Center else Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Search,
+                                                        contentDescription = "Search",
+                                                        tint = MaterialTheme.colorScheme.secondary,
+                                                        modifier = Modifier.size((20 - (2 * collapseProgress)).dp)
+                                                    )
+                                                    if (animatedTextAlpha > 0.05f) {
+                                                        Text(
+                                                            text = "Search Nodes",
+                                                            fontSize = bentoTitleSize,
+                                                            style = MaterialTheme.typography.titleMedium.copy(fontSize = androidx.compose.ui.unit.TextUnit.Unspecified),
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                            modifier = Modifier.graphicsLayer { alpha = animatedTextAlpha }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
 
-                                     // Subscription Selector Card
-                                     var isSubDropdownExpanded by remember { mutableStateOf(false) }
-                                     Card(
-                                         modifier = Modifier
-                                             .weight(1f)
-                                             .height(50.dp)
-                                             .clip(RoundedCornerShape(16.dp))
-                                             .clickable { isSubDropdownExpanded = true }
-                                             .background(brush = cardBorderBrush, shape = RoundedCornerShape(16.dp))
-                                             .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(16.dp)),
-                                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                                         shape = RoundedCornerShape(16.dp)
-                                     ) {
-                                         VibrantCardContent(settings.cardStyle) {
-                                             Row(
-                                                 modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                                 verticalAlignment = Alignment.CenterVertically
-                                             ) {
-                                                 Column {
-                                                     Text(
-                                                         text = "SUBSCRIPTION",
-                                                         style = MaterialTheme.typography.labelSmall,
-                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                         fontWeight = FontWeight.Bold,
-                                                         letterSpacing = 0.5.sp
-                                                     )
-                                                     FlagTextRow(
-                                                         text = activeSubscription?.name ?: "Manual Config",
-                                                         style = MaterialTheme.typography.bodyMedium,
-                                                         color = MaterialTheme.colorScheme.onSurface,
-                                                         maxLines = 1,
-                                                         overflow = TextOverflow.Ellipsis
-                                                     )
-                                                 }
-                                                 Icon(
-                                                     imageVector = Icons.Default.Layers,
-                                                     contentDescription = null,
-                                                     tint = MaterialTheme.colorScheme.secondary,
-                                                     modifier = Modifier.size(18.dp)
-                                                 )
-                                             }
-                                         }
-                                         DropdownMenu(
-                                             expanded = isSubDropdownExpanded,
-                                             onDismissRequest = { isSubDropdownExpanded = false }
-                                         ) {
-                                              DropdownMenuItem(
-                                                  text = {
-                                                      Row(verticalAlignment = Alignment.CenterVertically) {
-                                                          Icon(
-                                                              imageVector = Icons.Default.Star,
-                                                              contentDescription = null,
-                                                              tint = MaterialTheme.colorScheme.primary,
-                                                              modifier = Modifier.size(16.dp)
-                                                          )
-                                                          Spacer(modifier = Modifier.width(6.dp))
-                                                          Text("Favorites")
-                                                      }
-                                                  },
-                                                  onClick = {
-                                                      selectedSubGroupFilter = "Favorites"
-                                                      scope.launch {
-                                                          settingsManager.setActiveSubId("favorites")
-                                                      }
-                                                      isSubDropdownExpanded = false
-                                                  }
-                                              )
-                                              DropdownMenuItem(
-                                                  text = { Text("Manual Config") },
-                                                  onClick = {
-                                                      selectedSubGroupFilter = "All Groups"
-                                                      scope.launch {
-                                                          settingsManager.setActiveSubId("manual")
-                                                      }
-                                                      isSubDropdownExpanded = false
-                                                  }
-                                              )
-                                              subscriptions.distinctBy { it.name }.forEach { sub ->
-                                                  if (sub.name != "Manual Config" && sub.name != "Manual / Custom Configs") {
-                                                      DropdownMenuItem(
-                                                          text = { Text(sub.name) },
-                                                          onClick = {
-                                                              selectedSubGroupFilter = sub.name
-                                                              scope.launch {
-                                                                  settingsManager.setActiveSubId(sub.id)
-                                                              }
-                                                              isSubDropdownExpanded = false
-                                                          }
-                                                      )
-                                                  }
-                                              }
-                                         }
-                                     }
-                                 }
+                                    // Filter Row (Country & Subscriptions)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        // Country Filtering Card
+                                        var isCountryDropdownExpanded by remember { mutableStateOf(false) }
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedFilterHeight)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .clickable { isCountryDropdownExpanded = true }
+                                                .background(brush = cardBorderBrush, shape = RoundedCornerShape(16.dp))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(16.dp)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(16.dp)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    FlagTextRow(
+                                                        text = selectedCountryFilter,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.FilterAlt,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            DropdownMenu(
+                                                expanded = isCountryDropdownExpanded,
+                                                onDismissRequest = { isCountryDropdownExpanded = false }
+                                            ) {
+                                                uniqueCountries.forEach { country ->
+                                                    DropdownMenuItem(
+                                                        text = { FlagTextRow(country) },
+                                                        onClick = {
+                                                            selectedCountryFilter = country
+                                                            isCountryDropdownExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
 
-                                // Row with Speed Test & Fullscreen Buttons
-// Row with Speed Test, Chain & Fullscreen Buttons
-                                 AnimatedContent(
-                                     targetState = isSearchVisible,
-                                     transitionSpec = {
-                                         fadeIn(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)) togetherWith
-                                         fadeOut(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
-                                     },
-                                     label = "SearchOrActionsTransition"
-                                 ) { searchActive ->
-                                     if (searchActive) {
-                                         Card(
-                                             modifier = Modifier
-                                                 .fillMaxWidth()
-                                                 .height(42.dp),
-                                             shape = RoundedCornerShape(21.dp),
-                                             colors = CardDefaults.cardColors(
-                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                             ),
-                                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                         ) {
-                                             Row(
-                                                 modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
-                                                 verticalAlignment = Alignment.CenterVertically
-                                             ) {
-                                                 IconButton(
-                                                     onClick = {
-                                                         isSearchVisible = false
-                                                         searchQuery = ""
-                                                     },
-                                                     modifier = Modifier.size(32.dp)
-                                                 ) {
-                                                     Icon(
-                                                         imageVector = Icons.Default.ArrowBack,
-                                                         contentDescription = "Close Search",
-                                                         tint = MaterialTheme.colorScheme.primary,
-                                                         modifier = Modifier.size(18.dp)
-                                                     )
-                                                 }
-                                                 
-                                                 androidx.compose.foundation.text.BasicTextField(
-                                                     value = searchQuery,
-                                                     onValueChange = { searchQuery = it },
-                                                     modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                                                     singleLine = true,
-                                                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                         color = MaterialTheme.colorScheme.onSurface
-                                                     ),
-                                                     decorationBox = { innerTextField ->
-                                                         Box(modifier = Modifier.fillMaxWidth()) {
-                                                             if (searchQuery.isEmpty()) {
-                                                                 Text(
-                                                                     text = "Search servers...",
-                                                                     style = MaterialTheme.typography.bodyMedium,
-                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                                 )
-                                                             }
-                                                             innerTextField()
-                                                         }
-                                                     }
-                                                 )
-                                                 
-                                                 if (searchQuery.isNotEmpty()) {
-                                                     IconButton(
-                                                         onClick = { searchQuery = "" },
-                                                         modifier = Modifier.size(32.dp)
-                                                     ) {
-                                                         Icon(
-                                                             imageVector = Icons.Default.Clear,
-                                                             contentDescription = "Clear",
-                                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                             modifier = Modifier.size(18.dp)
-                                                         )
-                                                     }
-                                                 }
-                                             }
-                                         }
-                                     } else {
-                                         Row(
-                                             modifier = Modifier.fillMaxWidth(),
-                                             horizontalArrangement = Arrangement.End,
-                                             verticalAlignment = Alignment.CenterVertically
-                                         ) {
-                                             // Update/Refresh Subscriptions button
-                                             FilledIconButton(
-                                                 onClick = onUpdateSubscriptions,
-                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                 ),
-                                                 shape = CircleShape,
-                                                 enabled = !isUpdatingSubs && !isTestingPings
-                                             ) {
-                                                 if (isUpdatingSubs) {
-                                                     LoadingIndicator(
-                                                         modifier = Modifier.size(16.dp),
-                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                     )
-                                                 } else {
-                                                     Icon(
-                                                         imageVector = Icons.Default.Sync,
-                                                         contentDescription = "Update Subscriptions",
-                                                         modifier = Modifier.size(16.dp)
-                                                     )
-                                                 }
-                                             }
-
-                                             Spacer(modifier = Modifier.width(8.dp))
-
-                                             // Ping/Speed test button
-                                             FilledIconButton(
-                                                 onClick = {
-                                                     if (!isTestingPings) {
-                                                         scope.launch {
-                                                             isTestingPings = true
-                                                             val jobs = serverList.map { link ->
-                                                                 scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                     val hostPort = getHostAndPortFromLink(link)
-                                                                     val ping = if (hostPort != null) {
-                                                                         measurePingDelay(hostPort.first, hostPort.second)
-                                                                     } else {
-                                                                         -1
-                                                                     }
-                                                                     link to ping
-                                                                 }
-                                                             }
-                                                             val results = jobs.awaitAll()
-                                                             pingsMap = pingsMap + results.toMap()
-                                                             isTestingPings = false
-                                                         }
-                                                     }
-                                                 },
-                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                 ),
-                                                 shape = CircleShape,
-                                                 enabled = !isTestingPings
-                                             ) {
-                                                 if (isTestingPings) {
-                                                     LoadingIndicator(
-                                                         modifier = Modifier.size(16.dp),
-                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                     )
-                                                 } else {
-                                                     Icon(
-                                                         imageVector = Icons.Default.Speed,
-                                                         contentDescription = stringResource(R.string.test_pings),
-                                                         modifier = Modifier.size(16.dp)
-                                                     )
-                                                 }
-                                             }
-                                             
-                                             Spacer(modifier = Modifier.width(8.dp))
-                                             
-                                             // Chain/Proxy Chain Button next to Ping button
-                                             FilledIconButton(
-                                                 onClick = { editingNodeLink = "new_chain" },
-                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                 ),
-                                                 shape = CircleShape
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Default.Link,
-                                                     contentDescription = "Create Proxy Chain",
-                                                     modifier = Modifier.size(18.dp)
-                                                 )
-                                             }
-                                             
-                                             Spacer(modifier = Modifier.width(8.dp))
-                                             
-                                             FilledIconButton(
-                                                 onClick = { isNodesExpanded = true },
-                                                 modifier = Modifier.size(36.dp).pressScaleEffect(),
-                                                 colors = IconButtonDefaults.filledIconButtonColors(
-                                                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                                 ),
-                                                 shape = CircleShape
-                                             ) {
-                                                 Icon(
-                                                     imageVector = Icons.Default.Fullscreen,
-                                                     contentDescription = "Expand Card",
-                                                     modifier = Modifier.size(18.dp)
-                                                 )
-                                             }
-                                         }
-                                     }
-                                 }
-                                     }
-                                 }
+                                        // Subscription Selector Card
+                                        var isSubDropdownExpanded by remember { mutableStateOf(false) }
+                                        Card(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(animatedFilterHeight)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .clickable { isSubDropdownExpanded = true }
+                                                .background(brush = cardBorderBrush, shape = RoundedCornerShape(16.dp))
+                                                .border(1.dp, brush = cardBorderBrush, shape = RoundedCornerShape(16.dp)),
+                                            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                                            shape = RoundedCornerShape(16.dp)
+                                        ) {
+                                            VibrantCardContent(settings.cardStyle) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    FlagTextRow(
+                                                        text = activeSubscription?.name ?: "Manual Config",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.Default.Layers,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.secondary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            DropdownMenu(
+                                                expanded = isSubDropdownExpanded,
+                                                onDismissRequest = { isSubDropdownExpanded = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                                            Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                                            Spacer(modifier = Modifier.width(6.dp))
+                                                            Text("Favorites")
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        selectedSubGroupFilter = "Favorites"
+                                                        scope.launch { settingsManager.setActiveSubId("favorites") }
+                                                        isSubDropdownExpanded = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Manual Config") },
+                                                    onClick = {
+                                                        selectedSubGroupFilter = "All Groups"
+                                                        scope.launch { settingsManager.setActiveSubId("manual") }
+                                                        isSubDropdownExpanded = false
+                                                    }
+                                                )
+                                                subscriptions.distinctBy { it.name }.forEach { sub ->
+                                                    if (sub.name != "Manual Config" && sub.name != "Manual / Custom Configs") {
+                                                        DropdownMenuItem(
+                                                            text = { Text(sub.name) },
+                                                            onClick = {
+                                                                selectedSubGroupFilter = sub.name
+                                                                scope.launch { settingsManager.setActiveSubId(sub.id) }
+                                                                isSubDropdownExpanded = false
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
 
                                 // Servers List
                                 if (filteredServerList.isEmpty()) {
