@@ -14,6 +14,39 @@ data class ServerItem(
 )
 
 fun getTransportType(link: String): String {
+    val trimmed = link.trim()
+    if (trimmed.startsWith("{")) {
+        try {
+            val json = JSONObject(trimmed)
+            val transport = json.optJSONObject("transport")
+            val transType = transport?.optString("type")?.lowercase() ?: json.optString("net").lowercase()
+            if (transType.isNotEmpty()) {
+                return when (transType) {
+                    "tcp" -> "TCP"
+                    "ws" -> "WebSocket"
+                    "h2" -> "HTTP/2"
+                    "http" -> "HTTP"
+                    "grpc" -> "gRPC"
+                    "httpupgrade" -> "HTTPUpgrade"
+                    "xhttp" -> "xHTTP"
+                    "kcp", "mkcp" -> "mKCP"
+                    "quic" -> "QUIC"
+                    else -> transType.uppercase()
+                }
+            }
+            val type = json.optString("type").lowercase()
+            if (type.isNotEmpty()) {
+                return when (type) {
+                    "hysteria", "hysteria2", "hy2" -> "Hysteria"
+                    "tuic" -> "TUIC"
+                    "ssh" -> "SSH"
+                    "shadowsocks" -> "Shadowsocks"
+                    else -> type.uppercase()
+                }
+            }
+        } catch (e: Exception) {}
+    }
+
     val scheme = link.substringBefore("://").lowercase()
     if (scheme == "vmess") {
         val base64Part = link.substringAfter("vmess://")

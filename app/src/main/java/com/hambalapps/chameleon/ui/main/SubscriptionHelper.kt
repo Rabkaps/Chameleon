@@ -210,6 +210,7 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                 }
                 
                 val lowerLine = line.lowercase()
+                val isJson = line.trim().startsWith("{") || line.trim().startsWith("[")
                 val hasValidScheme = lowerLine.startsWith("vless://") ||
                                      lowerLine.startsWith("vmess://") ||
                                      lowerLine.startsWith("ss://") ||
@@ -233,7 +234,7 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                                      lowerLine.startsWith("mieru://") ||
                                      lowerLine.startsWith("masque://")
                 
-                if (hasValidScheme) {
+                if (hasValidScheme || isJson) {
                     servers.add(line)
                 }
             }

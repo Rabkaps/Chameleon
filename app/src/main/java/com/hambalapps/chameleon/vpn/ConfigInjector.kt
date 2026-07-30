@@ -103,12 +103,54 @@ object ConfigInjector {
         }
     }
 
+    private fun tryParseJsonConfig(raw: String, settings: InjectorSettings): JSONObject? {
+        try {
+            var trimmed = raw.trim()
+            if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+                val decoded = tryBase64Decode(trimmed)
+                if (decoded != null && (decoded.trim().startsWith("{") || decoded.trim().startsWith("["))) {
+                    trimmed = decoded.trim()
+                }
+            }
+
+            if (trimmed.startsWith("{")) {
+                val json = JSONObject(trimmed)
+                return if (json.has("outbounds")) {
+                    json
+                } else if (json.has("type") || json.has("server")) {
+                    val skeleton = buildDefaultSkeleton(settings)
+                    val outbounds = JSONArray()
+                    outbounds.put(json)
+                    skeleton.put("outbounds", outbounds)
+                    skeleton
+                } else if (json.has("outbound")) {
+                    val skeleton = buildDefaultSkeleton(settings)
+                    val outbounds = JSONArray()
+                    outbounds.put(json.getJSONObject("outbound"))
+                    skeleton.put("outbounds", outbounds)
+                    skeleton
+                } else {
+                    json
+                }
+            } else if (trimmed.startsWith("[")) {
+                val array = JSONArray(trimmed)
+                val skeleton = buildDefaultSkeleton(settings)
+                skeleton.put("outbounds", array)
+                return skeleton
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
         dohWorking = true
         try {
             val trimmedProfile = rawProfile.trim()
-            val configJson = if (trimmedProfile.startsWith("{")) {
-                JSONObject(rawProfile)
+            val jsonParsed = tryParseJsonConfig(trimmedProfile, settings)
+            val configJson = if (jsonParsed != null) {
+                jsonParsed
             } else if (trimmedProfile.startsWith("chain://")) {
                 val chainId = trimmedProfile.substringAfter("chain://").substringBefore("#")
                 val chains = deserializeProxyChains(settings.proxyChains)

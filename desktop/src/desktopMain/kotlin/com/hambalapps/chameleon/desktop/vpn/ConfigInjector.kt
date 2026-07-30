@@ -8,6 +8,40 @@ import java.nio.charset.StandardCharsets
 
 object ConfigInjector {
 
+    private fun tryParseJsonConfig(raw: String, settings: UserSettings): JSONObject? {
+        try {
+            var trimmed = raw.trim()
+            if (trimmed.startsWith("{")) {
+                val json = JSONObject(trimmed)
+                return if (json.has("outbounds")) {
+                    json
+                } else if (json.has("type") || json.has("server")) {
+                    val skeleton = buildDefaultSkeleton(settings)
+                    val outbounds = JSONArray()
+                    outbounds.put(json)
+                    skeleton.put("outbounds", outbounds)
+                    skeleton
+                } else if (json.has("outbound")) {
+                    val skeleton = buildDefaultSkeleton(settings)
+                    val outbounds = JSONArray()
+                    outbounds.put(json.getJSONObject("outbound"))
+                    skeleton.put("outbounds", outbounds)
+                    skeleton
+                } else {
+                    json
+                }
+            } else if (trimmed.startsWith("[")) {
+                val array = JSONArray(trimmed)
+                val skeleton = buildDefaultSkeleton(settings)
+                skeleton.put("outbounds", array)
+                return skeleton
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
+
     fun injectConfig(
         rawProfile: String,
         settings: UserSettings,
@@ -17,6 +51,7 @@ object ConfigInjector {
     ): String {
         try {
             var trimmedProfile = rawProfile.trim().replace("\"", "").replace("'", "")
+            val jsonParsed = tryParseJsonConfig(rawProfile.trim(), settings)
             val schemes = listOf("vless://", "vmess://", "trojan://", "ss://", "socks5://", "socks://", "http://", "https://", "hysteria2://", "hy2://", "tuic://")
             val matchingScheme = schemes.find { trimmedProfile.contains(it, ignoreCase = true) }
             if (matchingScheme != null && !trimmedProfile.startsWith(matchingScheme, ignoreCase = true)) {
@@ -26,8 +61,8 @@ object ConfigInjector {
                 }
             }
 
-            val configJson = if (trimmedProfile.startsWith("{")) {
-                JSONObject(rawProfile)
+            val configJson = if (jsonParsed != null) {
+                jsonParsed
             } else if (trimmedProfile.startsWith("chain://")) {
                 val chainId = trimmedProfile.substringAfter("chain://").substringBefore("#")
                 val chains = com.hambalapps.chameleon.desktop.data.deserializeProxyChains(settings.proxyChains)
