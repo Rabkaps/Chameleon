@@ -2333,11 +2333,17 @@ fun MainScreen(
                                 ) {
                                     VibrantCardContent(settings.cardStyle) {
                                         Column(modifier = Modifier.padding(20.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
+                                            AnimatedVisibility(
+                                                visible = isHeaderExpanded,
+                                                enter = expandVertically(spring(dampingRatio = 0.65f)) + fadeIn(),
+                                                exit = shrinkVertically(spring(dampingRatio = 0.65f)) + fadeOut()
+                                            ) {
+                                                Column {
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
                                                     imageVector = Icons.Default.Dns,
@@ -2480,6 +2486,8 @@ fun MainScreen(
                                                     shape = ExpressivePillShape
                                                 )
                                             }
+                                        }
+                                        }
                                         }
 
                                         AnimatedVisibility(
