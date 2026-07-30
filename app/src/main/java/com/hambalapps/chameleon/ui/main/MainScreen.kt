@@ -728,7 +728,16 @@ fun MainScreen(
 
     val filteredServerList = remember(serverList, searchQuery, selectedTab, selectedCountryFilter, selectedSubGroupFilter, subscriptions, resolvedCountries, pingsMap, settings.favoriteServers) {
         val mapped = serverList.mapIndexedNotNull { originalIndex, serverLink ->
-            val rawType = serverLink.substringBefore("://").uppercase()
+            val rawType = if (serverLink.trim().startsWith("{")) {
+                try {
+                    val json = org.json.JSONObject(serverLink.trim())
+                    json.optString("type").uppercase()
+                } catch (e: Exception) {
+                    "JSON"
+                }
+            } else {
+                serverLink.substringBefore("://").uppercase()
+            }
             val type = when (rawType) {
                 "OVPN" -> "OPENVPN"
                 "AWG", "WIREGUARD" -> "AMNEZIAWG"

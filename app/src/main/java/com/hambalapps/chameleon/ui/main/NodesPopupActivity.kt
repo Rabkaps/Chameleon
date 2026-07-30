@@ -87,7 +87,16 @@ class NodesPopupActivity : ComponentActivity() {
 
                 val filteredServerList = remember(serverList, searchQuery, selectedTab) {
                     serverList.mapIndexedNotNull { index, serverLink ->
-                        val type = serverLink.substringBefore("://").uppercase()
+                        val type = if (serverLink.trim().startsWith("{")) {
+                            try {
+                                val json = org.json.JSONObject(serverLink.trim())
+                                json.optString("type").uppercase()
+                            } catch (e: Exception) {
+                                "JSON"
+                            }
+                        } else {
+                            serverLink.substringBefore("://").uppercase()
+                        }
                         val matchesTab = when (selectedTab) {
                             0 -> true
                             1 -> type == "VLESS"

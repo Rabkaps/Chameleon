@@ -129,6 +129,25 @@ object ProxyNameResolver {
         if (cached != null) return cached
 
         val trimmed = link.trim()
+        if (trimmed.startsWith("{")) {
+            try {
+                val json = JSONObject(trimmed)
+                val tag = json.optString("tag").ifEmpty { json.optString("name").ifEmpty { json.optString("remark") } }
+                if (tag.isNotEmpty()) {
+                    nameCache[link] = tag
+                    return tag
+                }
+                val server = json.optString("server")
+                val type = json.optString("type").uppercase()
+                if (server.isNotEmpty() && type.isNotEmpty()) {
+                    val cleanHost = if (server.length > 20) server.take(20) + "..." else server
+                    val name = "$type ($cleanHost)"
+                    nameCache[link] = name
+                    return name
+                }
+            } catch (e: Exception) {}
+        }
+
         val hashIdx = trimmed.indexOf("#")
         if (hashIdx >= 0) {
             val name = try {

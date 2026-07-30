@@ -124,7 +124,40 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
             var expireVal: Long? = parsedInfo?.expire
             
             val servers = mutableListOf<String>()
-            for (line in lines) {
+            val trimmedDecoded = decoded.trim()
+            if (trimmedDecoded.startsWith("{") || trimmedDecoded.startsWith("[")) {
+                try {
+                    if (trimmedDecoded.startsWith("{")) {
+                        val json = org.json.JSONObject(trimmedDecoded)
+                        val outbounds = json.optJSONArray("outbounds")
+                        if (outbounds != null) {
+                            for (i in 0 until outbounds.length()) {
+                                val out = outbounds.optJSONObject(i) ?: continue
+                                val type = out.optString("type").lowercase()
+                                if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
+                                    servers.add(out.toString())
+                                }
+                            }
+                        } else if (json.has("type") || json.has("server")) {
+                            servers.add(json.toString())
+                        }
+                    } else if (trimmedDecoded.startsWith("[")) {
+                        val array = org.json.JSONArray(trimmedDecoded)
+                        for (i in 0 until array.length()) {
+                            val out = array.optJSONObject(i) ?: continue
+                            val type = out.optString("type").lowercase()
+                            if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
+                                servers.add(out.toString())
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            if (servers.isEmpty()) {
+                for (line in lines) {
                 if (line.isEmpty()) continue
                 
                 // 1. Parse comments/metadata lines (starts with # or //)
@@ -237,6 +270,7 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                 if (hasValidScheme || isJson) {
                     servers.add(line)
                 }
+            }
             }
             
             FetchResult(
