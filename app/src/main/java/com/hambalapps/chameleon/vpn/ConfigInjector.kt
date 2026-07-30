@@ -97,10 +97,9 @@ object ConfigInjector {
             target.contains(".cloudflareclient.com") || target.contains(".cf-ipfs.com") ||
             target.contains(".cf-dns.com") || target.contains(".cf-ns.com") ||
             target.contains(".cf-ns.net") || target.contains(".cf-ns.org") ||
-            target.contains("novaproxy") || target.contains("bpb") ||
-            target.contains("marzban") || target.contains("x-ui") || target.contains("3x-ui") ||
+            target.contains("novaproxy") || target.contains("bpb-worker") ||
             target.contains("cloudflared") || target.contains("cf-panel") ||
-            target.contains("cdn-panel") || target.contains("cf-edge")
+            target.contains("cf-edge")
         }
     }
 
