@@ -19,8 +19,52 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import android.app.WallpaperManager
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
+
+object M3ExpressiveShape {
+    val None = RoundedCornerShape(0.dp)
+    val ExtraSmall = RoundedCornerShape(4.dp)
+    val Small = RoundedCornerShape(8.dp)
+    val Medium = RoundedCornerShape(12.dp)
+    val Large = RoundedCornerShape(16.dp)
+    val LargeIncreased = RoundedCornerShape(20.dp)
+    val ExtraLarge = RoundedCornerShape(28.dp)
+    val ExtraLargeIncreased = RoundedCornerShape(32.dp)
+    val ExtraExtraLarge = RoundedCornerShape(48.dp)
+    val Full = RoundedCornerShape(9999.dp)
+
+    // Connected button group shapes with clean end caps (no opposite diagonal sharpness)
+    val ConnectedLeft = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 4.dp, bottomEnd = 4.dp)
+    val ConnectedRight = RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 20.dp, bottomEnd = 20.dp)
+    val ConnectedMiddle = RoundedCornerShape(4.dp)
+}
+
+object M3ExpressiveMotion {
+    fun <T> spatialFast() = spring<T>(
+        dampingRatio = 0.55f,
+        stiffness = Spring.StiffnessMediumLow
+    )
+
+    fun <T> spatialDefault() = spring<T>(
+        dampingRatio = 0.65f,
+        stiffness = Spring.StiffnessLow
+    )
+
+    fun <T> spatialSlow() = spring<T>(
+        dampingRatio = 0.70f,
+        stiffness = Spring.StiffnessVeryLow
+    )
+
+    fun <T> effectsDefault() = spring<T>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+}
 
 
 private val DarkColorScheme = darkColorScheme(
