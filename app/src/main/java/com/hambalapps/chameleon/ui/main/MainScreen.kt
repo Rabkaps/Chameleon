@@ -249,22 +249,40 @@ private fun handleScannedQrResult(
                     android.widget.Toast.makeText(context, "Failed to fetch subscription: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                 }
             } else {
-                val finalLink = if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
-                    val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                    "openvpn://vpn?config=$b64#OpenVPN_Imported"
-                } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
-                    val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                    "awg://vpn?config=$b64#AmneziaWG_Imported"
+                val cleanText = trimmedImport.trim().removePrefix("\uFEFF").trim()
+                val jsonOutbounds = if (cleanText.startsWith("{") || cleanText.startsWith("[")) extractOutboundsFromJson(cleanText) else emptyList()
+                if (jsonOutbounds.size > 1) {
+                    val newSub = com.hambalapps.chameleon.data.Subscription(
+                        id = java.util.UUID.randomUUID().toString(),
+                        name = "JSON Import",
+                        url = "",
+                        servers = jsonOutbounds.joinToString("\n")
+                    )
+                    val updatedList = subscriptions + newSub
+                    settingsManager.setSubscriptionList(com.hambalapps.chameleon.data.serializeSubscriptions(updatedList))
+                    settingsManager.setActiveSubId(newSub.id)
+                    settingsManager.setActiveProfile(jsonOutbounds[0])
+                    android.widget.Toast.makeText(context, "Imported ${jsonOutbounds.size} JSON nodes!", android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    trimmedImport
+                    val finalLink = if (jsonOutbounds.size == 1) {
+                        jsonOutbounds[0]
+                    } else if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
+                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                        "openvpn://vpn?config=$b64#OpenVPN_Imported"
+                    } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
+                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
+                        "awg://vpn?config=$b64#AmneziaWG_Imported"
+                    } else {
+                        trimmedImport
+                    }
+                    val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                    val newLinkWithoutRemark = finalLink.substringBefore("#")
+                    val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
+                    settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                    settingsManager.setActiveSubId("manual")
+                    settingsManager.setActiveProfile(finalLink)
+                    android.widget.Toast.makeText(context, "Config imported successfully!", android.widget.Toast.LENGTH_SHORT).show()
                 }
-                val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                val newLinkWithoutRemark = finalLink.substringBefore("#")
-                val updatedManualList = (currentManualList.filter { it.substringBefore("#") != newLinkWithoutRemark } + finalLink).distinct()
-                settingsManager.setManualServers(updatedManualList.joinToString("\n"))
-                settingsManager.setActiveSubId("manual")
-                settingsManager.setActiveProfile(finalLink)
-                android.widget.Toast.makeText(context, "Config imported successfully!", android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

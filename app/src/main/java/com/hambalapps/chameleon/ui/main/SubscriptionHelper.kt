@@ -91,21 +91,72 @@ internal fun parseDateString(text: String): Long? {
     return clean.toLongOrNull()
 }
 
+fun sanitizeRawText(input: String): String {
+    var s = input.trim()
+    if (s.startsWith("\uFEFF")) {
+        s = s.substring(1).trim()
+    }
+    return s
+}
+
+fun extractOutboundsFromJson(jsonText: String): List<String> {
+    val servers = mutableListOf<String>()
+    val clean = sanitizeRawText(jsonText)
+    if (!clean.startsWith("{") && !clean.startsWith("[")) return servers
+
+    try {
+        if (clean.startsWith("{")) {
+            val json = org.json.JSONObject(clean)
+            val outbounds = json.optJSONArray("outbounds")
+            if (outbounds != null) {
+                for (i in 0 until outbounds.length()) {
+                    val out = outbounds.optJSONObject(i) ?: continue
+                    val type = out.optString("type").lowercase()
+                    if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
+                        servers.add(out.toString())
+                    }
+                }
+            } else if (json.has("type") || json.has("server")) {
+                servers.add(json.toString())
+            }
+        } else if (clean.startsWith("[")) {
+            val array = org.json.JSONArray(clean)
+            for (i in 0 until array.length()) {
+                val out = array.optJSONObject(i) ?: continue
+                val type = out.optString("type").lowercase()
+                if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
+                    servers.add(out.toString())
+                }
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return servers
+}
+
 internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
     try {
         val url = URL(urlStr)
         val connection = url.openConnection() as HttpURLConnection
         connection.connectTimeout = 15000
         connection.readTimeout = 15000
+        connection.instanceFollowRedirects = true
         connection.requestMethod = "GET"
         connection.setRequestProperty("User-Agent", "sing-box/1.9.0")
+        connection.setRequestProperty("Accept", "*/*")
         connection.connect()
         val responseCode = connection.responseCode
-        if (responseCode == 200) {
+        if (responseCode == 200 || responseCode == 301 || responseCode == 302) {
             val rawData = connection.inputStream.bufferedReader().use { it.readText() }
-            val decoded = tryBase64Decode(rawData) ?: rawData
-            val lines = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-            
+            val cleanRaw = sanitizeRawText(rawData)
+            val decoded = if (cleanRaw.startsWith("{") || cleanRaw.startsWith("[")) {
+                cleanRaw
+            } else {
+                val tryDec = tryBase64Decode(cleanRaw)
+                if (tryDec != null) sanitizeRawText(tryDec) else cleanRaw
+            }
+
             var userInfoHeader: String? = null
             for ((key, values) in connection.headerFields) {
                 if (key != null) {
@@ -123,40 +174,9 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
             var totalVal: Long? = parsedInfo?.total
             var expireVal: Long? = parsedInfo?.expire
             
-            val servers = mutableListOf<String>()
-            val trimmedDecoded = decoded.trim()
-            if (trimmedDecoded.startsWith("{") || trimmedDecoded.startsWith("[")) {
-                try {
-                    if (trimmedDecoded.startsWith("{")) {
-                        val json = org.json.JSONObject(trimmedDecoded)
-                        val outbounds = json.optJSONArray("outbounds")
-                        if (outbounds != null) {
-                            for (i in 0 until outbounds.length()) {
-                                val out = outbounds.optJSONObject(i) ?: continue
-                                val type = out.optString("type").lowercase()
-                                if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
-                                    servers.add(out.toString())
-                                }
-                            }
-                        } else if (json.has("type") || json.has("server")) {
-                            servers.add(json.toString())
-                        }
-                    } else if (trimmedDecoded.startsWith("[")) {
-                        val array = org.json.JSONArray(trimmedDecoded)
-                        for (i in 0 until array.length()) {
-                            val out = array.optJSONObject(i) ?: continue
-                            val type = out.optString("type").lowercase()
-                            if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
-                                servers.add(out.toString())
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-
+            val servers = extractOutboundsFromJson(decoded).toMutableList()
             if (servers.isEmpty()) {
+                val lines = decoded.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                 for (line in lines) {
                 if (line.isEmpty()) continue
                 
