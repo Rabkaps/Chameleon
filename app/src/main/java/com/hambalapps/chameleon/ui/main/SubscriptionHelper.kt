@@ -25,7 +25,7 @@ internal data class SubscriptionUserInfo(
     val expire: Long?
 )
 
-internal data class SubscriptionUrlInfo(
+data class SubscriptionUrlInfo(
     val url: String,
     val name: String? = null
 )
