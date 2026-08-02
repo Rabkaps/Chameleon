@@ -34,6 +34,17 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sing-box" />
+                <data android:scheme="singbox" />
+                <data android:scheme="clash" />
+                <data android:scheme="v2ray" />
+                <data android:scheme="v2rayn" />
+                <data android:scheme="chameleon" />
+            </intent-filter>
         </activity>
 
         <activity

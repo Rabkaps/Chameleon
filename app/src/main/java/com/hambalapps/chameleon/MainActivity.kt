@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
       @OptIn(ExperimentalMaterial3ExpressiveApi::class)
       ChameleonTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
     }
+    handleImportIntent(intent)
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -127,6 +128,54 @@ class MainActivity : ComponentActivity() {
       } else {
         handleShortcutAction(action)
         finish()
+      }
+    } else {
+      handleImportIntent(intent)
+    }
+  }
+
+  private fun handleImportIntent(intent: Intent?) {
+    val dataStr = intent?.dataString ?: return
+    if (dataStr.isEmpty()) return
+    activityScope.launch(Dispatchers.IO) {
+      val parsed = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(dataStr)
+      if (parsed.isNotEmpty()) {
+        val settingsManager = com.hambalapps.chameleon.data.SettingsManager(applicationContext)
+        var addedCount = 0
+        for (subInfo in parsed) {
+          try {
+            val result = com.hambalapps.chameleon.ui.main.fetchSubscription(subInfo.url)
+            if (result.servers.isNotEmpty()) {
+              val subName = subInfo.name ?: (result.profileName?.ifEmpty { "Subscription" } ?: "Subscription")
+              val newSub = com.hambalapps.chameleon.data.Subscription(
+                id = java.util.UUID.randomUUID().toString(),
+                name = subName,
+                url = subInfo.url,
+                servers = result.servers.joinToString("\n")
+              )
+              val currentSubs = settingsManager.settings.first().deserializedSubscriptions.filter { it.id != "manual" }.toMutableList()
+              currentSubs.removeAll { it.url == newSub.url }
+              currentSubs.add(0, newSub)
+              settingsManager.setSubscriptionList(com.hambalapps.chameleon.data.serializeSubscriptions(currentSubs))
+              settingsManager.setSubscriptionServers(currentSubs.joinToString("\u001e") { it.servers })
+              if (newSub.servers.isNotEmpty()) {
+                val firstServer = result.servers.first()
+                settingsManager.setActiveProfile(firstServer)
+                settingsManager.setActiveSubId(newSub.id)
+              }
+              addedCount += result.servers.size
+            }
+          } catch (e: Exception) {
+            e.printStackTrace()
+          }
+        }
+        kotlinx.coroutines.withContext(Dispatchers.Main) {
+          if (addedCount > 0) {
+            Toast.makeText(applicationContext, "Imported $addedCount nodes successfully!", Toast.LENGTH_LONG).show()
+          } else {
+            Toast.makeText(applicationContext, "Subscription imported", Toast.LENGTH_SHORT).show()
+          }
+        }
       }
     }
   }
