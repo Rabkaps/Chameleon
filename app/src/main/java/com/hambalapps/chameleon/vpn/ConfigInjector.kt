@@ -115,10 +115,54 @@ object ConfigInjector {
 
             if (trimmed.startsWith("{")) {
                 val json = JSONObject(trimmed)
-                return if (json.has("outbounds")) {
-                    json
-                } else if (json.has("type") || json.has("server")) {
+                if (json.has("outbounds")) {
+                    val outbounds = json.getJSONArray("outbounds")
+                    var hasProxyTag = false
+                    val proxyTags = mutableListOf<String>()
+
+                    for (i in 0 until outbounds.length()) {
+                        val out = outbounds.optJSONObject(i) ?: continue
+                        if (!out.has("type") && out.has("protocol")) {
+                            out.put("type", out.optString("protocol"))
+                        }
+                        val tag = out.optString("tag")
+                        val type = out.optString("type").lowercase()
+                        if (tag == "proxy") {
+                            hasProxyTag = true
+                        }
+                        if (type.isNotEmpty() && type != "direct" && type != "block" && type != "dns") {
+                            if (tag.isNotEmpty()) {
+                                proxyTags.add(tag)
+                            }
+                        }
+                    }
+
+                    if (!hasProxyTag) {
+                        if (proxyTags.isNotEmpty()) {
+                            val selector = JSONObject().apply {
+                                put("type", "selector")
+                                put("tag", "proxy")
+                                put("outbounds", JSONArray(proxyTags))
+                            }
+                            val newOutbounds = JSONArray()
+                            newOutbounds.put(selector)
+                            for (i in 0 until outbounds.length()) {
+                                newOutbounds.put(outbounds.get(i))
+                            }
+                            json.put("outbounds", newOutbounds)
+                        } else if (outbounds.length() > 0) {
+                            val first = outbounds.optJSONObject(0)
+                            if (first != null) {
+                                first.put("tag", "proxy")
+                            }
+                        }
+                    }
+                    return json
+                } else if (json.has("type") || json.has("server") || json.has("protocol")) {
                     val proxyOutbound = JSONObject(json.toString())
+                    if (!proxyOutbound.has("type") && proxyOutbound.has("protocol")) {
+                        proxyOutbound.put("type", proxyOutbound.optString("protocol"))
+                    }
                     proxyOutbound.put("tag", "proxy")
                     val skeleton = buildDefaultSkeleton(settings)
                     val outbounds = JSONArray()
@@ -128,6 +172,9 @@ object ConfigInjector {
                 } else if (json.has("outbound")) {
                     val out = json.getJSONObject("outbound")
                     val proxyOutbound = JSONObject(out.toString())
+                    if (!proxyOutbound.has("type") && proxyOutbound.has("protocol")) {
+                        proxyOutbound.put("type", proxyOutbound.optString("protocol"))
+                    }
                     proxyOutbound.put("tag", "proxy")
                     val skeleton = buildDefaultSkeleton(settings)
                     val outbounds = JSONArray()
@@ -135,7 +182,7 @@ object ConfigInjector {
                     skeleton.put("outbounds", outbounds)
                     skeleton
                 } else {
-                    json
+                    return json
                 }
             } else if (trimmed.startsWith("[")) {
                 val array = JSONArray(trimmed)

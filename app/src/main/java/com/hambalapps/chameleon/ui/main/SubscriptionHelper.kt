@@ -14,7 +14,8 @@ internal data class FetchResult(
     val upload: Long? = null,
     val download: Long? = null,
     val total: Long? = null,
-    val expire: Long? = null
+    val expire: Long? = null,
+    val profileName: String? = null
 )
 
 internal data class SubscriptionUserInfo(
@@ -23,6 +24,98 @@ internal data class SubscriptionUserInfo(
     val total: Long?,
     val expire: Long?
 )
+
+internal data class SubscriptionUrlInfo(
+    val url: String,
+    val name: String? = null
+)
+
+fun parseSubscriptionUrls(input: String): List<SubscriptionUrlInfo> {
+    val results = mutableListOf<SubscriptionUrlInfo>()
+    val cleanInput = sanitizeRawText(input).trim()
+    if (cleanInput.isEmpty()) return results
+
+    // Split candidate URLs by newlines or commas separating URLs
+    val splitRegex = Regex("""[\n\r]+|(?<=[\s,#])(?=https?://|sing-box://|singbox://|clash://|v2rayn://)""", RegexOption.IGNORE_CASE)
+    val tokens = cleanInput.split(splitRegex)
+
+    for (rawToken in tokens) {
+        val token = rawToken.trim().trim(',', ' ', '\t')
+        if (token.isEmpty()) continue
+
+        val lower = token.lowercase()
+
+        // Scheme 1: sing-box://, singbox://, clash://, v2rayn://
+        if (lower.startsWith("sing-box://") || lower.startsWith("singbox://") || lower.startsWith("clash://") || lower.startsWith("v2rayn://")) {
+            try {
+                var targetUrl: String? = null
+                var customName: String? = null
+
+                // Extract query parameters
+                val queryPart = token.substringAfter("?", "").substringBefore("#")
+                if (queryPart.isNotEmpty()) {
+                    val pairs = queryPart.split("&")
+                    for (pair in pairs) {
+                        val kv = pair.split("=")
+                        if (kv.size == 2) {
+                            val k = kv[0].trim().lowercase()
+                            val v = kv[1].trim()
+                            if (k == "url") {
+                                var decodedUrl = try { java.net.URLDecoder.decode(v, "UTF-8") } catch (e: Exception) { v }
+                                if (!decodedUrl.startsWith("http://") && !decodedUrl.startsWith("https://")) {
+                                    if (v.startsWith("http://") || v.startsWith("https://")) {
+                                        decodedUrl = v
+                                    }
+                                }
+                                targetUrl = decodedUrl
+                            } else if (k == "name" || k == "remark") {
+                                customName = try { java.net.URLDecoder.decode(v, "UTF-8") } catch (e: Exception) { v }
+                            }
+                        }
+                    }
+                }
+
+                // If target URL wasn't in query parameter, try parsing main part after scheme
+                if (targetUrl == null) {
+                    val rest = token.substringAfter("://").substringBefore("?").substringBefore("#")
+                    val decodedRest = try { java.net.URLDecoder.decode(rest, "UTF-8") } catch (e: Exception) { rest }
+                    if (decodedRest.startsWith("http://") || decodedRest.startsWith("https://")) {
+                        targetUrl = decodedRest
+                    } else if (rest.startsWith("http://") || rest.startsWith("https://")) {
+                        targetUrl = rest
+                    }
+                }
+
+                // Fragment name fallback
+                if (customName.isNullOrEmpty() && token.contains("#")) {
+                    val frag = token.substringAfter("#")
+                    if (frag.isNotEmpty()) {
+                        customName = try { java.net.URLDecoder.decode(frag, "UTF-8") } catch (e: Exception) { frag }
+                    }
+                }
+
+                if (!targetUrl.isNullOrEmpty() && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+                    results.add(SubscriptionUrlInfo(targetUrl, customName))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        // Scheme 2: Direct http:// or https:// URL (excluding non-subscription proxy schemes)
+        else if (lower.startsWith("http://") || lower.startsWith("https://")) {
+            val isProxyScheme = lower.startsWith("http://") && (token.contains("@") || token.contains("?type="))
+            if (!isProxyScheme) {
+                val targetUrl = token.substringBefore("#")
+                val customName = if (token.contains("#")) {
+                    val frag = token.substringAfter("#")
+                    try { java.net.URLDecoder.decode(frag, "UTF-8") } catch (e: Exception) { frag }
+                } else null
+                results.add(SubscriptionUrlInfo(targetUrl, customName))
+            }
+        }
+    }
+    return results
+}
 
 internal fun parseSubscriptionUserInfo(header: String?): SubscriptionUserInfo? {
     if (header == null) return null
@@ -110,27 +203,20 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
             val outbounds = json.optJSONArray("outbounds")
                 ?: json.optJSONArray("proxies")
                 ?: json.optJSONArray("nodes")
+                ?: json.optJSONArray("servers")
+                ?: json.optJSONArray("configs")
+                ?: json.optJSONArray("data")
+                ?: json.optJSONArray("items")
                 ?: json.optJSONArray("inbounds")
+
             if (outbounds != null) {
-                for (i in 0 until outbounds.length()) {
-                    val out = outbounds.optJSONObject(i) ?: continue
-                    val type = out.optString("type").lowercase()
-                    if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
-                        servers.add(out.toString())
-                    }
-                }
-            } else if (json.has("type") || json.has("server")) {
+                extractFromArray(outbounds, servers)
+            } else if (json.has("type") || json.has("server") || json.has("protocol")) {
                 servers.add(json.toString())
             }
         } else if (clean.startsWith("[")) {
             val array = org.json.JSONArray(clean)
-            for (i in 0 until array.length()) {
-                val out = array.optJSONObject(i) ?: continue
-                val type = out.optString("type").lowercase()
-                if (type.isNotEmpty() && type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
-                    servers.add(out.toString())
-                }
-            }
+            extractFromArray(array, servers)
         }
     } catch (e: Exception) {
         e.printStackTrace()
@@ -138,7 +224,62 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
     return servers
 }
 
+private fun extractFromArray(array: org.json.JSONArray, servers: MutableList<String>) {
+    for (i in 0 until array.length()) {
+        try {
+            val itemObj = array.optJSONObject(i)
+            if (itemObj != null) {
+                // Check if this object contains a sub-array of outbounds/configs (e.g. singbox_configs.json)
+                val subOutbounds = itemObj.optJSONArray("outbounds")
+                    ?: itemObj.optJSONArray("proxies")
+                    ?: itemObj.optJSONArray("nodes")
+                    ?: itemObj.optJSONArray("servers")
+                    ?: itemObj.optJSONArray("configs")
+                    ?: itemObj.optJSONArray("data")
+                    ?: itemObj.optJSONArray("items")
+
+                if (subOutbounds != null) {
+                    val beforeCount = servers.size
+                    extractFromArray(subOutbounds, servers)
+                    if (servers.size == beforeCount) {
+                        servers.add(itemObj.toString())
+                    }
+                } else {
+                    val type = itemObj.optString("type", itemObj.optString("protocol")).lowercase()
+                    if (type.isNotEmpty()) {
+                        if (type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
+                            servers.add(itemObj.toString())
+                        }
+                    } else if (itemObj.has("server") || itemObj.has("uuid") || itemObj.has("name") || itemObj.has("tag")) {
+                        servers.add(itemObj.toString())
+                    }
+                }
+            } else {
+                val itemStr = array.optString(i, "").trim()
+                if (itemStr.isNotEmpty()) {
+                    if (itemStr.startsWith("{") || itemStr.startsWith("[")) {
+                        val subServers = extractOutboundsFromJson(itemStr)
+                        if (subServers.isNotEmpty()) {
+                            servers.addAll(subServers)
+                        } else {
+                            servers.add(itemStr)
+                        }
+                    } else {
+                        servers.add(itemStr)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
+
 internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContext(Dispatchers.IO) {
+    val normalizedInfo = parseSubscriptionUrls(urlStr).firstOrNull()
+    val actualTargetUrl = normalizedInfo?.url ?: urlStr
+    val customProfileName = normalizedInfo?.name
+
     val userAgents = listOf(
         "sing-box/1.9.0",
         "ClashforWindows/0.20.39",
@@ -148,7 +289,7 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
 
     for (ua in userAgents) {
         try {
-            var currentUrl = urlStr
+            var currentUrl = actualTargetUrl
             var redirectCount = 0
             var connection: HttpURLConnection? = null
             var responseCode = -1
@@ -336,7 +477,8 @@ internal suspend fun fetchSubscription(urlStr: String): FetchResult = withContex
                     upload = uploadVal,
                     download = downloadVal,
                     total = totalVal,
-                    expire = expireVal
+                    expire = expireVal,
+                    profileName = customProfileName
                 )
             }
         }

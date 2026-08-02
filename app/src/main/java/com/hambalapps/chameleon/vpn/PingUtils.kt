@@ -81,6 +81,42 @@ fun tryBase64Decode(str: String): String? {
 fun getHostAndPortFromLink(link: String): Pair<String, Int>? {
     try {
         val trimmed = link.trim()
+        if (trimmed.startsWith("{")) {
+            try {
+                val json = JSONObject(trimmed)
+                var server = json.optString("server").ifEmpty { json.optString("add") }
+                var portVal = json.opt("server_port") ?: json.opt("port")
+                var port = when (portVal) {
+                    is Number -> portVal.toInt()
+                    is String -> portVal.toIntOrNull() ?: 443
+                    else -> 443
+                }
+                if (server.isEmpty()) {
+                    val outbounds = json.optJSONArray("outbounds")
+                    if (outbounds != null) {
+                        for (i in 0 until outbounds.length()) {
+                            val out = outbounds.optJSONObject(i) ?: continue
+                            val s = out.optString("server").ifEmpty { out.optString("add") }
+                            val pVal = out.opt("server_port") ?: out.opt("port")
+                            val p = when (pVal) {
+                                is Number -> pVal.toInt()
+                                is String -> pVal.toIntOrNull() ?: 443
+                                else -> 443
+                            }
+                            if (s.isNotEmpty()) {
+                                server = s
+                                port = p
+                                break
+                            }
+                        }
+                    }
+                }
+                if (server.isNotEmpty()) {
+                    return Pair(server, port)
+                }
+            } catch (e: Exception) {}
+        }
+
         val rest = if (trimmed.contains("#")) trimmed.substring(0, trimmed.indexOf("#")) else trimmed
         val schemeIdx = rest.indexOf("://")
         val scheme = if (schemeIdx >= 0) rest.substring(0, schemeIdx).lowercase() else ""
@@ -142,18 +178,36 @@ object ProxyNameResolver {
         if (trimmed.startsWith("{")) {
             try {
                 val json = JSONObject(trimmed)
-                val tag = json.optString("tag").ifEmpty { json.optString("name").ifEmpty { json.optString("remark") } }
+                val tag = json.optString("tag").ifEmpty { json.optString("name").ifEmpty { json.optString("remark").ifEmpty { json.optString("ps") } } }
                 if (tag.isNotEmpty()) {
                     nameCache[link] = tag
                     return tag
                 }
-                val server = json.optString("server")
-                val type = json.optString("type").uppercase()
+                val server = json.optString("server").ifEmpty { json.optString("add") }
+                val type = json.optString("type", json.optString("protocol")).uppercase()
                 if (server.isNotEmpty() && type.isNotEmpty()) {
                     val cleanHost = if (server.length > 20) server.take(20) + "..." else server
                     val name = "$type ($cleanHost)"
                     nameCache[link] = name
                     return name
+                }
+                val outbounds = json.optJSONArray("outbounds")
+                if (outbounds != null && outbounds.length() > 0) {
+                    val firstOut = outbounds.optJSONObject(0)
+                    if (firstOut != null) {
+                        val firstTag = firstOut.optString("tag").ifEmpty { firstOut.optString("name") }
+                        val firstServer = firstOut.optString("server").ifEmpty { firstOut.optString("add") }
+                        val firstType = firstOut.optString("type", firstOut.optString("protocol")).uppercase()
+                        val name = if (firstTag.isNotEmpty()) {
+                            "Sing-Box ($firstTag)"
+                        } else if (firstServer.isNotEmpty() && firstType.isNotEmpty()) {
+                            "$firstType ($firstServer)"
+                        } else {
+                            "Sing-Box Config"
+                        }
+                        nameCache[link] = name
+                        return name
+                    }
                 }
             } catch (e: Exception) {}
         }

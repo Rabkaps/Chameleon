@@ -215,35 +215,55 @@ private fun handleScannedQrResult(
     val trimmedImport = result.trim()
     if (trimmedImport.isNotEmpty()) {
         scope.launch {
-            if (trimmedImport.startsWith("http://") || trimmedImport.startsWith("https://")) {
+            val parsedSubUrls = parseSubscriptionUrls(trimmedImport)
+            if (parsedSubUrls.isNotEmpty()) {
                 try {
-                    val fetchResult = fetchSubscription(trimmedImport)
-                    if (fetchResult.servers.isNotEmpty()) {
-                        val domain = try {
-                            java.net.URI(trimmedImport).host ?: "Subscription"
+                    var addedCount = 0
+                    var currentSubList = subscriptions
+                    var lastActiveProfile: String? = null
+                    var lastSubId: String? = null
+
+                    for (subInfo in parsedSubUrls) {
+                        try {
+                            val fetchResult = fetchSubscription(subInfo.url)
+                            if (fetchResult.servers.isNotEmpty()) {
+                                val domain = try {
+                                    java.net.URI(subInfo.url).host ?: "Subscription"
+                                } catch (e: Exception) {
+                                    "Subscription"
+                                }
+                                val subName = subInfo.name ?: fetchResult.profileName ?: domain
+                                val newSub = com.hambalapps.chameleon.data.Subscription(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    name = subName,
+                                    url = subInfo.url,
+                                    servers = fetchResult.servers.joinToString("\n"),
+                                    upload = fetchResult.upload,
+                                    download = fetchResult.download,
+                                    total = fetchResult.total,
+                                    expire = fetchResult.expire
+                                )
+                                currentSubList = currentSubList + newSub
+                                lastSubId = newSub.id
+                                lastActiveProfile = fetchResult.servers[0]
+                                addedCount++
+                            }
                         } catch (e: Exception) {
-                            "Subscription"
+                            e.printStackTrace()
                         }
-                        val newSub = com.hambalapps.chameleon.data.Subscription(
-                            id = java.util.UUID.randomUUID().toString(),
-                            name = domain,
-                            url = trimmedImport,
-                            servers = fetchResult.servers.joinToString("\n"),
-                            upload = fetchResult.upload,
-                            download = fetchResult.download,
-                            total = fetchResult.total,
-                            expire = fetchResult.expire
-                        )
-                        val updatedList = subscriptions + newSub
-                        settingsManager.setSubscriptionList(com.hambalapps.chameleon.data.serializeSubscriptions(updatedList))
-                        settingsManager.setActiveSubId(newSub.id)
-                        settingsManager.setActiveProfile(fetchResult.servers[0])
-                        android.widget.Toast.makeText(context, "Subscription imported successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+
+                    if (addedCount > 0) {
+                        settingsManager.setSubscriptionList(com.hambalapps.chameleon.data.serializeSubscriptions(currentSubList))
+                        if (lastSubId != null) settingsManager.setActiveSubId(lastSubId)
+                        if (lastActiveProfile != null) settingsManager.setActiveProfile(lastActiveProfile)
+                        val msg = if (addedCount == 1) "Subscription imported successfully!" else "Imported $addedCount subscriptions!"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                         if (vpnState == "CONNECTED") {
                             startVpnService(context)
                         }
                     } else {
-                        android.widget.Toast.makeText(context, "No configs found in subscription link", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, "No configs found in subscription link(s)", android.widget.Toast.LENGTH_LONG).show()
                     }
                 } catch (e: Exception) {
                     android.widget.Toast.makeText(context, "Failed to fetch subscription: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
@@ -1697,33 +1717,57 @@ fun MainScreen(
                                                                 isFetching = true
                                                                 fetchError = null
                                                                 try {
-                                                                    val result = fetchSubscription(subUrlInput)
-                                                                    if (result.servers.isNotEmpty()) {
-                                                                        val domain = try {
-                                                                            java.net.URI(subUrlInput).host ?: context.getString(R.string.custom_provider)
+                                                                    val parsedSubUrls = parseSubscriptionUrls(subUrlInput)
+                                                                    val urlsToFetch = if (parsedSubUrls.isNotEmpty()) parsedSubUrls else listOf(SubscriptionUrlInfo(subUrlInput.trim()))
+
+                                                                    var addedCount = 0
+                                                                    var currentSubList = subscriptions
+                                                                    var lastActiveProfile: String? = null
+                                                                    var lastSubId: String? = null
+
+                                                                    for (subInfo in urlsToFetch) {
+                                                                        try {
+                                                                            val result = fetchSubscription(subInfo.url)
+                                                                            if (result.servers.isNotEmpty()) {
+                                                                                val domain = try {
+                                                                                    java.net.URI(subInfo.url).host ?: context.getString(R.string.custom_provider)
+                                                                                } catch (e: Exception) {
+                                                                                    context.getString(R.string.custom_provider)
+                                                                                }
+                                                                                val name = if (subNameInput.trim().isNotEmpty()) {
+                                                                                    if (urlsToFetch.size == 1) subNameInput.trim() else "${subNameInput.trim()} - ${subInfo.name ?: domain}"
+                                                                                } else {
+                                                                                    subInfo.name ?: result.profileName ?: domain
+                                                                                }
+                                                                                val newSub = Subscription(
+                                                                                    id = java.util.UUID.randomUUID().toString(),
+                                                                                    name = name,
+                                                                                    url = subInfo.url,
+                                                                                    servers = result.servers.joinToString("\n"),
+                                                                                    upload = result.upload,
+                                                                                    download = result.download,
+                                                                                    total = result.total,
+                                                                                    expire = result.expire
+                                                                                )
+                                                                                currentSubList = currentSubList + newSub
+                                                                                lastSubId = newSub.id
+                                                                                lastActiveProfile = result.servers[0]
+                                                                                addedCount++
+                                                                            }
                                                                         } catch (e: Exception) {
-                                                                            context.getString(R.string.custom_provider)
+                                                                            e.printStackTrace()
                                                                         }
-                                                                        val name = if (subNameInput.trim().isNotEmpty()) subNameInput.trim() else domain
-                                                                        val newSub = Subscription(
-                                                                            id = java.util.UUID.randomUUID().toString(),
-                                                                            name = name,
-                                                                            url = subUrlInput.trim(),
-                                                                            servers = result.servers.joinToString("\n"),
-                                                                            upload = result.upload,
-                                                                            download = result.download,
-                                                                            total = result.total,
-                                                                            expire = result.expire
-                                                                        )
-                                                                        val updatedList = subscriptions + newSub
-                                                                        settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
-                                                                        settingsManager.setActiveSubId(newSub.id)
-                                                                        settingsManager.setActiveProfile(result.servers[0])
-                                                                        
+                                                                    }
+
+                                                                    if (addedCount > 0) {
+                                                                        settingsManager.setSubscriptionList(serializeSubscriptions(currentSubList))
+                                                                        if (lastSubId != null) settingsManager.setActiveSubId(lastSubId)
+                                                                        if (lastActiveProfile != null) settingsManager.setActiveProfile(lastActiveProfile)
+
                                                                         subUrlInput = ""
                                                                         subNameInput = ""
                                                                         isAddFormExpanded = false
-                                                                        
+
                                                                         if (vpnState == "CONNECTED") {
                                                                             startVpnService(context)
                                                                         }
@@ -5644,23 +5688,7 @@ fun MainScreen(
     // Import Profile Dialog
     if (showImportDialog) {
         val isImportingSubscription = remember(importText) {
-            val trimmed = importText.trim()
-            (trimmed.startsWith("http://") || trimmed.startsWith("https://")) &&
-            !trimmed.startsWith("vless://") &&
-            !trimmed.startsWith("trojan://") &&
-            !trimmed.startsWith("ss://") &&
-            !trimmed.startsWith("socks5://") &&
-            !trimmed.startsWith("socks://") &&
-            !trimmed.startsWith("vmess://") &&
-            !trimmed.startsWith("hysteria2://") &&
-            !trimmed.startsWith("hy2://") &&
-            !trimmed.startsWith("tuic://") &&
-            !trimmed.startsWith("openvpn://") &&
-            !trimmed.startsWith("ovpn://") &&
-            !trimmed.startsWith("awg://") &&
-            !trimmed.startsWith("amneziawg://") &&
-            !trimmed.startsWith("wireguard://") &&
-            !trimmed.startsWith("masque://")
+            parseSubscriptionUrls(importText).isNotEmpty()
         }
 
         AlertDialog(
@@ -5757,31 +5785,50 @@ fun MainScreen(
                         } else {
                             scope.launch {
                                 if (trimmedImport.isNotEmpty()) {
-                                    if (isImportingSubscription) {
+                                    val parsedSubUrls = parseSubscriptionUrls(trimmedImport)
+                                    if (parsedSubUrls.isNotEmpty()) {
                                         isImportFetching = true
                                         try {
-                                            val result = fetchSubscription(trimmedImport)
-                                            if (result.servers.isNotEmpty()) {
-                                                val domain = try {
-                                                    java.net.URI(trimmedImport).host ?: context.getString(R.string.custom_provider)
+                                            var addedCount = 0
+                                            var currentSubList = subscriptions
+                                            var lastActiveProfile: String? = null
+                                            var lastSubId: String? = null
+
+                                            for (subInfo in parsedSubUrls) {
+                                                try {
+                                                    val result = fetchSubscription(subInfo.url)
+                                                    if (result.servers.isNotEmpty()) {
+                                                        val domain = try {
+                                                            java.net.URI(subInfo.url).host ?: context.getString(R.string.custom_provider)
+                                                        } catch (e: Exception) {
+                                                            context.getString(R.string.custom_provider)
+                                                        }
+                                                        val subName = subInfo.name ?: result.profileName ?: domain
+                                                        val newSub = Subscription(
+                                                            id = java.util.UUID.randomUUID().toString(),
+                                                            name = subName,
+                                                            url = subInfo.url,
+                                                            servers = result.servers.joinToString("\n"),
+                                                            upload = result.upload,
+                                                            download = result.download,
+                                                            total = result.total,
+                                                            expire = result.expire
+                                                        )
+                                                        currentSubList = currentSubList + newSub
+                                                        lastSubId = newSub.id
+                                                        lastActiveProfile = result.servers[0]
+                                                        addedCount++
+                                                    }
                                                 } catch (e: Exception) {
-                                                    context.getString(R.string.custom_provider)
+                                                    android.util.Log.e("Chameleon", "Failed to fetch subscription item: ${e.message}")
                                                 }
-                                                val newSub = Subscription(
-                                                    id = java.util.UUID.randomUUID().toString(),
-                                                    name = domain,
-                                                    url = trimmedImport,
-                                                    servers = result.servers.joinToString("\n"),
-                                                    upload = result.upload,
-                                                    download = result.download,
-                                                    total = result.total,
-                                                    expire = result.expire
-                                                )
-                                                val updatedList = subscriptions + newSub
-                                                settingsManager.setSubscriptionList(serializeSubscriptions(updatedList))
-                                                settingsManager.setActiveSubId(newSub.id)
-                                                settingsManager.setActiveProfile(result.servers[0])
-                                                
+                                            }
+
+                                            if (addedCount > 0) {
+                                                settingsManager.setSubscriptionList(serializeSubscriptions(currentSubList))
+                                                if (lastSubId != null) settingsManager.setActiveSubId(lastSubId)
+                                                if (lastActiveProfile != null) settingsManager.setActiveProfile(lastActiveProfile)
+
                                                 if (vpnState == "CONNECTED") {
                                                     startVpnService(context)
                                                 }
