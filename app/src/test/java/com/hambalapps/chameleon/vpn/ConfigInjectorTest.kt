@@ -313,15 +313,15 @@ class ConfigInjectorTest {
         val outbounds = json.getJSONArray("outbounds")
         // The first outbound in the cleanOutbounds list should now be the default "direct" outbound, since "proxy" was migrated to endpoints.
         val firstOutbound = outbounds.getJSONObject(0)
-        assert(firstOutbound.getString("tag") == "direct")
-        assert(firstOutbound.getString("type") == "direct")
+        assert(firstOutbound.getString("tag") == "proxy")
+        assert(firstOutbound.getString("type") == "selector")
 
         val endpoints = json.getJSONArray("endpoints")
         assert(endpoints.length() == 1)
         val endpoint = endpoints.getJSONObject(0)
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getBoolean("system") == false)
-        assert(endpoint.getString("tag") == "proxy")
+        assert(endpoint.getString("tag") == "warp-endpoint")
         assert(endpoint.getString("private_key") == "my_private_key_base64")
         assert(endpoint.getInt("mtu") == 1360)
 
@@ -766,38 +766,38 @@ class ConfigInjectorTest {
 
         val configStr = ConfigInjector.injectConfig(mockContext, rawConf, settings)
         val json = org.json.JSONObject(configStr)
-        val outbound = json.getJSONArray("outbounds").getJSONObject(0)
-        assert(outbound.getString("tag") == "direct")
-        assert(outbound.getString("type") == "direct")
-        
-        val endpoints = json.optJSONArray("endpoints") ?: json.getJSONArray("outbounds")
-        org.junit.Assert.assertTrue(endpoints.length() > 0)
-        var endpoint: org.json.JSONObject? = null
-        for (i in 0 until endpoints.length()) {
-            val ep = endpoints.getJSONObject(i)
-            if (ep.optString("tag") == "proxy") {
-                endpoint = ep
+        val outbounds = json.getJSONArray("outbounds")
+        var directOut: org.json.JSONObject? = null
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.getJSONObject(i)
+            if (out.optString("tag") == "direct") {
+                directOut = out
                 break
             }
         }
-        if (endpoint == null) endpoint = endpoints.getJSONObject(0)
+        org.junit.Assert.assertNotNull(directOut)
+        org.junit.Assert.assertEquals("direct", directOut!!.getString("type"))
+        
+        val endpoints = json.optJSONArray("endpoints") ?: json.getJSONArray("outbounds")
+        org.junit.Assert.assertTrue(endpoints.length() > 0)
+        val endpoint = endpoints.getJSONObject(0)
         org.junit.Assert.assertEquals("wireguard", endpoint.getString("type"))
         org.junit.Assert.assertEquals(false, endpoint.getBoolean("system"))
-        org.junit.Assert.assertEquals("proxy", endpoint.getString("tag"))
+        org.junit.Assert.assertEquals("warp-endpoint", endpoint.getString("tag"))
         org.junit.Assert.assertEquals("my_private_key", endpoint.getString("private_key"))
         org.junit.Assert.assertEquals(1420, endpoint.getInt("mtu"))
         
         val localAddress = endpoint.getJSONArray("address")
-        assert(localAddress.getString(0) == "10.0.0.2/32")
-        assert(localAddress.getString(1) == "fd00::2/128")
+        org.junit.Assert.assertEquals("10.0.0.2/32", localAddress.getString(0))
+        org.junit.Assert.assertEquals("fd00::2/128", localAddress.getString(1))
         
         val peer = endpoint.getJSONArray("peers").getJSONObject(0)
         val peerAddress = peer.getString("address")
-        assert(peerAddress == "192.168.1.100" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
-        assert(peer.getInt("port") == 51820)
-        assert(peer.getString("public_key") == "peer_public_key")
-        assert(peer.getString("pre_shared_key") == "preshared_key")
-        assert(peer.getInt("persistent_keepalive_interval") == 25)
+        org.junit.Assert.assertTrue(peerAddress == "192.168.1.100" || peerAddress.matches(Regex("""^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$""")))
+        org.junit.Assert.assertEquals(51820, peer.getInt("port"))
+        org.junit.Assert.assertEquals("peer_public_key", peer.getString("public_key"))
+        org.junit.Assert.assertEquals("preshared_key", peer.getString("pre_shared_key"))
+        org.junit.Assert.assertEquals(25, peer.getInt("persistent_keepalive_interval"))
         
         assert(!peer.has("reserved"))
 
@@ -851,15 +851,15 @@ class ConfigInjectorTest {
         val configStr2 = ConfigInjector.injectConfig(mockContext, wgUri, settings)
         val json2 = org.json.JSONObject(configStr2)
         val outbound2 = json2.getJSONArray("outbounds").getJSONObject(0)
-        assert(outbound2.getString("tag") == "direct")
-        assert(outbound2.getString("type") == "direct")
+        assert(outbound2.getString("tag") == "proxy")
+        assert(outbound2.getString("type") == "selector")
         
         val endpoints2 = json2.getJSONArray("endpoints")
         assert(endpoints2.length() == 1)
         val endpoint2 = endpoints2.getJSONObject(0)
         assert(endpoint2.getString("type") == "wireguard")
         assert(endpoint2.getBoolean("system") == false)
-        assert(endpoint2.getString("tag") == "proxy")
+        assert(endpoint2.getString("tag") == "warp-endpoint")
         assert(endpoint2.getString("private_key") == "my_private_key")
     }
 
@@ -1017,17 +1017,8 @@ class ConfigInjectorTest {
         val injectedConfig = ConfigInjector.injectConfig(mockContext, extractedNodes[0], settings)
         val injectedJson = org.json.JSONObject(injectedConfig)
         val outbounds = injectedJson.getJSONArray("outbounds")
-        org.junit.Assert.assertTrue(outbounds.length() > 0)
-        var proxyOut: org.json.JSONObject? = null
-        for (i in 0 until outbounds.length()) {
-            val out = outbounds.getJSONObject(i)
-            if (out.optString("tag") == "proxy") {
-                proxyOut = out
-                break
-            }
-        }
-        org.junit.Assert.assertNotNull(proxyOut)
-        org.junit.Assert.assertEquals("vless", proxyOut!!.getString("type"))
+        val firstOutbound = outbounds.getJSONObject(0)
+        org.junit.Assert.assertEquals("vless", firstOutbound.getString("type"))
     }
 
     @Test
@@ -1081,7 +1072,7 @@ class ConfigInjectorTest {
         val peerWarp = epWarp.getJSONArray("peers").getJSONObject(0)
         org.junit.Assert.assertFalse(peerWarp.has("reserved"))
 
-        // Test WARP PRO response format with V2Ray WireGuard settings
+        // Test WARP PRO response format with V2Ray WireGuard settings and chained proxies
         val warpProJsonResponse = """
         [
             {
@@ -1096,6 +1087,23 @@ class ConfigInjectorTest {
                             "reserved": [8, 22, 181],
                             "secretKey": "secret"
                         },
+                        "streamSettings": {
+                            "sockopt": { "dialerProxy": "proxy-1" }
+                        },
+                        "tag": "chain-1"
+                    },
+                    {
+                        "protocol": "wireguard",
+                        "settings": {
+                            "address": ["172.16.0.2/32"],
+                            "peers": [
+                                { "endpoint": "engage.cloudflareclient.com:2408", "publicKey": "pubkey", "keepAlive": 5 }
+                            ],
+                            "reserved": [197, 26, 70],
+                            "secretKey": "secret2",
+                            "wnoise": "quic",
+                            "wnoisecount": "10-15"
+                        },
                         "tag": "proxy-1"
                     }
                 ]
@@ -1104,18 +1112,32 @@ class ConfigInjectorTest {
         """.trimIndent()
 
         val extractedPro = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(warpProJsonResponse)
-        org.junit.Assert.assertTrue(extractedPro.size > 0)
-        val injectedPro = ConfigInjector.injectConfig(mockContext, extractedPro[0], settings)
-        val jsonPro = org.json.JSONObject(injectedPro)
-        val endpointsPro = jsonPro.getJSONArray("endpoints")
-        org.junit.Assert.assertTrue(endpointsPro.length() > 0)
-        val epPro = endpointsPro.getJSONObject(0)
-        org.junit.Assert.assertEquals("wireguard", epPro.getString("type"))
-        org.junit.Assert.assertEquals("secret", epPro.getString("private_key"))
-        val peerPro = epPro.getJSONArray("peers").getJSONObject(0)
-        org.junit.Assert.assertEquals("162.159.192.1", peerPro.getString("address"))
-        org.junit.Assert.assertEquals(2408, peerPro.getInt("port"))
-        org.junit.Assert.assertFalse(peerPro.has("reserved"))
+        org.junit.Assert.assertEquals(2, extractedPro.size)
+
+        // Inject chain-1 node
+        val injectedChain = ConfigInjector.injectConfig(mockContext, extractedPro[0], settings)
+        val jsonChain = org.json.JSONObject(injectedChain)
+        val outboundsChain = jsonChain.getJSONArray("outbounds")
+        val endpointsChain = jsonChain.getJSONArray("endpoints")
+        org.junit.Assert.assertTrue(outboundsChain.length() > 0)
+        org.junit.Assert.assertTrue(endpointsChain.length() >= 2) // Both chain-1 AND its detour target proxy-1
+
+        val proxySelector = outboundsChain.getJSONObject(0)
+        org.junit.Assert.assertEquals("selector", proxySelector.getString("type"))
+        org.junit.Assert.assertEquals("proxy", proxySelector.getString("tag"))
+        org.junit.Assert.assertEquals("chain-1", proxySelector.getJSONArray("outbounds").getString(0))
+
+        var foundDetourTarget = false
+        for (i in 0 until endpointsChain.length()) {
+            val ep = endpointsChain.getJSONObject(i)
+            org.junit.Assert.assertNotEquals("proxy", ep.getString("tag")) // Tag collision check
+            if (ep.getString("tag") == "proxy-1") {
+                foundDetourTarget = true
+                val peer = ep.getJSONArray("peers").getJSONObject(0)
+                org.junit.Assert.assertFalse(peer.has("reserved"))
+            }
+        }
+        org.junit.Assert.assertTrue(foundDetourTarget)
     }
 }
 

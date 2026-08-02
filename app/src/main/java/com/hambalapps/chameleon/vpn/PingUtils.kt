@@ -209,7 +209,7 @@ object ProxyNameResolver {
         if (trimmed.startsWith("{")) {
             try {
                 val json = JSONObject(trimmed)
-                val tag = json.optString("tag").ifEmpty { json.optString("name").ifEmpty { json.optString("remark").ifEmpty { json.optString("ps") } } }
+                val tag = json.optString("remarks").ifEmpty { json.optString("remark").ifEmpty { json.optString("tag").ifEmpty { json.optString("name").ifEmpty { json.optString("ps") } } } }
                 if (tag.isNotEmpty()) {
                     nameCache[link] = tag
                     return tag

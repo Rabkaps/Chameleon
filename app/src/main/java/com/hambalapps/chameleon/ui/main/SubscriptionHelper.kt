@@ -199,6 +199,26 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
     if (!clean.startsWith("{") && !clean.startsWith("[")) return servers
 
     try {
+        if (clean.startsWith("[")) {
+            val rootArr = org.json.JSONArray(clean)
+            if (rootArr.length() > 1) {
+                var isMultiProfileArray = true
+                for (i in 0 until rootArr.length()) {
+                    val obj = rootArr.optJSONObject(i)
+                    if (obj == null || (!obj.has("remarks") && !obj.has("routing"))) {
+                        isMultiProfileArray = false
+                        break
+                    }
+                }
+                if (isMultiProfileArray) {
+                    for (i in 0 until rootArr.length()) {
+                        servers.add(rootArr.getJSONObject(i).toString())
+                    }
+                    return servers
+                }
+            }
+        }
+
         if (clean.startsWith("{") || clean.startsWith("[")) {
             val rootObj = if (clean.startsWith("{")) org.json.JSONObject(clean) else null
             val rootArr = if (clean.startsWith("[")) org.json.JSONArray(clean) else null
@@ -244,24 +264,16 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
                         )
                         if (detourTag.isNotEmpty() && tagMap.containsKey(detourTag)) {
                             val detourObj = tagMap[detourTag]!!
-                            val combo = org.json.JSONObject().apply {
-                                val arr = org.json.JSONArray()
-                                arr.put(itemObj)
-                                arr.put(detourObj)
-                                put("endpoints", arr)
-                            }
-                            servers.add(combo.toString())
+                            val extraArray = org.json.JSONArray()
+                            extraArray.put(detourObj)
+                            itemObj.put("extra_endpoints", extraArray)
+                            servers.add(itemObj.toString())
                         } else {
                             servers.add(itemStr)
                         }
                     } catch (e: Exception) {
                         servers.add(itemStr)
                     }
-                }
-
-                // If config contains outbounds/endpoints, also add the complete JSON config as a full profile node
-                if (json.has("outbounds") || json.has("endpoints") || json.has("route")) {
-                    servers.add(clean)
                 }
             }
         }

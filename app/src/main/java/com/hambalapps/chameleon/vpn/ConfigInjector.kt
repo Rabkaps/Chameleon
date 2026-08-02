@@ -106,6 +106,9 @@ object ConfigInjector {
     private fun tryParseJsonConfig(raw: String, settings: InjectorSettings): JSONObject? {
         try {
             var trimmed = raw.trim()
+            if (trimmed.contains("[Interface]") && trimmed.contains("[Peer]")) {
+                return null
+            }
             if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
                 val decoded = tryBase64Decode(trimmed)
                 if (decoded != null && (decoded.trim().startsWith("{") || decoded.trim().startsWith("["))) {
@@ -163,7 +166,8 @@ object ConfigInjector {
                     if (!proxyOutbound.has("type") && proxyOutbound.has("protocol")) {
                         proxyOutbound.put("type", proxyOutbound.optString("protocol"))
                     }
-                    proxyOutbound.put("tag", "proxy")
+                    val nodeTag = proxyOutbound.optString("tag").ifEmpty { "proxy" }
+                    proxyOutbound.put("tag", nodeTag)
                     val skeleton = buildDefaultSkeleton(settings)
                     val outbounds = JSONArray()
                     outbounds.put(proxyOutbound)
@@ -1214,6 +1218,115 @@ object ConfigInjector {
         }
     }
 
+    private fun convertWireGuardOutboundToEndpoint(out: JSONObject): JSONObject {
+        val rawTag = out.optString("tag")
+        val tag = if (rawTag == "proxy" || rawTag.isEmpty()) "warp-endpoint" else rawTag
+        val settings = out.optJSONObject("settings")
+        val streamSettings = out.optJSONObject("streamSettings")
+        val detourFromStream = streamSettings?.optJSONObject("sockopt")?.optString("dialerProxy")
+        
+        val privateKey = out.optString("private_key").ifEmpty {
+            out.optString("privateKey").ifEmpty {
+                settings?.optString("secretKey")?.ifEmpty {
+                    settings?.optString("secret_key")
+                } ?: ""
+            }
+        }
+        
+        val mtuVal = if (out.has("mtu")) out.opt("mtu") else settings?.opt("mtu")
+        val detourVal = out.optString("detour").ifEmpty { detourFromStream ?: "" }
+
+        return JSONObject().apply {
+            put("type", "wireguard")
+            put("tag", tag)
+            put("system", false)
+            
+            val addrObj = out.opt("address") ?: settings?.opt("address")
+            if (addrObj != null) {
+                val cleanArray = JSONArray()
+                if (addrObj is JSONArray) {
+                    for (k in 0 until addrObj.length()) {
+                        val a = addrObj.optString(k, "")
+                        if (a.isNotEmpty()) {
+                            if (a.contains("/")) {
+                                cleanArray.put(a)
+                            } else {
+                                if (a.contains(":")) {
+                                    cleanArray.put("$a/128")
+                                } else {
+                                    cleanArray.put("$a/32")
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    val addrStr = addrObj.toString()
+                    addrStr.split(",").forEach { a ->
+                        val trimmed = a.trim()
+                        if (trimmed.isNotEmpty()) {
+                            if (trimmed.contains("/")) {
+                                cleanArray.put(trimmed)
+                            } else {
+                                if (trimmed.contains(":")) {
+                                    cleanArray.put("$trimmed/128")
+                                } else {
+                                    cleanArray.put("$trimmed/32")
+                                }
+                            }
+                        }
+                    }
+                }
+                put("address", cleanArray)
+            }
+            
+            if (privateKey.isNotEmpty()) put("private_key", privateKey)
+            if (mtuVal != null) put("mtu", mtuVal)
+            if (detourVal.isNotEmpty()) put("detour", detourVal)
+            
+            val peers = out.optJSONArray("peers") ?: settings?.optJSONArray("peers")
+            if (peers != null) {
+                val newPeers = JSONArray()
+                for (j in 0 until peers.length()) {
+                    val peer = peers.optJSONObject(j) ?: continue
+                    val newPeer = JSONObject().apply {
+                        var pAddr = peer.optString("server").ifEmpty { peer.optString("address") }
+                        if (pAddr.isEmpty() && peer.has("endpoint")) {
+                            val epStr = peer.optString("endpoint")
+                            pAddr = epStr.substringBefore(":")
+                            val epPort = epStr.substringAfter(":", "2408").toIntOrNull() ?: 2408
+                            put("port", epPort)
+                        }
+                        if (pAddr == "engage.cloudflareclient.com") {
+                            pAddr = "162.159.192.1"
+                        }
+                        if (pAddr.isNotEmpty()) put("address", pAddr)
+                        
+                        if (peer.has("server_port")) put("port", peer.get("server_port"))
+                        else if (peer.has("port")) put("port", peer.get("port"))
+                        
+                        val pubKey = peer.optString("public_key").ifEmpty { peer.optString("publicKey") }
+                        if (pubKey.isNotEmpty()) put("public_key", pubKey)
+                        
+                        val psk = peer.optString("pre_shared_key").ifEmpty { peer.optString("preshared_key") }
+                        if (psk.isNotEmpty()) put("pre_shared_key", psk)
+                        
+                        if (peer.has("allowed_ips")) put("allowed_ips", peer.get("allowed_ips"))
+                        
+                        val keepAlive = peer.opt("persistent_keepalive_interval") ?: peer.opt("keepAlive")
+                        if (keepAlive != null) put("persistent_keepalive_interval", keepAlive)
+                        // Omit reserved to prevent unmarshal crashes
+                    }
+                    newPeers.put(newPeer)
+                }
+                put("peers", newPeers)
+            }
+            
+            if (out.has("amnezia")) {
+                put("amnezia", out.get("amnezia"))
+            }
+        }
+    }
+
     private fun migrateWireGuardToEndpoints(config: JSONObject) {
         val outbounds = config.optJSONArray("outbounds") ?: return
         val endpoints = config.optJSONArray("endpoints") ?: JSONArray().also { config.put("endpoints", it) }
@@ -1237,111 +1350,55 @@ object ConfigInjector {
             }
         }
         
-        val cleanOutbounds = JSONArray()
+        var cleanOutbounds = JSONArray()
+        val endpointTagsAdded = mutableListOf<String>()
+
         for (i in 0 until outbounds.length()) {
             val out = outbounds.optJSONObject(i) ?: continue
             val type = out.optString("type", out.optString("protocol")).lowercase()
             if (type == "wireguard" || type == "amneziawg") {
-                val tag = out.optString("tag")
-                val settings = out.optJSONObject("settings")
-                val streamSettings = out.optJSONObject("streamSettings")
-                val detourFromStream = streamSettings?.optJSONObject("sockopt")?.optString("dialerProxy")
-                
-                val ep = JSONObject().apply {
-                    put("type", "wireguard")
-                    put("tag", tag)
-                    put("system", false)
-                    
-                    val addrObj = out.opt("address") ?: settings?.opt("address")
-                    if (addrObj != null) {
-                        val cleanArray = JSONArray()
-                        if (addrObj is JSONArray) {
-                            for (k in 0 until addrObj.length()) {
-                                val a = addrObj.optString(k, "")
-                                if (a.isNotEmpty()) {
-                                    if (a.contains("/")) {
-                                        cleanArray.put(a)
-                                    } else {
-                                        if (a.contains(":")) {
-                                            cleanArray.put("$a/128")
-                                        } else {
-                                            cleanArray.put("$a/32")
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            val addrStr = addrObj.toString()
-                            addrStr.split(",").forEach { a ->
-                                val trimmed = a.trim()
-                                if (trimmed.isNotEmpty()) {
-                                    if (trimmed.contains("/")) {
-                                        cleanArray.put(trimmed)
-                                    } else {
-                                        if (trimmed.contains(":")) {
-                                            cleanArray.put("$trimmed/128")
-                                        } else {
-                                            cleanArray.put("$trimmed/32")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        put("address", cleanArray)
-                    }
-                    
-                    val pKey = out.optString("private_key", out.optString("privateKey", settings?.optString("secretKey", settings?.optString("secret_key", "")) ?: ""))
-                    if (pKey.isNotEmpty()) put("private_key", pKey)
-                    
-                    val mtuVal = if (out.has("mtu")) out.opt("mtu") else settings?.opt("mtu")
-                    if (mtuVal != null) put("mtu", mtuVal)
-                    
-                    val detourVal = out.optString("detour", detourFromStream ?: "")
-                    if (detourVal.isNotEmpty()) put("detour", detourVal)
-                    
-                    val peers = out.optJSONArray("peers") ?: settings?.optJSONArray("peers")
-                    if (peers != null) {
-                        val newPeers = JSONArray()
-                        for (j in 0 until peers.length()) {
-                            val peer = peers.optJSONObject(j) ?: continue
-                            val newPeer = JSONObject().apply {
-                                if (peer.has("server")) put("address", peer.get("server"))
-                                else if (peer.has("address")) put("address", peer.get("address"))
-                                else if (peer.has("endpoint")) {
-                                    val epStr = peer.optString("endpoint")
-                                    val epHost = epStr.substringBefore(":")
-                                    val epPort = epStr.substringAfter(":", "2408").toIntOrNull() ?: 2408
-                                    put("address", epHost)
-                                    put("port", epPort)
-                                }
-                                
-                                if (peer.has("server_port")) put("port", peer.get("server_port"))
-                                else if (peer.has("port")) put("port", peer.get("port"))
-                                
-                                val pubKey = peer.optString("public_key", peer.optString("publicKey", ""))
-                                if (pubKey.isNotEmpty()) put("public_key", pubKey)
-                                
-                                val psk = peer.optString("pre_shared_key", peer.optString("preshared_key", ""))
-                                if (psk.isNotEmpty()) put("pre_shared_key", psk)
-                                
-                                if (peer.has("allowed_ips")) put("allowed_ips", peer.get("allowed_ips"))
-                                
-                                val keepAlive = peer.opt("persistent_keepalive_interval") ?: peer.opt("keepAlive")
-                                if (keepAlive != null) put("persistent_keepalive_interval", keepAlive)
-                                // Omit reserved to prevent unmarshal crashes
-                            }
-                            newPeers.put(newPeer)
-                        }
-                        put("peers", newPeers)
-                    }
-                    
-                    if (out.has("amnezia")) {
-                        put("amnezia", out.get("amnezia"))
+                val ep = convertWireGuardOutboundToEndpoint(out)
+                val tag = ep.getString("tag")
+                endpointTagsAdded.add(tag)
+                endpoints.put(ep)
+
+                // Append any extra_endpoints (detour dependencies) after converting
+                val extraEps = out.optJSONArray("extra_endpoints")
+                if (extraEps != null) {
+                    for (k in 0 until extraEps.length()) {
+                        val rawExtra = extraEps.optJSONObject(k) ?: continue
+                        val convertedExtra = convertWireGuardOutboundToEndpoint(rawExtra)
+                        endpoints.put(convertedExtra)
                     }
                 }
-                endpoints.put(ep)
             } else {
                 cleanOutbounds.put(out)
+            }
+        }
+
+        if (endpointTagsAdded.isNotEmpty()) {
+            var proxySelector: JSONObject? = null
+            for (i in 0 until cleanOutbounds.length()) {
+                val out = cleanOutbounds.optJSONObject(i) ?: continue
+                if (out.optString("tag") == "proxy") {
+                    proxySelector = out
+                    break
+                }
+            }
+            if (proxySelector != null) {
+                proxySelector.put("outbounds", JSONArray(endpointTagsAdded))
+            } else {
+                val selector = JSONObject().apply {
+                    put("type", "selector")
+                    put("tag", "proxy")
+                    put("outbounds", JSONArray(endpointTagsAdded))
+                }
+                val newOutbounds = JSONArray()
+                newOutbounds.put(selector)
+                for (i in 0 until cleanOutbounds.length()) {
+                    newOutbounds.put(cleanOutbounds.get(i))
+                }
+                cleanOutbounds = newOutbounds
             }
         }
         
