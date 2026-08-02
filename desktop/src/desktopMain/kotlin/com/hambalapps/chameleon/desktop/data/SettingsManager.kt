@@ -1,9 +1,12 @@
 package com.hambalapps.chameleon.desktop.data
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -77,25 +80,25 @@ data class UserSettings(
     val launchAtStartup: Boolean = false,
     val proxyChains: String = ""
 ) {
-    val deserializedSubscriptions: List<Subscription>
-        get() {
-            val list = deserializeSubscriptions(subscriptionList).toMutableList()
-            if (manualServers.isNotEmpty()) {
-                list.add(Subscription(
-                    id = "manual",
-                    name = "Manual / Custom Configs",
-                    url = "local://manual",
-                    servers = manualServers
-                ))
-            }
-            return list
+    @Transient
+    val deserializedSubscriptions: List<Subscription> by lazy {
+        val list = deserializeSubscriptions(subscriptionList).toMutableList()
+        if (manualServers.isNotEmpty()) {
+            list.add(Subscription(
+                id = "manual",
+                name = "Manual / Custom Configs",
+                url = "local://manual",
+                servers = manualServers
+            ))
         }
+        list
+    }
 
-    val allSubscriptionServers: String
-        get() {
-            val fromList = deserializedSubscriptions.filter { it.id != "manual" }.joinToString("\n") { it.servers }
-            return if (fromList.isNotEmpty()) fromList else subscriptionServers
-        }
+    @Transient
+    val allSubscriptionServers: String by lazy {
+        val fromList = deserializedSubscriptions.filter { it.id != "manual" }.joinToString("\n") { it.servers }
+        if (fromList.isNotEmpty()) fromList else subscriptionServers
+    }
 }
 
 @Serializable
@@ -125,6 +128,11 @@ fun deserializeSubscriptions(data: String): List<Subscription> {
     }
 }
 
+suspend fun deserializeSubscriptionsAsync(data: String): List<Subscription> =
+    withContext(Dispatchers.Default) {
+        deserializeSubscriptions(data)
+    }
+
 fun serializeSubscriptions(subs: List<Subscription>): String {
     return subs.joinToString("\u001e") { sub ->
         val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
@@ -152,6 +160,11 @@ fun deserializeProxyChains(data: String): List<ProxyChain> {
         } else null
     }
 }
+
+suspend fun deserializeProxyChainsAsync(data: String): List<ProxyChain> =
+    withContext(Dispatchers.Default) {
+        deserializeProxyChains(data)
+    }
 
 fun serializeProxyChains(chains: List<ProxyChain>): String {
     return chains.joinToString("\u001e") { chain ->

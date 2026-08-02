@@ -320,18 +320,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
             }
         } else if (action == ACTION_STOP) {
-            val settingsManager = SettingsManager(applicationContext)
-            val forceStop = intent.getBooleanExtra("force_stop", false)
-            val enableMtProxyVal = if (forceStop) false else kotlinx.coroutines.runBlocking { settingsManager.enableMtProxy.first() }
-            if (enableMtProxyVal) {
-                log("VPN stopped, but MTProxy is enabled. Switching to Local Proxy Mode...")
-                localProxyOnlyMode = true
-                _vpnState.value = "DISCONNECTED"
-                startForegroundServiceNotification()
-                reloadVpnEngine()
-            } else {
-                stopVpnEngine()
-            }
+            stopVpnEngine()
         } else if (action == ACTION_SET_MODE) {
             val mode = intent.getStringExtra("extra_mode") ?: "standard"
             serviceScope.launch {

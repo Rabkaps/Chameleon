@@ -602,6 +602,10 @@ object ConfigInjector {
             val transport = out.optJSONObject("transport")
             val transType = transport?.optString("type") ?: ""
             val isWs = transType == "ws"
+            val hostHeader = transport?.optJSONObject("headers")?.optString("Host")?.takeIf { it.isNotEmpty() }
+                ?: transport?.optJSONObject("headers")?.optString("host")?.takeIf { it.isNotEmpty() }
+                ?: transport?.optString("host")
+                ?: ""
             val isCloudflareWorker = isCloudflareDomain(serverHost, serverName, hostHeader)
             val isCloudflare = isCloudflareWorker || isWs
 

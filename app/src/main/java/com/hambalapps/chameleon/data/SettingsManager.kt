@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.hambalapps.chameleon.Config
 
@@ -213,7 +216,7 @@ class SettingsManager(private val context: Context) {
             mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
             favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet()
         )
-    }.distinctUntilChanged()
+    }.flowOn(Dispatchers.Default).distinctUntilChanged()
 
     val isAdvancedMode: Flow<Boolean> = context.dataStore.data.map { it[IS_ADVANCED_MODE] ?: false }.distinctUntilChanged()
     val enableDebugLogging: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_DEBUG_LOGGING] ?: false }.distinctUntilChanged()
@@ -303,7 +306,7 @@ class SettingsManager(private val context: Context) {
     val dashboardCards: Flow<List<String>> = context.dataStore.data.map { prefs ->
         val raw = prefs[DASHBOARD_CARDS] ?: "connect_button,selected_server,traffic,current_ip"
         raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-    }.distinctUntilChanged()
+    }.flowOn(Dispatchers.Default).distinctUntilChanged()
     suspend fun setDashboardCards(cards: List<String>) {
         context.dataStore.edit { it[DASHBOARD_CARDS] = cards.joinToString(",") }
     }
@@ -315,7 +318,7 @@ class SettingsManager(private val context: Context) {
             val parts = it.split(":")
             if (parts.size == 2) parts[0] to parts[1] else null
         }.toMap()
-    }.distinctUntilChanged()
+    }.flowOn(Dispatchers.Default).distinctUntilChanged()
 
     suspend fun setCardSize(cardId: String, size: String) {
         context.dataStore.edit { prefs ->
@@ -505,6 +508,11 @@ fun deserializeSubscriptions(data: String): List<Subscription> {
     }.filter { it.id != "manual" }
 }
 
+suspend fun deserializeSubscriptionsAsync(data: String): List<Subscription> =
+    withContext(Dispatchers.Default) {
+        deserializeSubscriptions(data)
+    }
+
 fun serializeSubscriptions(subs: List<Subscription>): String {
     return subs.filter { it.id != "manual" }.joinToString("\u001e") { sub ->
         val safeName = sub.name.replace("\u001e", "").replace("\u001f", "")
@@ -533,6 +541,11 @@ fun deserializeProxyChains(data: String): List<ProxyChain> {
     }
 }
 
+suspend fun deserializeProxyChainsAsync(data: String): List<ProxyChain> =
+    withContext(Dispatchers.Default) {
+        deserializeProxyChains(data)
+    }
+
 fun serializeProxyChains(chains: List<ProxyChain>): String {
     return chains.joinToString("\u001e") { chain ->
         val safeName = chain.name.replace("\u001e", "").replace("\u001f", "")
@@ -557,6 +570,11 @@ fun deserializeCamouflageSettings(data: String): List<CamouflageConfig> {
         } else null
     }
 }
+
+suspend fun deserializeCamouflageSettingsAsync(data: String): List<CamouflageConfig> =
+    withContext(Dispatchers.Default) {
+        deserializeCamouflageSettings(data)
+    }
 
 fun serializeCamouflageSettings(configs: List<CamouflageConfig>): String {
     return configs.joinToString("\u001e") { config ->
