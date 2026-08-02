@@ -223,12 +223,45 @@ object ConfigInjector {
     fun injectConfig(context: Context, rawProfile: String, settings: InjectorSettings): String {
         dohWorking = true
         try {
-            val trimmedProfile = rawProfile.trim()
-            val jsonParsed = tryParseJsonConfig(trimmedProfile, settings)
+            var profileText = rawProfile.trim()
+            val isKnownScheme = profileText.startsWith("{") ||
+                profileText.startsWith("[") ||
+                profileText.startsWith("chain://") ||
+                profileText.startsWith("vless://") ||
+                profileText.startsWith("trojan://") ||
+                profileText.startsWith("ss://") ||
+                profileText.startsWith("socks5://") ||
+                profileText.startsWith("socks://") ||
+                profileText.startsWith("http://") ||
+                profileText.startsWith("https://") ||
+                profileText.startsWith("vmess://") ||
+                profileText.startsWith("hysteria2://") ||
+                profileText.startsWith("hy2://") ||
+                profileText.startsWith("tuic://") ||
+                profileText.startsWith("wireguard://") ||
+                profileText.startsWith("awg://") ||
+                profileText.startsWith("amneziawg://") ||
+                profileText.startsWith("openvpn://") ||
+                profileText.startsWith("ovpn://") ||
+                profileText.startsWith("client") ||
+                profileText.contains("dev tun") ||
+                (profileText.contains("[Interface]") && profileText.contains("[Peer]"))
+
+            if (!isKnownScheme) {
+                val decoded = tryBase64Decode(profileText)
+                if (decoded != null && decoded.trim().isNotEmpty()) {
+                    val candidate = decoded.trim()
+                    if (candidate.startsWith("{") || candidate.startsWith("[") || candidate.contains("://") || (candidate.contains("[Interface]") && candidate.contains("[Peer]"))) {
+                        profileText = candidate
+                    }
+                }
+            }
+
+            val jsonParsed = tryParseJsonConfig(profileText, settings)
             val configJson = if (jsonParsed != null) {
                 jsonParsed
-            } else if (trimmedProfile.startsWith("chain://")) {
-                val chainId = trimmedProfile.substringAfter("chain://").substringBefore("#")
+            } else if (profileText.startsWith("chain://")) {
+                val chainId = profileText.substringAfter("chain://").substringBefore("#")
                 val chains = deserializeProxyChains(settings.proxyChains)
                 val chainItem = chains.find { it.id == chainId }
                 if (chainItem != null) {
@@ -236,31 +269,31 @@ object ConfigInjector {
                 } else {
                     buildDefaultSkeleton(settings)
                 }
-            } else if (trimmedProfile.startsWith("vless://") ||
-                trimmedProfile.startsWith("trojan://") ||
-                trimmedProfile.startsWith("ss://") ||
-                trimmedProfile.startsWith("socks5://") ||
-                trimmedProfile.startsWith("socks://") ||
-                trimmedProfile.startsWith("http://") ||
-                trimmedProfile.startsWith("https://") ||
-                trimmedProfile.startsWith("vmess://") ||
-                trimmedProfile.startsWith("hysteria2://") ||
-                trimmedProfile.startsWith("hy2://") ||
-                trimmedProfile.startsWith("tuic://") ||
-                trimmedProfile.startsWith("wireguard://") ||
-                trimmedProfile.startsWith("awg://") ||
-                trimmedProfile.startsWith("amneziawg://") ||
-                trimmedProfile.startsWith("openvpn://") ||
-                trimmedProfile.startsWith("ovpn://") ||
-                trimmedProfile.startsWith("mieru://") ||
-                trimmedProfile.startsWith("ssr://") ||
-                trimmedProfile.startsWith("shadowtls://") ||
-                trimmedProfile.startsWith("snell://") ||
-                trimmedProfile.startsWith("masque://") ||
-                trimmedProfile.startsWith("client") ||
-                trimmedProfile.contains("dev tun") ||
-                (trimmedProfile.contains("[Interface]") && trimmedProfile.contains("[Peer]"))) {
-                buildConfigFromUri(rawProfile, settings)
+            } else if (profileText.startsWith("vless://") ||
+                profileText.startsWith("trojan://") ||
+                profileText.startsWith("ss://") ||
+                profileText.startsWith("socks5://") ||
+                profileText.startsWith("socks://") ||
+                profileText.startsWith("http://") ||
+                profileText.startsWith("https://") ||
+                profileText.startsWith("vmess://") ||
+                profileText.startsWith("hysteria2://") ||
+                profileText.startsWith("hy2://") ||
+                profileText.startsWith("tuic://") ||
+                profileText.startsWith("wireguard://") ||
+                profileText.startsWith("awg://") ||
+                profileText.startsWith("amneziawg://") ||
+                profileText.startsWith("openvpn://") ||
+                profileText.startsWith("ovpn://") ||
+                profileText.startsWith("mieru://") ||
+                profileText.startsWith("ssr://") ||
+                profileText.startsWith("shadowtls://") ||
+                profileText.startsWith("snell://") ||
+                profileText.startsWith("masque://") ||
+                profileText.startsWith("client") ||
+                profileText.contains("dev tun") ||
+                (profileText.contains("[Interface]") && profileText.contains("[Peer]"))) {
+                buildConfigFromUri(profileText, settings)
             } else {
                 // Return default empty configuration skeleton
                 buildDefaultSkeleton(settings)
@@ -1024,7 +1057,103 @@ object ConfigInjector {
             })
         }
 
-        config.put("outbounds", cleanOutbounds)
+        val detourTargets = mutableSetOf<String>()
+        for (i in 0 until cleanOutbounds.length()) {
+            val out = cleanOutbounds.optJSONObject(i) ?: continue
+            val d = out.optString("detour")
+            if (d.isNotEmpty()) detourTargets.add(d)
+        }
+        val endpointsArray = config.optJSONArray("endpoints")
+        if (endpointsArray != null) {
+            for (i in 0 until endpointsArray.length()) {
+                val ep = endpointsArray.optJSONObject(i) ?: continue
+                val d = ep.optString("detour")
+                if (d.isNotEmpty()) detourTargets.add(d)
+            }
+        }
+
+        var hasProxyTag = false
+        val nonSystemTags = mutableListOf<String>()
+
+        for (i in 0 until cleanOutbounds.length()) {
+            val out = cleanOutbounds.optJSONObject(i) ?: continue
+            val tag = out.optString("tag")
+            val type = out.optString("type").lowercase()
+            if (tag == "proxy") {
+                hasProxyTag = true
+            }
+            if (type.isNotEmpty() && type != "direct" && type != "block" && type != "dns") {
+                if (tag.isNotEmpty() && !detourTargets.contains(tag)) {
+                    nonSystemTags.add(tag)
+                }
+            }
+        }
+
+        if (endpointsArray != null) {
+            for (i in 0 until endpointsArray.length()) {
+                val ep = endpointsArray.optJSONObject(i) ?: continue
+                val epTag = ep.optString("tag")
+                if (epTag == "proxy") {
+                    hasProxyTag = true
+                }
+                if (epTag.isNotEmpty() && !detourTargets.contains(epTag)) {
+                    nonSystemTags.add(epTag)
+                }
+            }
+        }
+
+        if (!hasProxyTag) {
+            var hasWireGuard = (endpointsArray != null && endpointsArray.length() > 0)
+            if (!hasWireGuard) {
+                for (i in 0 until cleanOutbounds.length()) {
+                    val out = cleanOutbounds.optJSONObject(i) ?: continue
+                    val t = out.optString("type", out.optString("protocol")).lowercase()
+                    if (t == "wireguard" || t == "amneziawg") {
+                        hasWireGuard = true
+                        break
+                    }
+                }
+            }
+
+            if (nonSystemTags.size == 1 && !hasWireGuard) {
+                val singleTag = nonSystemTags[0]
+                var updated = false
+                for (i in 0 until cleanOutbounds.length()) {
+                    val out = cleanOutbounds.optJSONObject(i) ?: continue
+                    if (out.optString("tag") == singleTag) {
+                        out.put("tag", "proxy")
+                        updated = true
+                        break
+                    }
+                }
+                config.put("outbounds", cleanOutbounds)
+            } else if (nonSystemTags.isNotEmpty()) {
+                val selector = JSONObject().apply {
+                    put("type", "selector")
+                    put("tag", "proxy")
+                    put("outbounds", JSONArray(nonSystemTags))
+                }
+                val finalOutbounds = JSONArray()
+                finalOutbounds.put(selector)
+                for (i in 0 until cleanOutbounds.length()) {
+                    finalOutbounds.put(cleanOutbounds.get(i))
+                }
+                config.put("outbounds", finalOutbounds)
+            } else {
+                val fallbackProxy = JSONObject().apply {
+                    put("type", "direct")
+                    put("tag", "proxy")
+                }
+                val finalOutbounds = JSONArray()
+                finalOutbounds.put(fallbackProxy)
+                for (i in 0 until cleanOutbounds.length()) {
+                    finalOutbounds.put(cleanOutbounds.get(i))
+                }
+                config.put("outbounds", finalOutbounds)
+            }
+        } else {
+            config.put("outbounds", cleanOutbounds)
+        }
     }
 
     private fun buildConfigFromChain(chainItem: ProxyChain, settings: InjectorSettings): JSONObject {
@@ -1377,6 +1506,16 @@ object ConfigInjector {
         }
 
         if (endpointTagsAdded.isNotEmpty()) {
+            val allDetourTargets = mutableSetOf<String>()
+            for (i in 0 until endpoints.length()) {
+                val ep = endpoints.optJSONObject(i) ?: continue
+                val d = ep.optString("detour")
+                if (d.isNotEmpty()) {
+                    allDetourTargets.add(d)
+                }
+            }
+            val entryEndpointTags = endpointTagsAdded.filter { !allDetourTargets.contains(it) }.ifEmpty { endpointTagsAdded }
+
             var proxySelector: JSONObject? = null
             for (i in 0 until cleanOutbounds.length()) {
                 val out = cleanOutbounds.optJSONObject(i) ?: continue
@@ -1386,12 +1525,12 @@ object ConfigInjector {
                 }
             }
             if (proxySelector != null) {
-                proxySelector.put("outbounds", JSONArray(endpointTagsAdded))
+                proxySelector.put("outbounds", JSONArray(entryEndpointTags))
             } else {
                 val selector = JSONObject().apply {
                     put("type", "selector")
                     put("tag", "proxy")
-                    put("outbounds", JSONArray(endpointTagsAdded))
+                    put("outbounds", JSONArray(entryEndpointTags))
                 }
                 val newOutbounds = JSONArray()
                 newOutbounds.put(selector)
@@ -1436,8 +1575,42 @@ object ConfigInjector {
         val config = buildDefaultSkeleton(settings)
         val outbounds = config.getJSONArray("outbounds")
         try {
-            val outbound = parseOutboundFromUri(uriStr, "proxy")
-            outbounds.put(0, outbound)
+            val lines = uriStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            if (lines.size > 1 && !uriStr.contains("[Interface]")) {
+                val proxyOutbounds = JSONArray()
+                val proxyTags = mutableListOf<String>()
+                for (i in lines.indices) {
+                    val line = lines[i]
+                    if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) continue
+                    val tag = "proxy-${i + 1}"
+                    try {
+                        val outbound = parseOutboundFromUri(line, tag)
+                        proxyOutbounds.put(outbound)
+                        proxyTags.add(tag)
+                    } catch (e: IllegalArgumentException) {
+                        throw e
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                if (proxyTags.isNotEmpty()) {
+                    val selector = JSONObject().apply {
+                        put("type", "selector")
+                        put("tag", "proxy")
+                        put("outbounds", JSONArray(proxyTags))
+                    }
+                    outbounds.put(selector)
+                    for (k in 0 until proxyOutbounds.length()) {
+                        outbounds.put(proxyOutbounds.getJSONObject(k))
+                    }
+                } else {
+                    val outbound = parseOutboundFromUri(lines[0], "proxy")
+                    outbounds.put(0, outbound)
+                }
+            } else {
+                val outbound = parseOutboundFromUri(uriStr, "proxy")
+                outbounds.put(0, outbound)
+            }
         } catch (e: IllegalArgumentException) {
             throw e
         } catch (e: Exception) {
