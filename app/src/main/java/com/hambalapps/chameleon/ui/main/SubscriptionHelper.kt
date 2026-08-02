@@ -212,7 +212,15 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
 
             if (outbounds != null) {
                 extractFromArray(outbounds, servers)
-            } else if (json.has("type") || json.has("server") || json.has("protocol")) {
+            }
+            
+            // Also extract from top-level "endpoints" array (e.g. sing-box WARP endpoints)
+            val endpoints = json.optJSONArray("endpoints")
+            if (endpoints != null) {
+                extractFromArray(endpoints, servers)
+            }
+
+            if (servers.isEmpty() && (json.has("type") || json.has("server") || json.has("protocol") || json.has("tag"))) {
                 servers.add(json.toString())
             }
         } else if (clean.startsWith("[")) {
@@ -221,6 +229,9 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
         }
     } catch (e: Exception) {
         e.printStackTrace()
+    }
+    if (servers.isEmpty() && (clean.startsWith("{") || clean.startsWith("["))) {
+        servers.add(clean)
     }
     return servers
 }

@@ -1029,5 +1029,93 @@ class ConfigInjectorTest {
         org.junit.Assert.assertNotNull(proxyOut)
         org.junit.Assert.assertEquals("vless", proxyOut!!.getString("type"))
     }
+
+    @Test
+    fun testWarpAndWarpProEndpointsExtraction() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        // Test WARP response format with endpoints array
+        val warpJsonResponse = """
+        {
+            "outbounds": [
+                { "type": "selector", "tag": "Selector", "outbounds": ["Warp-1"] },
+                { "type": "direct", "tag": "direct" }
+            ],
+            "endpoints": [
+                {
+                    "tag": "Warp-1",
+                    "type": "wireguard",
+                    "address": ["172.16.0.2/32"],
+                    "peers": [
+                        { "address": "engage.cloudflareclient.com", "port": 2408, "public_key": "pubkey", "reserved": [1, 2, 3] }
+                    ],
+                    "private_key": "privkey"
+                }
+            ]
+        }
+        """.trimIndent()
+
+        val extractedWarp = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(warpJsonResponse)
+        org.junit.Assert.assertTrue(extractedWarp.size > 0)
+        org.junit.Assert.assertTrue(extractedWarp[0].contains("Warp-1"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val injectedWarp = ConfigInjector.injectConfig(mockContext, extractedWarp[0], settings)
+        val jsonWarp = org.json.JSONObject(injectedWarp)
+        val endpointsWarp = jsonWarp.getJSONArray("endpoints")
+        org.junit.Assert.assertTrue(endpointsWarp.length() > 0)
+        val epWarp = endpointsWarp.getJSONObject(0)
+        org.junit.Assert.assertEquals("wireguard", epWarp.getString("type"))
+        val peerWarp = epWarp.getJSONArray("peers").getJSONObject(0)
+        org.junit.Assert.assertFalse(peerWarp.has("reserved"))
+
+        // Test WARP PRO response format with V2Ray WireGuard settings
+        val warpProJsonResponse = """
+        [
+            {
+                "outbounds": [
+                    {
+                        "protocol": "wireguard",
+                        "settings": {
+                            "address": ["172.16.0.2/32"],
+                            "peers": [
+                                { "endpoint": "162.159.192.1:2408", "publicKey": "pubkey", "keepAlive": 5 }
+                            ],
+                            "reserved": [8, 22, 181],
+                            "secretKey": "secret"
+                        },
+                        "tag": "proxy-1"
+                    }
+                ]
+            }
+        ]
+        """.trimIndent()
+
+        val extractedPro = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(warpProJsonResponse)
+        org.junit.Assert.assertTrue(extractedPro.size > 0)
+        val injectedPro = ConfigInjector.injectConfig(mockContext, extractedPro[0], settings)
+        val jsonPro = org.json.JSONObject(injectedPro)
+        val endpointsPro = jsonPro.getJSONArray("endpoints")
+        org.junit.Assert.assertTrue(endpointsPro.length() > 0)
+        val epPro = endpointsPro.getJSONObject(0)
+        org.junit.Assert.assertEquals("wireguard", epPro.getString("type"))
+        org.junit.Assert.assertEquals("secret", epPro.getString("private_key"))
+        val peerPro = epPro.getJSONArray("peers").getJSONObject(0)
+        org.junit.Assert.assertEquals("162.159.192.1", peerPro.getString("address"))
+        org.junit.Assert.assertEquals(2408, peerPro.getInt("port"))
+        org.junit.Assert.assertFalse(peerPro.has("reserved"))
+    }
 }
 

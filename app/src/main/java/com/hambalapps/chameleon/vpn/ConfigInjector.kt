@@ -1198,20 +1198,33 @@ object ConfigInjector {
         val outbounds = config.optJSONArray("outbounds") ?: return
         val endpoints = config.optJSONArray("endpoints") ?: JSONArray().also { config.put("endpoints", it) }
         
+        // Sanitize any existing endpoints in config (e.g. remove "reserved" from peers)
+        for (i in 0 until endpoints.length()) {
+            val ep = endpoints.optJSONObject(i) ?: continue
+            val epPeers = ep.optJSONArray("peers") ?: continue
+            for (j in 0 until epPeers.length()) {
+                val p = epPeers.optJSONObject(j) ?: continue
+                p.remove("reserved")
+            }
+        }
+        
         val cleanOutbounds = JSONArray()
         for (i in 0 until outbounds.length()) {
             val out = outbounds.optJSONObject(i) ?: continue
-            val type = out.optString("type")
+            val type = out.optString("type", out.optString("protocol")).lowercase()
             if (type == "wireguard" || type == "amneziawg") {
                 val tag = out.optString("tag")
+                val settings = out.optJSONObject("settings")
+                val streamSettings = out.optJSONObject("streamSettings")
+                val detourFromStream = streamSettings?.optJSONObject("sockopt")?.optString("dialerProxy")
                 
                 val ep = JSONObject().apply {
                     put("type", "wireguard")
                     put("tag", tag)
                     put("system", false)
                     
-                    if (out.has("address")) {
-                        val addrObj = out.get("address")
+                    val addrObj = out.opt("address") ?: settings?.opt("address")
+                    if (addrObj != null) {
                         val cleanArray = JSONArray()
                         if (addrObj is JSONArray) {
                             for (k in 0 until addrObj.length()) {
@@ -1229,7 +1242,7 @@ object ConfigInjector {
                                 }
                             }
                         } else {
-                            val addrStr = addrObj?.toString() ?: ""
+                            val addrStr = addrObj.toString()
                             addrStr.split(",").forEach { a ->
                                 val trimmed = a.trim()
                                 if (trimmed.isNotEmpty()) {
@@ -1247,22 +1260,45 @@ object ConfigInjector {
                         }
                         put("address", cleanArray)
                     }
-                    if (out.has("private_key")) put("private_key", out.get("private_key"))
-                    if (out.has("mtu")) put("mtu", out.get("mtu"))
-                    if (out.has("detour")) put("detour", out.get("detour"))
                     
-                    val peers = out.optJSONArray("peers")
+                    val pKey = out.optString("private_key", out.optString("privateKey", settings?.optString("secretKey", settings?.optString("secret_key", "")) ?: ""))
+                    if (pKey.isNotEmpty()) put("private_key", pKey)
+                    
+                    val mtuVal = if (out.has("mtu")) out.opt("mtu") else settings?.opt("mtu")
+                    if (mtuVal != null) put("mtu", mtuVal)
+                    
+                    val detourVal = out.optString("detour", detourFromStream ?: "")
+                    if (detourVal.isNotEmpty()) put("detour", detourVal)
+                    
+                    val peers = out.optJSONArray("peers") ?: settings?.optJSONArray("peers")
                     if (peers != null) {
                         val newPeers = JSONArray()
                         for (j in 0 until peers.length()) {
                             val peer = peers.optJSONObject(j) ?: continue
                             val newPeer = JSONObject().apply {
                                 if (peer.has("server")) put("address", peer.get("server"))
+                                else if (peer.has("address")) put("address", peer.get("address"))
+                                else if (peer.has("endpoint")) {
+                                    val epStr = peer.optString("endpoint")
+                                    val epHost = epStr.substringBefore(":")
+                                    val epPort = epStr.substringAfter(":", "2408").toIntOrNull() ?: 2408
+                                    put("address", epHost)
+                                    put("port", epPort)
+                                }
+                                
                                 if (peer.has("server_port")) put("port", peer.get("server_port"))
-                                if (peer.has("public_key")) put("public_key", peer.get("public_key"))
-                                if (peer.has("pre_shared_key")) put("pre_shared_key", peer.get("pre_shared_key"))
+                                else if (peer.has("port")) put("port", peer.get("port"))
+                                
+                                val pubKey = peer.optString("public_key", peer.optString("publicKey", ""))
+                                if (pubKey.isNotEmpty()) put("public_key", pubKey)
+                                
+                                val psk = peer.optString("pre_shared_key", peer.optString("preshared_key", ""))
+                                if (psk.isNotEmpty()) put("pre_shared_key", psk)
+                                
                                 if (peer.has("allowed_ips")) put("allowed_ips", peer.get("allowed_ips"))
-                                if (peer.has("persistent_keepalive_interval")) put("persistent_keepalive_interval", peer.get("persistent_keepalive_interval"))
+                                
+                                val keepAlive = peer.opt("persistent_keepalive_interval") ?: peer.opt("keepAlive")
+                                if (keepAlive != null) put("persistent_keepalive_interval", keepAlive)
                                 // Omit reserved to prevent unmarshal crashes
                             }
                             newPeers.put(newPeer)
