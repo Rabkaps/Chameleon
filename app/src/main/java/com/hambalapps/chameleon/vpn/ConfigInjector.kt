@@ -181,6 +181,26 @@ object ConfigInjector {
                     outbounds.put(proxyOutbound)
                     skeleton.put("outbounds", outbounds)
                     return skeleton
+                } else if (json.has("endpoints")) {
+                    val endpoints = json.getJSONArray("endpoints")
+                    val skeleton = buildDefaultSkeleton(settings)
+                    val epTags = mutableListOf<String>()
+                    for (i in 0 until endpoints.length()) {
+                        val ep = endpoints.optJSONObject(i) ?: continue
+                        val tag = ep.optString("tag")
+                        if (tag.isNotEmpty()) epTags.add(tag)
+                    }
+                    if (epTags.isNotEmpty()) {
+                        val selector = JSONObject().apply {
+                            put("type", "selector")
+                            put("tag", "proxy")
+                            put("outbounds", JSONArray(epTags))
+                        }
+                        val outbounds = JSONArray().apply { put(selector) }
+                        skeleton.put("outbounds", outbounds)
+                    }
+                    skeleton.put("endpoints", endpoints)
+                    return skeleton
                 } else {
                     return json
                 }
@@ -1205,6 +1225,15 @@ object ConfigInjector {
             for (j in 0 until epPeers.length()) {
                 val p = epPeers.optJSONObject(j) ?: continue
                 p.remove("reserved")
+                val addrStr = p.optString("address", p.optString("server", ""))
+                if (addrStr == "engage.cloudflareclient.com") {
+                    val resolvedIp = resolveDomainViaDoh("engage.cloudflareclient.com") ?: resolveDomainDirectly("engage.cloudflareclient.com", "1.1.1.1")
+                    if (!resolvedIp.isNullOrEmpty()) {
+                        p.put("address", resolvedIp)
+                    } else {
+                        p.put("address", "162.159.192.1")
+                    }
+                }
             }
         }
         
