@@ -213,8 +213,9 @@ class MainActivity : ComponentActivity() {
         // a large server list could take 100+ seconds, expiring the window and
         // causing ForegroundServiceStartNotAllowedException.
         kotlinx.coroutines.withContext(Dispatchers.IO) {
+          val scope = this
           val results = list.map { link ->
-            kotlinx.coroutines.async {
+            scope.async {
               val hostPort = getHostAndPortFromLink(link)
               if (hostPort != null) {
                 val latency = measurePingDelay(hostPort.first, hostPort.second)
