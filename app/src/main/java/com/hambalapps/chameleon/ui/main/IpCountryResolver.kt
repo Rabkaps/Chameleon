@@ -33,6 +33,7 @@ object IpCountryResolver {
         }
     }
 
+    @Synchronized
     private fun saveCache() {
         val file = cacheFile ?: return
         try {
@@ -79,6 +80,8 @@ object IpCountryResolver {
         val ipToResolve = try {
             val address = InetAddress.getByName(trimmed)
             address.hostAddress ?: trimmed
+        } catch (e: android.os.NetworkOnMainThreadException) {
+            trimmed
         } catch (e: Exception) {
             trimmed
         }

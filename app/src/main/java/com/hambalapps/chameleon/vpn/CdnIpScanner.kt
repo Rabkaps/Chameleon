@@ -65,8 +65,9 @@ object CdnIpScanner {
             return cached.first
         }
 
-        android.util.Log.i("Chameleon", "No cached IP for $preset. Running clean IP scan...")
-        val cleanIp = runBlocking {
+        // Use Dispatchers.IO to ensure the blocking scan runs on IO threads,
+        // not on whatever thread called this (which could be Main → ANR)
+        val cleanIp = runBlocking(Dispatchers.IO) {
             val res = performScan(preset, customIps, port, timeoutMs)
             res.fastestIp
         }

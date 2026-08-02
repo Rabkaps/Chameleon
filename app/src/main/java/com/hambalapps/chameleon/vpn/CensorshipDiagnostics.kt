@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
 enum class CensorshipDiagnosticResult {
@@ -67,12 +68,12 @@ object CensorshipDiagnostics {
         // 3. Test TLS SNI Handshake (for HTTPS / SSL ports)
         if (port == 443 || port == 8443 || port == 2053 || port == 2083) {
             try {
-                val sslFactory = SSLSocketFactory.getDefault()
-                sslFactory.createSocket().use { sslSocket ->
-                    sslSocket.connect(InetSocketAddress(resolvedIp, port), 2500)
-                    (sslSocket as? javax.net.ssl.SSLSocket)?.apply {
-                        soTimeout = 2500
-                        startHandshake()
+                val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
+                Socket().use { plainSocket ->
+                    plainSocket.connect(InetSocketAddress(resolvedIp, port), 2500)
+                    (sslFactory.createSocket(plainSocket, sni, port, true) as javax.net.ssl.SSLSocket).use { sslSocket ->
+                        sslSocket.soTimeout = 2500
+                        sslSocket.startHandshake()
                     }
                 }
             } catch (e: java.io.IOException) {

@@ -206,16 +206,24 @@ class MainActivity : ComponentActivity() {
         var bestLatency = Int.MAX_VALUE
         val delayUrl = settingsManager.settings.first().delayTestUrl
 
+        // Ping all servers concurrently (not sequentially) to stay within the
+        // ForegroundService exemption window on Android 12+. Sequential pings on
+        // a large server list could take 100+ seconds, expiring the window and
+        // causing ForegroundServiceStartNotAllowedException.
         kotlinx.coroutines.withContext(Dispatchers.IO) {
-          list.forEach { link ->
-            val hostPort = getHostAndPortFromLink(link)
-            if (hostPort != null) {
-              val latency = measurePingDelay(hostPort.first, hostPort.second)
-              if (latency in 0 until bestLatency) {
-                bestLatency = latency
-                bestLink = link
-              }
+          val results = list.map { link ->
+            kotlinx.coroutines.async {
+              val hostPort = getHostAndPortFromLink(link)
+              if (hostPort != null) {
+                val latency = measurePingDelay(hostPort.first, hostPort.second)
+                if (latency >= 0) Pair(link, latency) else null
+              } else null
             }
+          }.awaitAll().filterNotNull()
+          val best = results.minByOrNull { it.second }
+          if (best != null) {
+            bestLink = best.first
+            bestLatency = best.second
           }
         }
 

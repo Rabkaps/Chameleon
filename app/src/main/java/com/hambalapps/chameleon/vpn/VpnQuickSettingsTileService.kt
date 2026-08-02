@@ -108,14 +108,10 @@ class VpnQuickSettingsTileService : TileService() {
                     }
                 }
             } else {
-                // Permission is granted, start the VPN
-                if (isLocked) {
-                    unlockAndRun {
-                        startVpnService()
-                    }
-                } else {
-                    startVpnService()
-                }
+                // Permission is granted, start the VPN directly
+                // Don't use unlockAndRun — it delays startForegroundService beyond
+                // the QS tile exemption window, causing ForegroundServiceStartNotAllowedException on Android 12+
+                startVpnService()
             }
         }
     }
