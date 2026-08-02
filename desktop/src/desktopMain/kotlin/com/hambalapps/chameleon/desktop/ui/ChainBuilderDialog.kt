@@ -177,7 +177,8 @@ fun ChainBuilderDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (chainName.trim().isNotEmpty() && selectedRelay.isNotEmpty() && selectedExit.isNotEmpty()) {
+                    // Prevent self-loop chains (relay == exit) which cause infinite routing loops in sing-box
+                    if (chainName.trim().isNotEmpty() && selectedRelay.isNotEmpty() && selectedExit.isNotEmpty() && selectedRelay != selectedExit) {
                         onSave(chainName.trim(), selectedRelay, selectedExit)
                     }
                 },

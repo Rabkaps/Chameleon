@@ -35,6 +35,8 @@ object SingboxManager {
     val logFile = File(workingDir, "vpn.log")
 
     private var statsJob: Job? = null
+    private var readerJob: Job? = null
+    private var watcherJob: Job? = null
 
     init {
         // Extract assets from JAR resources to working directory
@@ -198,7 +200,7 @@ object SingboxManager {
             val proc = pb.start()
             process = proc
 
-            scope.launch {
+            readerJob = scope.launch {
                 proc.inputStream.bufferedReader().use { reader ->
                     while (proc.isAlive) {
                         val line = reader.readLine() ?: break
@@ -207,7 +209,7 @@ object SingboxManager {
                 }
             }
 
-            scope.launch {
+            watcherJob = scope.launch {
                 try {
                     proc.waitFor()
                     if (process == proc) {
@@ -261,6 +263,11 @@ object SingboxManager {
         
         SystemProxy.disable()
         
+        // Cancel all background coroutines to ensure clean JVM shutdown
+        readerJob?.cancel()
+        readerJob = null
+        watcherJob?.cancel()
+        watcherJob = null
         statsJob?.cancel()
         statsJob = null
         _trafficStats.value = Pair(0L, 0L)
