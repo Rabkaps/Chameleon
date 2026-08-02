@@ -98,7 +98,7 @@ fun parseSubscriptionUrls(input: String): List<SubscriptionUrlInfo> {
                     results.add(SubscriptionUrlInfo(targetUrl, customName))
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("Chameleon", "Error parsing sing-box URL token: $token", e)
             }
         }
         // Scheme 2: Direct http:// or https:// URL (excluding non-subscription proxy schemes)
@@ -114,6 +114,7 @@ fun parseSubscriptionUrls(input: String): List<SubscriptionUrlInfo> {
             }
         }
     }
+    android.util.Log.i("Chameleon", "parseSubscriptionUrls extracted ${results.size} URLs: $results")
     return results
 }
 
@@ -229,6 +230,11 @@ private fun extractFromArray(array: org.json.JSONArray, servers: MutableList<Str
         try {
             val itemObj = array.optJSONObject(i)
             if (itemObj != null) {
+                val type = itemObj.optString("type", itemObj.optString("protocol")).lowercase()
+                if (type == "selector" || type == "urltest" || type == "direct" || type == "block" || type == "dns") {
+                    continue
+                }
+
                 // Check if this object contains a sub-array of outbounds/configs (e.g. singbox_configs.json)
                 val subOutbounds = itemObj.optJSONArray("outbounds")
                     ?: itemObj.optJSONArray("proxies")
@@ -245,11 +251,8 @@ private fun extractFromArray(array: org.json.JSONArray, servers: MutableList<Str
                         servers.add(itemObj.toString())
                     }
                 } else {
-                    val type = itemObj.optString("type", itemObj.optString("protocol")).lowercase()
                     if (type.isNotEmpty()) {
-                        if (type != "selector" && type != "urltest" && type != "direct" && type != "block" && type != "dns") {
-                            servers.add(itemObj.toString())
-                        }
+                        servers.add(itemObj.toString())
                     } else if (itemObj.has("server") || itemObj.has("uuid") || itemObj.has("name") || itemObj.has("tag")) {
                         servers.add(itemObj.toString())
                     }

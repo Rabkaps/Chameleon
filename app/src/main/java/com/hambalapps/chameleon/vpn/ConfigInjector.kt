@@ -168,7 +168,7 @@ object ConfigInjector {
                     val outbounds = JSONArray()
                     outbounds.put(proxyOutbound)
                     skeleton.put("outbounds", outbounds)
-                    skeleton
+                    return skeleton
                 } else if (json.has("outbound")) {
                     val out = json.getJSONObject("outbound")
                     val proxyOutbound = JSONObject(out.toString())
@@ -180,7 +180,7 @@ object ConfigInjector {
                     val outbounds = JSONArray()
                     outbounds.put(proxyOutbound)
                     skeleton.put("outbounds", outbounds)
-                    skeleton
+                    return skeleton
                 } else {
                     return json
                 }

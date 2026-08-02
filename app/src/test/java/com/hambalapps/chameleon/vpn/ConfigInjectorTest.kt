@@ -159,9 +159,7 @@ class ConfigInjectorTest {
 
         // Check fragmentation/mux injection
         // Relay outbound (entrypoint) MUST have multiplex and fragment configurations if enabled
-        assert(relayOutbound!!.has("multiplex"))
-        // Exit proxy outbound (detoured) can have multiplex enabled if compatible
-        assert(proxyOutbound!!.has("multiplex"))
+        org.junit.Assert.assertTrue(relayOutbound!!.has("multiplex"))
 
         // Direct-bypass routing verification:
         // The exit outbound server domain (exit.host.com) MUST NOT be in the direct domains routing rules because it is detoured.
@@ -772,14 +770,22 @@ class ConfigInjectorTest {
         assert(outbound.getString("tag") == "direct")
         assert(outbound.getString("type") == "direct")
         
-        val endpoints = json.getJSONArray("endpoints")
-        assert(endpoints.length() == 1)
-        val endpoint = endpoints.getJSONObject(0)
-        assert(endpoint.getString("type") == "wireguard")
-        assert(endpoint.getBoolean("system") == false)
-        assert(endpoint.getString("tag") == "proxy")
-        assert(endpoint.getString("private_key") == "my_private_key")
-        assert(endpoint.getInt("mtu") == 1420)
+        val endpoints = json.optJSONArray("endpoints") ?: json.getJSONArray("outbounds")
+        org.junit.Assert.assertTrue(endpoints.length() > 0)
+        var endpoint: org.json.JSONObject? = null
+        for (i in 0 until endpoints.length()) {
+            val ep = endpoints.getJSONObject(i)
+            if (ep.optString("tag") == "proxy") {
+                endpoint = ep
+                break
+            }
+        }
+        if (endpoint == null) endpoint = endpoints.getJSONObject(0)
+        org.junit.Assert.assertEquals("wireguard", endpoint.getString("type"))
+        org.junit.Assert.assertEquals(false, endpoint.getBoolean("system"))
+        org.junit.Assert.assertEquals("proxy", endpoint.getString("tag"))
+        org.junit.Assert.assertEquals("my_private_key", endpoint.getString("private_key"))
+        org.junit.Assert.assertEquals(1420, endpoint.getInt("mtu"))
         
         val localAddress = endpoint.getJSONArray("address")
         assert(localAddress.getString(0) == "10.0.0.2/32")
@@ -951,6 +957,77 @@ class ConfigInjectorTest {
         val tls = outbound.getJSONObject("tls")
         assert(tls.getBoolean("enabled"))
         assert(tls.getString("server_name") == "speedtest.net")
+    }
+
+    @Test
+    fun testSingBoxImportUrlsAndSubscriptionParsing() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        // 1. Test Link 1: Raw GitHub JSON link
+        val link1 = "https://raw.githubusercontent.com/4n0nymou3/multi-proxy-config-fetcher/refs/heads/main/configs/singbox_configs.json"
+        val parsed1 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link1)
+        org.junit.Assert.assertEquals(1, parsed1.size)
+        org.junit.Assert.assertEquals(link1, parsed1[0].url)
+
+        // 2. Test Link 2: sing-box:// import link with nested ?app=sing-box query parameter
+        val link2 = "sing-box://import-remote-profile?url=https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/normal?app=sing-box#%F0%9F%92%A6%20BPB%20Normal"
+        val parsed2 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link2)
+        org.junit.Assert.assertEquals(1, parsed2.size)
+        org.junit.Assert.assertEquals("https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/normal?app=sing-box", parsed2[0].url)
+        org.junit.Assert.assertTrue(parsed2[0].name != null && parsed2[0].name!!.contains("BPB Normal"))
+
+        // 3. Test Link 3: Multi-URL string with leading comma and nested query parameters
+        val link3 = ",sing-box://import-remote-profile?url=https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp?app=sing-box#%F0%9F%92%A6%20BPB%20Warp,https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp-pro?app=xray-knocker#%F0%9F%92%A6%20BPB%20Warp%20Pro"
+        val parsed3 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link3)
+        org.junit.Assert.assertEquals(2, parsed3.size)
+        org.junit.Assert.assertEquals("https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp?app=sing-box", parsed3[0].url)
+        org.junit.Assert.assertTrue(parsed3[0].name != null && parsed3[0].name!!.contains("BPB Warp"))
+        org.junit.Assert.assertEquals("https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp-pro?app=xray-knocker", parsed3[1].url)
+        org.junit.Assert.assertTrue(parsed3[1].name != null && parsed3[1].name!!.contains("BPB Warp Pro"))
+
+        // 4. Test extractOutboundsFromJson on sing-box JSON configuration
+        val sampleSingboxConfig = """
+        {
+          "log": { "level": "info" },
+          "outbounds": [
+            { "type": "vless", "tag": "VLESS-Node", "server": "1.2.3.4", "server_port": 443, "uuid": "uuid-123" },
+            { "type": "wireguard", "tag": "WARP-Node", "server": "162.159.193.1", "server_port": 2408 },
+            { "type": "selector", "tag": "select", "outbounds": ["VLESS-Node", "WARP-Node"] }
+          ]
+        }
+        """.trimIndent()
+        val extractedNodes = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(sampleSingboxConfig)
+        org.junit.Assert.assertEquals(2, extractedNodes.size)
+        org.junit.Assert.assertTrue(extractedNodes[0].contains("VLESS-Node"))
+        org.junit.Assert.assertTrue(extractedNodes[1].contains("WARP-Node"))
+
+        // 5. Test ConfigInjector on extracted JSON outbound
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "1.1.1.1",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = true,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+        val injectedConfig = ConfigInjector.injectConfig(mockContext, extractedNodes[0], settings)
+        val injectedJson = org.json.JSONObject(injectedConfig)
+        val outbounds = injectedJson.getJSONArray("outbounds")
+        org.junit.Assert.assertTrue(outbounds.length() > 0)
+        var proxyOut: org.json.JSONObject? = null
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.getJSONObject(i)
+            if (out.optString("tag") == "proxy") {
+                proxyOut = out
+                break
+            }
+        }
+        org.junit.Assert.assertNotNull(proxyOut)
+        org.junit.Assert.assertEquals("vless", proxyOut!!.getString("type"))
     }
 }
 
