@@ -35,9 +35,9 @@ fun parseSubscriptionUrls(input: String): List<SubscriptionUrlInfo> {
     val cleanInput = sanitizeRawText(input).trim()
     if (cleanInput.isEmpty()) return results
 
-    // Split candidate URLs by newlines or commas separating URLs
-    val splitRegex = Regex("""[\n\r]+|(?<=[\s,#])(?=https?://|sing-box://|singbox://|clash://|v2rayn://)""", RegexOption.IGNORE_CASE)
-    val tokens = cleanInput.split(splitRegex)
+    val normalizedInput = cleanInput
+        .replace(Regex("""[,;\s]+(?=https?://|sing-box://|singbox://|clash://|v2rayn://)""", RegexOption.IGNORE_CASE), "\n")
+    val tokens = normalizedInput.split(Regex("""[\n\r;]+"""))
 
     for (rawToken in tokens) {
         val token = rawToken.trim().trim(',', ' ', '\t')
@@ -56,10 +56,10 @@ fun parseSubscriptionUrls(input: String): List<SubscriptionUrlInfo> {
                 if (queryPart.isNotEmpty()) {
                     val pairs = queryPart.split("&")
                     for (pair in pairs) {
-                        val kv = pair.split("=")
-                        if (kv.size == 2) {
-                            val k = kv[0].trim().lowercase()
-                            val v = kv[1].trim()
+                        val eqIdx = pair.indexOf("=")
+                        if (eqIdx > 0) {
+                            val k = pair.substring(0, eqIdx).trim().lowercase()
+                            val v = pair.substring(eqIdx + 1).trim()
                             if (k == "url") {
                                 var decodedUrl = try { java.net.URLDecoder.decode(v, "UTF-8") } catch (e: Exception) { v }
                                 if (!decodedUrl.startsWith("http://") && !decodedUrl.startsWith("https://")) {
