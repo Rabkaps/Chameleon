@@ -92,6 +92,18 @@ fun getHostAndPortFromLink(link: String): Pair<String, Int>? {
                     else -> 443
                 }
                 if (server.isEmpty()) {
+                    val peers = json.optJSONArray("peers")
+                    if (peers != null && peers.length() > 0) {
+                        val peer = peers.optJSONObject(0)
+                        val pAddr = peer?.optString("address")?.ifEmpty { peer.optString("server")?.ifEmpty { peer.optString("endpoint")?.substringBefore(":") } } ?: ""
+                        val pPort = peer?.optInt("port", peer.optInt("server_port", 2408)) ?: 2408
+                        if (pAddr.isNotEmpty()) {
+                            server = pAddr
+                            port = pPort
+                        }
+                    }
+                }
+                if (server.isEmpty()) {
                     val outbounds = json.optJSONArray("outbounds")
                     if (outbounds != null) {
                         for (i in 0 until outbounds.length()) {
@@ -107,6 +119,25 @@ fun getHostAndPortFromLink(link: String): Pair<String, Int>? {
                                 server = s
                                 port = p
                                 break
+                            }
+                        }
+                    }
+                }
+                if (server.isEmpty()) {
+                    val endpoints = json.optJSONArray("endpoints")
+                    if (endpoints != null) {
+                        for (i in 0 until endpoints.length()) {
+                            val ep = endpoints.optJSONObject(i) ?: continue
+                            val epPeers = ep.optJSONArray("peers")
+                            if (epPeers != null && epPeers.length() > 0) {
+                                val peer = epPeers.optJSONObject(0)
+                                val pAddr = peer?.optString("address")?.ifEmpty { peer.optString("server")?.ifEmpty { peer.optString("endpoint")?.substringBefore(":") } } ?: ""
+                                val pPort = peer?.optInt("port", peer.optInt("server_port", 2408)) ?: 2408
+                                if (pAddr.isNotEmpty()) {
+                                    server = pAddr
+                                    port = pPort
+                                    break
+                                }
                             }
                         }
                     }

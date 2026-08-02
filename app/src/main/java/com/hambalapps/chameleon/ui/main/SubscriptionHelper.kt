@@ -199,33 +199,71 @@ fun extractOutboundsFromJson(jsonText: String): List<String> {
     if (!clean.startsWith("{") && !clean.startsWith("[")) return servers
 
     try {
-        if (clean.startsWith("{")) {
-            val json = org.json.JSONObject(clean)
-            val outbounds = json.optJSONArray("outbounds")
-                ?: json.optJSONArray("proxies")
-                ?: json.optJSONArray("nodes")
-                ?: json.optJSONArray("servers")
-                ?: json.optJSONArray("configs")
-                ?: json.optJSONArray("data")
-                ?: json.optJSONArray("items")
-                ?: json.optJSONArray("inbounds")
+        if (clean.startsWith("{") || clean.startsWith("[")) {
+            val rootObj = if (clean.startsWith("{")) org.json.JSONObject(clean) else null
+            val rootArr = if (clean.startsWith("[")) org.json.JSONArray(clean) else null
+            val json = rootObj ?: (if (rootArr != null && rootArr.length() > 0) rootArr.optJSONObject(0) else null)
 
-            if (outbounds != null) {
-                extractFromArray(outbounds, servers)
-            }
-            
-            // Also extract from top-level "endpoints" array (e.g. sing-box WARP endpoints)
-            val endpoints = json.optJSONArray("endpoints")
-            if (endpoints != null) {
-                extractFromArray(endpoints, servers)
-            }
+            if (json != null) {
+                val outbounds = json.optJSONArray("outbounds")
+                    ?: json.optJSONArray("proxies")
+                    ?: json.optJSONArray("nodes")
+                    ?: json.optJSONArray("servers")
+                    ?: json.optJSONArray("configs")
+                    ?: json.optJSONArray("data")
+                    ?: json.optJSONArray("items")
+                    ?: json.optJSONArray("inbounds")
+                val endpoints = json.optJSONArray("endpoints")
 
-            if (servers.isEmpty() && (json.has("type") || json.has("server") || json.has("protocol") || json.has("tag"))) {
-                servers.add(json.toString())
+                // Map all tagged objects in outbounds and endpoints for detour dependency resolution
+                val tagMap = mutableMapOf<String, org.json.JSONObject>()
+                val addTagsFrom = { arr: org.json.JSONArray? ->
+                    if (arr != null) {
+                        for (i in 0 until arr.length()) {
+                            val obj = arr.optJSONObject(i)
+                            val tag = obj?.optString("tag") ?: ""
+                            if (tag.isNotEmpty()) {
+                                tagMap[tag] = obj!!
+                            }
+                        }
+                    }
+                }
+                addTagsFrom(outbounds)
+                addTagsFrom(endpoints)
+
+                val rawExtracted = mutableListOf<String>()
+                if (outbounds != null) extractFromArray(outbounds, rawExtracted)
+                if (endpoints != null) extractFromArray(endpoints, rawExtracted)
+
+                // Package detour dependencies for each extracted node
+                for (itemStr in rawExtracted) {
+                    try {
+                        val itemObj = org.json.JSONObject(itemStr)
+                        val detourTag = itemObj.optString("detour", 
+                            itemObj.optJSONObject("streamSettings")?.optJSONObject("sockopt")?.optString("dialerProxy") ?: ""
+                        )
+                        if (detourTag.isNotEmpty() && tagMap.containsKey(detourTag)) {
+                            val detourObj = tagMap[detourTag]!!
+                            val combo = org.json.JSONObject().apply {
+                                val arr = org.json.JSONArray()
+                                arr.put(itemObj)
+                                arr.put(detourObj)
+                                put("endpoints", arr)
+                            }
+                            servers.add(combo.toString())
+                        } else {
+                            servers.add(itemStr)
+                        }
+                    } catch (e: Exception) {
+                        servers.add(itemStr)
+                    }
+                }
+
+                // If config contains outbounds/endpoints, also add the complete JSON config as a full profile node
+                if (json.has("outbounds") || json.has("endpoints") || json.has("route")) {
+                    servers.add(clean)
+                }
             }
-        } else if (clean.startsWith("[")) {
-            val array = org.json.JSONArray(clean)
-            extractFromArray(array, servers)
         }
     } catch (e: Exception) {
         e.printStackTrace()
