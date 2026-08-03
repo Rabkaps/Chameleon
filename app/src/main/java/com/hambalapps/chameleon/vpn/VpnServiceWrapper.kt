@@ -402,8 +402,6 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         val settingsManager = SettingsManager(applicationContext)
         val nodeName = if (activeProfileVal.isEmpty()) {
             getString(R.string.notif_no_node)
-        } else if (activeProfileVal.startsWith("{")) {
-            getString(R.string.notif_custom)
         } else {
             ProxyNameResolver.getProxyName(activeProfileVal, applicationContext)
         }

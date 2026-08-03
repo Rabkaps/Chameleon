@@ -214,13 +214,16 @@ object ProxyNameResolver {
                     nameCache[link] = tag
                     return tag
                 }
-                val server = json.optString("server").ifEmpty { json.optString("add") }
-                val type = json.optString("type", json.optString("protocol")).uppercase()
-                if (server.isNotEmpty() && type.isNotEmpty()) {
-                    val cleanHost = if (server.length > 20) server.take(20) + "..." else server
-                    val name = "$type ($cleanHost)"
-                    nameCache[link] = name
-                    return name
+                val endpoints = json.optJSONArray("endpoints")
+                if (endpoints != null && endpoints.length() > 0) {
+                    val firstEp = endpoints.optJSONObject(0)
+                    if (firstEp != null) {
+                        val epTag = firstEp.optString("tag").ifEmpty { firstEp.optString("name") }
+                        if (epTag.isNotEmpty()) {
+                            nameCache[link] = epTag
+                            return epTag
+                        }
+                    }
                 }
                 val outbounds = json.optJSONArray("outbounds")
                 if (outbounds != null && outbounds.length() > 0) {
@@ -230,17 +233,26 @@ object ProxyNameResolver {
                         val firstServer = firstOut.optString("server").ifEmpty { firstOut.optString("add") }
                         val firstType = firstOut.optString("type", firstOut.optString("protocol")).uppercase()
                         val name = if (firstTag.isNotEmpty()) {
-                            "Sing-Box ($firstTag)"
+                            firstTag
                         } else if (firstServer.isNotEmpty() && firstType.isNotEmpty()) {
                             "$firstType ($firstServer)"
                         } else {
-                            "Sing-Box Config"
+                            "Custom JSON"
                         }
                         nameCache[link] = name
                         return name
                     }
                 }
+                val server = json.optString("server").ifEmpty { json.optString("add") }
+                val type = json.optString("type", json.optString("protocol")).uppercase()
+                if (server.isNotEmpty() && type.isNotEmpty()) {
+                    val cleanHost = if (server.length > 20) server.take(20) + "..." else server
+                    val name = "$type ($cleanHost)"
+                    nameCache[link] = name
+                    return name
+                }
             } catch (e: Exception) {}
+            return "Custom JSON"
         }
 
         val hashIdx = trimmed.indexOf("#")

@@ -531,14 +531,18 @@ fun ConnectionDashboard(
         }
     }
 
-    val activeSubscription = remember(subscriptions, activeSubId) {
-        subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
+    val activeSubscription = remember(subscriptions, activeSubId, activeProfile) {
+        if (activeProfile.isNotEmpty()) {
+            subscriptions.find { sub ->
+                sub.servers.split("\n").map { it.trim() }.contains(activeProfile.trim())
+            } ?: subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
+        } else {
+            subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
+        }
     }
     val activeSubName = activeSubscription?.name ?: "Manual"
     val serverName = if (activeProfile.isEmpty()) {
         stringResource(R.string.no_profile_active)
-    } else if (activeProfile.startsWith("{")) {
-        stringResource(R.string.custom_json)
     } else {
         ProxyNameResolver.getProxyName(activeProfile, context)
     }
