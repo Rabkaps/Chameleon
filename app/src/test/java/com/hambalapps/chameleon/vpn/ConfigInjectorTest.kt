@@ -5,6 +5,9 @@ import org.junit.Test
 import org.mockito.Mockito
 import java.io.File
 import kotlinx.coroutines.runBlocking
+import com.hambalapps.chameleon.ui.main.parseSubscriptionUrls
+import com.hambalapps.chameleon.ui.main.extractOutboundsFromJson
+import com.hambalapps.chameleon.ui.main.SubscriptionUrlInfo
 
 class ConfigInjectorTest {
     @Test
@@ -84,7 +87,7 @@ class ConfigInjectorTest {
         assert(endpoint.getString("type") == "wireguard")
         assert(endpoint.getBoolean("system") == false)
         assert(endpoint.getString("private_key") == "privatekeybase64")
-        assert(endpoint.getString("detour") == "direct")
+        assert(!endpoint.has("detour"))
         
         val addressArr = endpoint.getJSONArray("address")
         assert(addressArr.length() == 2)
@@ -966,20 +969,20 @@ class ConfigInjectorTest {
 
         // 1. Test Link 1: Raw GitHub JSON link
         val link1 = "https://raw.githubusercontent.com/4n0nymou3/multi-proxy-config-fetcher/refs/heads/main/configs/singbox_configs.json"
-        val parsed1 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link1)
+        val parsed1 = parseSubscriptionUrls(link1)
         org.junit.Assert.assertEquals(1, parsed1.size)
         org.junit.Assert.assertEquals(link1, parsed1[0].url)
 
         // 2. Test Link 2: sing-box:// import link with nested ?app=sing-box query parameter
         val link2 = "sing-box://import-remote-profile?url=https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/normal?app=sing-box#%F0%9F%92%A6%20BPB%20Normal"
-        val parsed2 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link2)
+        val parsed2 = parseSubscriptionUrls(link2)
         org.junit.Assert.assertEquals(1, parsed2.size)
         org.junit.Assert.assertEquals("https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/normal?app=sing-box", parsed2[0].url)
         org.junit.Assert.assertTrue(parsed2[0].name != null && parsed2[0].name!!.contains("BPB Normal"))
 
         // 3. Test Link 3: Multi-URL string with leading comma and nested query parameters
         val link3 = ",sing-box://import-remote-profile?url=https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp?app=sing-box#%F0%9F%92%A6%20BPB%20Warp,https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp-pro?app=xray-knocker#%F0%9F%92%A6%20BPB%20Warp%20Pro"
-        val parsed3 = com.hambalapps.chameleon.ui.main.parseSubscriptionUrls(link3)
+        val parsed3 = parseSubscriptionUrls(link3)
         org.junit.Assert.assertEquals(2, parsed3.size)
         org.junit.Assert.assertEquals("https://hudnqxzeqm-youxiy6u8dlvkpwh.hamid-tehrani77.workers.dev/pQ38CkWub-7aIgx/sub/warp?app=sing-box", parsed3[0].url)
         org.junit.Assert.assertTrue(parsed3[0].name != null && parsed3[0].name!!.contains("BPB Warp"))
@@ -997,7 +1000,7 @@ class ConfigInjectorTest {
           ]
         }
         """.trimIndent()
-        val extractedNodes = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(sampleSingboxConfig)
+        val extractedNodes = extractOutboundsFromJson(sampleSingboxConfig)
         org.junit.Assert.assertEquals(2, extractedNodes.size)
         org.junit.Assert.assertTrue(extractedNodes[0].contains("VLESS-Node"))
         org.junit.Assert.assertTrue(extractedNodes[1].contains("WARP-Node"))
@@ -1047,7 +1050,7 @@ class ConfigInjectorTest {
         }
         """.trimIndent()
 
-        val extractedWarp = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(warpJsonResponse)
+        val extractedWarp = extractOutboundsFromJson(warpJsonResponse)
         org.junit.Assert.assertTrue(extractedWarp.size > 0)
         org.junit.Assert.assertTrue(extractedWarp[0].contains("Warp-1"))
 
@@ -1111,7 +1114,7 @@ class ConfigInjectorTest {
         ]
         """.trimIndent()
 
-        val extractedPro = com.hambalapps.chameleon.ui.main.extractOutboundsFromJson(warpProJsonResponse)
+        val extractedPro = extractOutboundsFromJson(warpProJsonResponse)
         org.junit.Assert.assertEquals(2, extractedPro.size)
 
         // Inject chain-1 node

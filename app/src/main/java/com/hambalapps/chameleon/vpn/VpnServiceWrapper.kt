@@ -106,8 +106,22 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     private var commandServer: CommandServer? = null
     private var localProxyOnlyMode = false
+    @Volatile
     private var tunFd: ParcelFileDescriptor? = null
+    @Volatile
     private var tunFdInt: Int = -1
+
+    @Synchronized
+    private fun closeTunFd() {
+        try {
+            tunFd?.close()
+        } catch (e: Exception) {
+            log("Error closing TUN file descriptor: ${e.message}")
+        }
+        tunFd = null
+        tunFdInt = -1
+    }
+
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var logReaderJob: Job? = null
     private var trafficMonitorJob: Job? = null
@@ -838,7 +852,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 val overrideOptions = OverrideOptions().apply {
                     autoRedirect = false
                 }
-                tunFd = null
+                closeTunFd()
                 commandServer?.startOrReloadService(configJson, overrideOptions)
 
                 if (!rootModeVal && !localProxyOnlyMode) {
@@ -927,20 +941,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 } catch (e: Exception) {}
                 commandServer = null
                 
-                try {
-                    tunFd?.close()
-                } catch (e: Exception) {}
-                tunFd = null
-
-                if (tunFdInt != -1) {
-                    try {
-                        log("Adopting and closing TUN file descriptor $tunFdInt during reconnect...")
-                        ParcelFileDescriptor.adoptFd(tunFdInt).close()
-                    } catch (e: Exception) {
-                        log("Error closing adopted FD during reconnect: ${e.message}")
-                    }
-                    tunFdInt = -1
-                }
+                closeTunFd()
                 
                 stopLogReader()
                 lastSentPhysicalName = null
@@ -989,23 +990,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     } catch (e: Exception) {}
                     commandServer = null
                     
-                    try {
-                        tunFd?.close()
-                    } catch (e: Exception) {
-                        // Ignore detached close warnings
-                    }
-                    tunFd = null
-
-                    if (tunFdInt != -1) {
-                        try {
-                            log("Adopting and closing TUN file descriptor $tunFdInt...")
-                            ParcelFileDescriptor.adoptFd(tunFdInt).close()
-                            log("TUN file descriptor closed.")
-                        } catch (e: Exception) {
-                            log("Error closing adopted FD: ${e.message}")
-                        }
-                        tunFdInt = -1
-                    }
+                    closeTunFd()
 
                     if (rootModeVal) {
                         log("Root Mode is enabled. Cleaning up transparent proxy iptables rules...")
@@ -1028,6 +1013,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 log("Error stopping VPN: ${e.message}")
             } finally {
                 stopLogReader()
+                unregisterDefaultNetworkCallback()
                 lastSentPhysicalName = null
                 lastSentPhysicalIndex = -1
                 _vpnState.value = "DISCONNECTED"
@@ -1051,6 +1037,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             )
             runRootCommands(commands)
         }
+        unregisterDefaultNetworkCallback()
         super.onDestroy()
         
         // Ensure core service and command server are closed
@@ -1068,17 +1055,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         commandServer = null
 
         // Ensure TUN descriptor is closed
-        try {
-            tunFd?.close()
-        } catch (e: Exception) {}
-        tunFd = null
-
-        if (tunFdInt != -1) {
-            try {
-                ParcelFileDescriptor.adoptFd(tunFdInt).close()
-            } catch (e: Exception) {}
-            tunFdInt = -1
-        }
+        closeTunFd()
 
         stopLogReader()
         val manager = getSystemService(NotificationManager::class.java)
@@ -1135,9 +1112,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     // --- PlatformInterface Implementation ---
 
+    @Synchronized
     override fun openTun(options: TunOptions): Int {
         try {
             log("openTun called by sing-box core (MTU: ${options.getMTU()}, AutoRoute: ${options.getAutoRoute()})")
+            closeTunFd()
             val builder = Builder()
                 .setSession("Chameleon")
                 .setMtu(options.getMTU().let { if (it > 0) it else 1500 })
@@ -1270,7 +1249,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 }
             }
 
-            // 4. Establish TUN Interface and detach file descriptor
+            // 4. Establish TUN Interface and create duplicated file descriptor for native core
             val pfd = try {
                 builder.establish()
             } catch (e: Exception) {
@@ -1278,11 +1257,18 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 null
             } ?: return -1 // Do NOT throw exception to Go thread (crashes JVM), return -1
             
-            tunFd = pfd
-            val fd = pfd.detachFd()
-            tunFdInt = fd
-            log("TUN interface established. FD: $fd")
-            return fd
+            return try {
+                val dupPfd = pfd.dup()
+                val fd = dupPfd.detachFd()
+                tunFd = pfd
+                tunFdInt = fd
+                log("TUN interface established. Native FD: $fd")
+                fd
+            } catch (e: Exception) {
+                log("Failed to dup TUN ParcelFileDescriptor: ${e.message}")
+                try { pfd.close() } catch (err: Exception) {}
+                -1
+            }
         } catch (t: Throwable) {
             log("Fatal error in openTun JNI callback: ${t.message}")
             t.printStackTrace()
@@ -1297,17 +1283,22 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         }
     }
     override fun clearDNSCache() {}
+    private fun unregisterDefaultNetworkCallback() {
+        defaultInterfaceListener = null
+        val callback = defaultNetworkCallback ?: return
+        defaultNetworkCallback = null
+        try {
+            val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            cm?.unregisterNetworkCallback(callback)
+            log("Successfully unregistered network callback")
+        } catch (e: Exception) {
+            log("Error unregistering network callback: ${e.message}")
+        }
+    }
+
     override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         log("closeDefaultInterfaceMonitor called")
-        defaultInterfaceListener = null
-        val callback = defaultNetworkCallback
-        if (callback != null) {
-            val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-            try {
-                cm?.unregisterNetworkCallback(callback)
-            } catch (e: Exception) {}
-            defaultNetworkCallback = null
-        }
+        unregisterDefaultNetworkCallback()
     }
     override fun findConnectionOwner(
         ipProtocol: Int,
@@ -1569,6 +1560,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         log("startDefaultInterfaceMonitor called")
+        unregisterDefaultNetworkCallback()
         defaultInterfaceListener = listener
         val cm = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return
         
@@ -1641,6 +1633,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
             }
         } catch (e: Exception) {
             log("Failed to register network callback: ${e.message}")
+            defaultNetworkCallback = null
         }
     }
     override fun underNetworkExtension(): Boolean = false

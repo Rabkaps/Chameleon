@@ -392,7 +392,10 @@ fun MainScreen(
     val warpDetourMode = settings.warpDetourMode
     val warpPort = settings.warpPort
 
-    val subscriptions = settings.deserializedSubscriptions
+    val subscriptions = remember(settings.subscriptionList) { settings.deserializedSubscriptions }
+    val manualServerSet = remember(manualServersStr) {
+        manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
     val activeSubscription = remember(subscriptions, activeSubId) {
         subscriptions.find { it.id == activeSubId } ?: subscriptions.firstOrNull()
     }
@@ -515,8 +518,8 @@ fun MainScreen(
 
     // Observe VPN state and logs
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
-    val sessionDownBytes by VpnServiceWrapper.sessionDownBytes.collectAsStateWithLifecycle()
-    val sessionUpBytes by VpnServiceWrapper.sessionUpBytes.collectAsStateWithLifecycle()
+    val sessionDownBytesState = VpnServiceWrapper.sessionDownBytes.collectAsStateWithLifecycle()
+    val sessionUpBytesState = VpnServiceWrapper.sessionUpBytes.collectAsStateWithLifecycle()
     var appVersion by remember { mutableStateOf("v1.6.12") }
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -1060,57 +1063,7 @@ fun MainScreen(
         }
     }
 
-    val flowOffsetState = remember { androidx.compose.animation.core.Animatable(0f) }
-    val isVpnActive = (vpnState == "CONNECTED" || vpnState == "CONNECTING") && isActivityResumed
-    LaunchedEffect(isVpnActive) {
-        if (isVpnActive) {
-            flowOffsetState.animateTo(
-                targetValue = 1000f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 6000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-        } else {
-            flowOffsetState.snapTo(0f)
-        }
-    }
-    val flowOffset = flowOffsetState.value
-
-    val activeCardBackgroundBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, tertiaryColor, primaryContainer, flowOffset, surfaceContainerHigh) {
-        when (cardStyle) {
-            "solid" -> SolidColor(primaryContainer)
-            "tonal" -> SolidColor(surfaceContainerHigh)
-            "vibrant" -> {
-                Brush.linearGradient(
-                    colors = listOf(primaryColor, secondaryColor),
-                    start = Offset(flowOffset - 500f, 0f),
-                    end = Offset(flowOffset + 500f, 1000f)
-                )
-            }
-            "glass" -> {
-                val colors = if (isDark) {
-                    listOf(
-                        primaryColor.copy(alpha = 0.25f),
-                        secondaryColor.copy(alpha = 0.15f),
-                        Color.White.copy(alpha = 0.05f)
-                    )
-                } else {
-                    listOf(
-                        primaryColor.copy(alpha = 0.30f),
-                        secondaryColor.copy(alpha = 0.20f),
-                        Color.White.copy(alpha = 0.60f)
-                    )
-                }
-                Brush.linearGradient(
-                    colors = colors,
-                    start = Offset(flowOffset - 500f, 0f),
-                    end = Offset(flowOffset + 500f, 1000f)
-                )
-            }
-            else -> SolidColor(surfaceContainerHigh)
-        }
-    }
+    // Continuous flow animation offset state reading removed from root MainScreen scope to prevent continuous 60-120 FPS recomposition of root screen
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -1426,9 +1379,9 @@ fun MainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val allFilteredManuals = remember(filteredServerList, manualServersStr) {
+                                val allFilteredManuals = remember(filteredServerList, manualServerSet) {
                                     filteredServerList.filter { item ->
-                                        manualServersStr.split("\n").map { it.trim() }.contains(item.link.trim())
+                                        manualServerSet.contains(item.link.trim())
                                     }.map { it.link }.toSet()
                                 }
                                 val isAllSelected = selectedNodes.containsAll(allFilteredManuals) && allFilteredManuals.isNotEmpty()
@@ -1506,23 +1459,9 @@ fun MainScreen(
                         ) {
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            ConnectionDashboard(
-                                state = vpnState,
-                                cardStyle = cardStyle,
-                                isDark = isDark,
-                                delayTestUrl = delayTestUrl,
-                                activeProfile = activeProfile,
-                                activeSubId = activeSubId,
-                                subscriptions = subscriptions,
-                                vpnMode = vpnMode,
-                                vpnModeTunnelGames = vpnModeTunnelGames,
-                                sessionDownBytesProvider = { sessionDownBytes },
-                                sessionUpBytesProvider = { sessionUpBytes },
-                                settingsManager = settingsManager,
-                                scope = scope,
-                                isEditMode = isDashboardEditMode,
-                                onNavigateToCdnFronting = { onItemClick(CdnFronting) },
-                                onConnectToggle = {
+                            val onNavigateToCdnFrontingLambda = remember(onItemClick) { { onItemClick(CdnFronting) } }
+                            val onConnectToggleLambda = remember(vpnState, activeProfile, context, vpnPermissionLauncher) {
+                                {
                                     if (vpnState == "CONNECTED") {
                                         stopVpnService(context)
                                     } else {
@@ -1541,13 +1480,35 @@ fun MainScreen(
                                             }
                                         }
                                     }
-                                },
-                                onNavigateToServers = {
+                                }
+                            }
+                            val onNavigateToServersLambda = remember(tabs, pagerState, scope) {
+                                {
                                     val idx = tabs.indexOfFirst { it.first == 1 }
                                     if (idx >= 0) {
                                         scope.launch { pagerState.animateScrollToPage(idx) }
                                     }
                                 }
+                            }
+
+                            ConnectionDashboard(
+                                state = vpnState,
+                                cardStyle = cardStyle,
+                                isDark = isDark,
+                                delayTestUrl = delayTestUrl,
+                                activeProfile = activeProfile,
+                                activeSubId = activeSubId,
+                                subscriptions = subscriptions,
+                                vpnMode = vpnMode,
+                                vpnModeTunnelGames = vpnModeTunnelGames,
+                                sessionDownBytesProvider = { sessionDownBytesState.value },
+                                sessionUpBytesProvider = { sessionUpBytesState.value },
+                                settingsManager = settingsManager,
+                                scope = scope,
+                                isEditMode = isDashboardEditMode,
+                                onNavigateToCdnFronting = onNavigateToCdnFrontingLambda,
+                                onConnectToggle = onConnectToggleLambda,
+                                onNavigateToServers = onNavigateToServersLambda
                             )
                             Spacer(modifier = Modifier.height(32.dp))
                         }
@@ -1565,7 +1526,10 @@ fun MainScreen(
                         val collapseProgress by remember {
                             derivedStateOf {
                                 if (serverListState.firstVisibleItemIndex > 0) 1f
-                                else (serverListState.firstVisibleItemScrollOffset / 140f).coerceIn(0f, 1f)
+                                else {
+                                    val raw = (serverListState.firstVisibleItemScrollOffset / 140f).coerceIn(0f, 1f)
+                                    kotlin.math.round(raw * 20f) / 20f
+                                }
                             }
                         }
                         var showSubManagerDialog by remember { mutableStateOf(false) }
@@ -2742,8 +2706,8 @@ fun MainScreen(
                                                     val name = serverItem.name
                                                     val type = serverItem.type
                                                     val transport = serverItem.transport
-                                                    val isManualNode = remember(manualServersStr, serverLink) {
-                                                        manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                                                    val isManualNode = remember(manualServerSet, serverLink) {
+                                                        manualServerSet.contains(serverLink.trim())
                                                     }
                                                     
                                                     val tagContainerColor = when (type) {
@@ -3519,8 +3483,8 @@ fun MainScreen(
                                             val isTimeout = ping != null && ping < 0
                                             
                                             var menuExpanded by remember { mutableStateOf(false) }
-                                            val isManualNode = remember(manualServersStr, serverLink) {
-                                                manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                                            val isManualNode = remember(manualServerSet, serverLink) {
+                                                manualServerSet.contains(serverLink.trim())
                                             }
 
                                             Card(
@@ -5187,7 +5151,7 @@ fun MainScreen(
                             
                             if (true) {
                                 val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
-                                val currentTheme by settingsManager.specialTheme.collectAsStateWithLifecycle(initialValue = defaultThemeKey)
+                                val currentTheme = settings.specialTheme
                                 val themeMode by settingsManager.themeMode.collectAsStateWithLifecycle(initialValue = "system")
                                 Card(
                                     modifier = Modifier
@@ -6994,9 +6958,9 @@ fun MainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                val allFilteredManuals = remember(filteredServerList, manualServersStr) {
+                                val allFilteredManuals = remember(filteredServerList, manualServerSet) {
                                     filteredServerList.filter { item ->
-                                        manualServersStr.split("\n").map { it.trim() }.contains(item.link.trim())
+                                        manualServerSet.contains(item.link.trim())
                                     }.map { it.link }.toSet()
                                 }
                                 val isAllSelected = selectedNodes.containsAll(allFilteredManuals) && allFilteredManuals.isNotEmpty()
@@ -7093,14 +7057,15 @@ fun MainScreen(
                                 "CHAIN" -> MaterialTheme.colorScheme.onTertiaryContainer
                                 "OPENVPN", "OVPN" -> MaterialTheme.colorScheme.onSecondaryContainer
                                 "AMNEZIAWG", "AWG", "WIREGUARD" -> MaterialTheme.colorScheme.onPrimaryContainer
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
 
-                            val isManualNode = remember(manualServersStr, serverLink) {
-                                manualServersStr.split("\n").map { it.trim() }.contains(serverLink.trim())
+                            val isManualNode = remember(manualServerSet, serverLink) {
+                                manualServerSet.contains(serverLink.trim())
                             }
 
                             Row(
+
                                 modifier = Modifier
                                     .animateItem()
                                     .fillMaxWidth()

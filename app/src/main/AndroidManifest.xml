@@ -91,6 +91,7 @@
         <receiver
             android:name=".widget.VPNWidgetProvider"
             android:label="Chameleon Switch"
+            android:permission="android.permission.BIND_APPWIDGET"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

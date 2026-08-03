@@ -30,7 +30,7 @@ data class InjectorSettings(
     val vpnModeTunnelGames: Boolean = false,
     val warpDetourMode: String = "proxy",
     val warpPort: String = "2408",
-    val warpPeerIp: String = "162.159.193.1",
+    val warpPeerIp: String = "engage.cloudflareclient.com",
     val shareVpnLan: Boolean = false,
     val shareVpnPort: String = "10808",
     val proxyChains: String = "",
@@ -326,19 +326,20 @@ object ConfigInjector {
             injectLocalProxyInbound(configJson, settings)
             injectMTProxyInbound(configJson, settings)
 
-            // 3. Inject or update DNS (Split DNS rules)
-            injectDns(context, configJson, settings)
+            // 3. Inject endpoints (for sing-box 1.11+ WireGuard)
+            injectEndpoints(context, configJson, settings)
 
-            // 4. Inject or update Routing Rules (Iran bypass)
-            injectRouting(context, configJson, settings)
+            // 4. Migrate WireGuard outbounds to endpoints
+            migrateWireGuardToEndpoints(configJson)
 
             // 5. Inject direct/block outbounds
             injectOutbounds(context, configJson, settings)
 
-            // 6. Inject endpoints (for sing-box 1.11+ WireGuard)
-            injectEndpoints(context, configJson, settings)
+            // 6. Inject or update DNS (Split DNS rules)
+            injectDns(context, configJson, settings)
 
-            migrateWireGuardToEndpoints(configJson)
+            // 7. Inject or update Routing Rules (Iran bypass)
+            injectRouting(context, configJson, settings)
             return configJson.toString(2)
         } catch (e: IllegalArgumentException) {
             throw e
@@ -963,8 +964,10 @@ object ConfigInjector {
             if (type == "dns" || tag == "dns-out") {
                 continue // Remove deprecated DNS outbounds
             }
-            if (type == "direct" || tag == "direct") {
-                hasDirect = true
+            if (type == "direct" || tag == "direct" || out.optString("detour") == "direct") {
+                if (type == "direct" || tag == "direct") {
+                    hasDirect = true
+                }
                 out.remove("detour")
             }
             if (type == "block" || tag == "block") {
@@ -1318,8 +1321,10 @@ object ConfigInjector {
                 
                 put("private_key", settings.warpPrivateKey)
                 
-                val detourVal = settings.warpDetourMode.ifEmpty { "direct" }
-                put("detour", detourVal)
+                val detourVal = settings.warpDetourMode
+                if (detourVal.isNotEmpty() && detourVal != "direct") {
+                    put("detour", detourVal)
+                }
                 
                 val portVal = settings.warpPort.ifEmpty { "2408" }.toIntOrNull() ?: 2408
                 val peerIp = settings.warpPeerIp.ifEmpty { "engage.cloudflareclient.com" }
@@ -1340,6 +1345,13 @@ object ConfigInjector {
             cleanEndpoints.put(warpEndpoint)
         }
         
+        for (i in 0 until cleanEndpoints.length()) {
+            val ep = cleanEndpoints.optJSONObject(i) ?: continue
+            if (ep.optString("detour") == "direct") {
+                ep.remove("detour")
+            }
+        }
+        
         if (cleanEndpoints.length() > 0) {
             config.put("endpoints", cleanEndpoints)
         } else {
@@ -1357,7 +1369,7 @@ object ConfigInjector {
         val privateKey = out.optString("private_key").ifEmpty {
             out.optString("privateKey").ifEmpty {
                 settings?.optString("secretKey")?.ifEmpty {
-                    settings?.optString("secret_key")
+                    settings.optString("secret_key")
                 } ?: ""
             }
         }
@@ -1410,7 +1422,7 @@ object ConfigInjector {
             
             if (privateKey.isNotEmpty()) put("private_key", privateKey)
             if (mtuVal != null) put("mtu", mtuVal)
-            if (detourVal.isNotEmpty()) put("detour", detourVal)
+            if (detourVal.isNotEmpty() && detourVal != "direct") put("detour", detourVal)
             
             val peers = out.optJSONArray("peers") ?: settings?.optJSONArray("peers")
             if (peers != null) {
@@ -1424,9 +1436,6 @@ object ConfigInjector {
                             pAddr = epStr.substringBefore(":")
                             val epPort = epStr.substringAfter(":", "2408").toIntOrNull() ?: 2408
                             put("port", epPort)
-                        }
-                        if (pAddr == "engage.cloudflareclient.com") {
-                            pAddr = "162.159.192.1"
                         }
                         if (pAddr.isNotEmpty()) put("address", pAddr)
                         
@@ -1467,15 +1476,6 @@ object ConfigInjector {
             for (j in 0 until epPeers.length()) {
                 val p = epPeers.optJSONObject(j) ?: continue
                 p.remove("reserved")
-                val addrStr = p.optString("address", p.optString("server", ""))
-                if (addrStr == "engage.cloudflareclient.com") {
-                    val resolvedIp = resolveDomainViaDoh("engage.cloudflareclient.com") ?: resolveDomainDirectly("engage.cloudflareclient.com", "1.1.1.1")
-                    if (!resolvedIp.isNullOrEmpty()) {
-                        p.put("address", resolvedIp)
-                    } else {
-                        p.put("address", "162.159.192.1")
-                    }
-                }
             }
         }
         
@@ -2072,7 +2072,7 @@ object ConfigInjector {
                 profile.put("id", profileId)
                 profile.put("auth_token", token)
                 profile.put("private_key", privateKey)
-                if (detour.isNotEmpty()) {
+                if (detour.isNotEmpty() && detour != "direct") {
                     profile.put("detour", detour)
                 }
                 outbound.put("profile", profile)
@@ -2120,6 +2120,8 @@ object ConfigInjector {
                         if (trimmedAddr.isNotEmpty()) {
                             if (trimmedAddr.contains("/")) {
                                 addressArray.put(trimmedAddr)
+                            } else if (trimmedAddr.contains(":")) {
+                                addressArray.put("$trimmedAddr/128")
                             } else {
                                 addressArray.put("$trimmedAddr/32")
                             }
@@ -2141,8 +2143,10 @@ object ConfigInjector {
                             if (trimmedIp.isNotEmpty()) {
                                 if (trimmedIp.contains("/")) {
                                     allowedIpsArray.put(trimmedIp)
+                                } else if (trimmedIp.contains(":")) {
+                                    allowedIpsArray.put("$trimmedIp/128")
                                 } else {
-                                    allowedIpsArray.put("$trimmedIp/0")
+                                    allowedIpsArray.put("$trimmedIp/32")
                                 }
                             }
                         }
@@ -2150,17 +2154,6 @@ object ConfigInjector {
                         
                         val keepalive = queryParams["keepalive"] ?: queryParams["persistent_keepalive"]
                         keepalive?.toIntOrNull()?.let { put("persistent_keepalive_interval", it) }
-                        
-                        val reserved = queryParams["reserved"]
-                        if (reserved != null && reserved.isNotEmpty()) {
-                            val reservedArray = JSONArray()
-                            reserved.split(",").forEach { r ->
-                                r.trim().toIntOrNull()?.let { reservedArray.put(it) }
-                            }
-                            if (reservedArray.length() > 0) {
-                                put("reserved", reservedArray)
-                            }
-                        }
                     }
                     outbound.put("peers", JSONArray().apply { put(peer) })
 
@@ -2293,7 +2286,6 @@ object ConfigInjector {
         var presharedKey = ""
         var allowedIpsStr = "0.0.0.0/0"
         var keepalive = 0
-        var reservedStr = ""
 
         // AmneziaWG parameters
         var jc: Int? = null
@@ -2333,7 +2325,6 @@ object ConfigInjector {
                 "presharedkey", "preshared_key", "preshared-key", "preshared key" -> presharedKey = value
                 "allowedips", "allowed_ips", "allowed-ips", "allowed ips" -> allowedIpsStr = value
                 "persistentkeepalive", "persistent_keepalive", "persistent-keepalive", "persistent keepalive", "persistent_keepalive_interval" -> keepalive = value.toIntOrNull() ?: 0
-                "reserved" -> reservedStr = value
                 "endpoint" -> {
                     val colonIdx = value.lastIndexOf(":")
                     if (colonIdx >= 0) {
@@ -2376,6 +2367,8 @@ object ConfigInjector {
             if (trimmedAddr.isNotEmpty()) {
                 if (trimmedAddr.contains("/")) {
                     addressArray.put(trimmedAddr)
+                } else if (trimmedAddr.contains(":")) {
+                    addressArray.put("$trimmedAddr/128")
                 } else {
                     addressArray.put("$trimmedAddr/32")
                 }
@@ -2396,23 +2389,16 @@ object ConfigInjector {
                 if (trimmedIp.isNotEmpty()) {
                     if (trimmedIp.contains("/")) {
                         allowedIpsArray.put(trimmedIp)
+                    } else if (trimmedIp.contains(":")) {
+                        allowedIpsArray.put("$trimmedIp/128")
                     } else {
-                        allowedIpsArray.put("$trimmedIp/0")
+                        allowedIpsArray.put("$trimmedIp/32")
                     }
                 }
             }
             put("allowed_ips", allowedIpsArray)
             if (keepalive > 0) {
                 put("persistent_keepalive_interval", keepalive)
-            }
-            if (reservedStr.isNotEmpty()) {
-                val reservedArray = JSONArray()
-                reservedStr.split(",").forEach { r ->
-                    r.trim().toIntOrNull()?.let { reservedArray.put(it) }
-                }
-                if (reservedArray.length() > 0) {
-                    put("reserved", reservedArray)
-                }
             }
         }
         outbound.put("peers", JSONArray().apply { put(peer) })
@@ -2792,50 +2778,11 @@ object ConfigInjector {
 
     private fun getProxyServerHosts(config: JSONObject): List<String> {
         val hosts = mutableListOf<String>()
-        val outbounds = config.optJSONArray("outbounds") ?: return hosts
-        for (i in 0 until outbounds.length()) {
-            val outbound = outbounds.optJSONObject(i) ?: continue
-            val type = outbound.optString("type")
-            if (type == "openvpn") {
-                val serversArr = outbound.optJSONArray("servers")
-                if (serversArr != null) {
-                    for (j in 0 until serversArr.length()) {
-                        val sObj = serversArr.optJSONObject(j)
-                        val sHost = sObj?.optString("server") ?: ""
-                        if (sHost.isNotEmpty()) {
-                            hosts.add(sHost)
-                        }
-                    }
-                }
-            } else if (type == "wireguard" || type == "amneziawg") {
-                val peersArr = outbound.optJSONArray("peers")
-                if (peersArr != null) {
-                    for (j in 0 until peersArr.length()) {
-                        val pObj = peersArr.optJSONObject(j)
-                        val pHost = pObj?.optString("server") ?: ""
-                        if (pHost.isNotEmpty()) {
-                            hosts.add(pHost)
-                        }
-                    }
-                }
-            } else {
-                val server = outbound.optString("server")
-                if (server.isNotEmpty()) {
-                    hosts.add(server)
-                }
-            }
-        }
-        return hosts
-    }
-
-    private fun getEntrypointProxyServerHosts(config: JSONObject): List<String> {
-        val hosts = mutableListOf<String>()
-        val outbounds = config.optJSONArray("outbounds") ?: return hosts
-        for (i in 0 until outbounds.length()) {
-            val outbound = outbounds.optJSONObject(i) ?: continue
-            val type = outbound.optString("type")
-            val detour = outbound.optString("detour")
-            if (detour.isEmpty()) {
+        val outbounds = config.optJSONArray("outbounds")
+        if (outbounds != null) {
+            for (i in 0 until outbounds.length()) {
+                val outbound = outbounds.optJSONObject(i) ?: continue
+                val type = outbound.optString("type")
                 if (type == "openvpn") {
                     val serversArr = outbound.optJSONArray("servers")
                     if (serversArr != null) {
@@ -2862,6 +2809,84 @@ object ConfigInjector {
                     val server = outbound.optString("server")
                     if (server.isNotEmpty()) {
                         hosts.add(server)
+                    }
+                }
+            }
+        }
+        val endpoints = config.optJSONArray("endpoints")
+        if (endpoints != null) {
+            for (i in 0 until endpoints.length()) {
+                val ep = endpoints.optJSONObject(i) ?: continue
+                val peersArr = ep.optJSONArray("peers")
+                if (peersArr != null) {
+                    for (j in 0 until peersArr.length()) {
+                        val pObj = peersArr.optJSONObject(j)
+                        val pHost = pObj?.optString("server")?.ifEmpty { pObj.optString("address") } ?: ""
+                        if (pHost.isNotEmpty()) {
+                            hosts.add(pHost)
+                        }
+                    }
+                }
+            }
+        }
+        return hosts
+    }
+
+    private fun getEntrypointProxyServerHosts(config: JSONObject): List<String> {
+        val hosts = mutableListOf<String>()
+        val outbounds = config.optJSONArray("outbounds")
+        if (outbounds != null) {
+            for (i in 0 until outbounds.length()) {
+                val outbound = outbounds.optJSONObject(i) ?: continue
+                val type = outbound.optString("type")
+                val detour = outbound.optString("detour")
+                if (detour.isEmpty()) {
+                    if (type == "openvpn") {
+                        val serversArr = outbound.optJSONArray("servers")
+                        if (serversArr != null) {
+                            for (j in 0 until serversArr.length()) {
+                                val sObj = serversArr.optJSONObject(j)
+                                val sHost = sObj?.optString("server") ?: ""
+                                if (sHost.isNotEmpty()) {
+                                    hosts.add(sHost)
+                                }
+                            }
+                        }
+                    } else if (type == "wireguard" || type == "amneziawg") {
+                        val peersArr = outbound.optJSONArray("peers")
+                        if (peersArr != null) {
+                            for (j in 0 until peersArr.length()) {
+                                val pObj = peersArr.optJSONObject(j)
+                                val pHost = pObj?.optString("server") ?: ""
+                                if (pHost.isNotEmpty()) {
+                                    hosts.add(pHost)
+                                }
+                            }
+                        }
+                    } else {
+                        val server = outbound.optString("server")
+                        if (server.isNotEmpty()) {
+                            hosts.add(server)
+                        }
+                    }
+                }
+            }
+        }
+        val endpoints = config.optJSONArray("endpoints")
+        if (endpoints != null) {
+            for (i in 0 until endpoints.length()) {
+                val ep = endpoints.optJSONObject(i) ?: continue
+                val detour = ep.optString("detour")
+                if (detour.isEmpty()) {
+                    val peersArr = ep.optJSONArray("peers")
+                    if (peersArr != null) {
+                        for (j in 0 until peersArr.length()) {
+                            val pObj = peersArr.optJSONObject(j)
+                            val pHost = pObj?.optString("server")?.ifEmpty { pObj.optString("address") } ?: ""
+                            if (pHost.isNotEmpty()) {
+                                hosts.add(pHost)
+                            }
+                        }
                     }
                 }
             }
