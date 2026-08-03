@@ -621,15 +621,12 @@ fun ChameleonTheme(
                     surfaceContainerHighest = tintColor(baseScheme.surface, baseScheme.primary, ratio = 0.26f)
                 )
             } else {
-                val tintedBg = tintColor(Color(0xFFF6F3F8), baseScheme.primary, ratio = 0.08f)
                 baseScheme.copy(
-                    background = tintedBg,
-                    surface = tintedBg,
-                    surfaceContainerLowest = tintColor(Color(0xFFFDFBFD), baseScheme.primary, ratio = 0.04f),
-                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.10f),
-                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.15f),
-                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.22f),
-                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.28f)
+                    surfaceContainerLowest = Color.White,
+                    surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.06f),
+                    surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.10f),
+                    surfaceContainerHigh = tintColor(Color.White, baseScheme.primary, ratio = 0.15f),
+                    surfaceContainerHighest = tintColor(Color.White, baseScheme.primary, ratio = 0.20f)
                 )
             }
         } else if (isDark) {
