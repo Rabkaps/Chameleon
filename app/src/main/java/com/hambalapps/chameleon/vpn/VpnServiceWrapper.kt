@@ -292,11 +292,33 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
         serviceScope.launch {
             val settingsManager = SettingsManager(applicationContext)
+            var prevMtProxy: Boolean? = null
+            var prevPort: String? = null
+            var prevSecret: String? = null
+
             settingsManager.settings.collect { settings ->
                 showLiveNotificationVal = settings.showLiveNotification
                 activeProfileVal = settings.activeProfile
                 if (isForeground) {
                     updateNotification(_vpnState.value)
+                }
+
+                val mtProxyChanged = prevMtProxy != null && (
+                    prevMtProxy != settings.enableMtProxy ||
+                    prevPort != settings.mtProxyPort ||
+                    prevSecret != settings.mtProxySecret
+                )
+                prevMtProxy = settings.enableMtProxy
+                prevPort = settings.mtProxyPort
+                prevSecret = settings.mtProxySecret
+
+                if (mtProxyChanged) {
+                    android.util.Log.i("Chameleon", "MTProxy settings changed! enableMtProxy=${settings.enableMtProxy}")
+                    if (_vpnState.value == "CONNECTED" || commandServer != null) {
+                        reloadVpnEngine()
+                    } else if (localProxyOnlyMode && !settings.enableMtProxy) {
+                        stopVpnEngine()
+                    }
                 }
             }
         }

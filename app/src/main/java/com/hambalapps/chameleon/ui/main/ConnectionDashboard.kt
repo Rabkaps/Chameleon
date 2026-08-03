@@ -1724,7 +1724,26 @@ fun ConnectionDashboard(
                         onCheckedChange = { checked ->
                             scope.launch {
                                 settingsManager.setEnableMtProxy(checked)
-                                if (state == "CONNECTED") startVpnService(context)
+                                if (state == "CONNECTED" || state == "CONNECTING") {
+                                    startVpnService(context)
+                                } else {
+                                    if (checked) {
+                                        val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                            action = VpnServiceWrapper.ACTION_START_PROXY
+                                        }
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            context.startForegroundService(intent)
+                                        } else {
+                                            context.startService(intent)
+                                        }
+                                    } else {
+                                        val intent = Intent(context, VpnServiceWrapper::class.java).apply {
+                                            action = VpnServiceWrapper.ACTION_STOP
+                                            putExtra("force_stop", true)
+                                        }
+                                        context.startService(intent)
+                                    }
+                                }
                             }
                         }
                     )
