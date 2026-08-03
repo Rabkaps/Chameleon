@@ -622,6 +622,8 @@ fun ChameleonTheme(
                 )
             } else {
                 baseScheme.copy(
+                    background = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
+                    surface = tintColor(Color.White, baseScheme.primary, ratio = 0.05f),
                     surfaceContainerLowest = Color.White,
                     surfaceContainerLow = tintColor(Color.White, baseScheme.primary, ratio = 0.06f),
                     surfaceContainer = tintColor(Color.White, baseScheme.primary, ratio = 0.10f),
