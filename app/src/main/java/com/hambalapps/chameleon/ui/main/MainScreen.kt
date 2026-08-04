@@ -924,6 +924,7 @@ fun MainScreen(
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
     val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHigh
+    val surfaceContainerHighest = MaterialTheme.colorScheme.surfaceContainerHighest
     val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
     val surfaceContainerLow = MaterialTheme.colorScheme.surfaceContainerLow
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
@@ -960,7 +961,7 @@ fun MainScreen(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer, surfaceContainerHigh) {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, primaryContainer, secondaryContainer, surfaceContainerHighest) {
         when (cardStyle) {
             "solid" -> SolidColor(primaryContainer)
             "vibrant" -> {
@@ -970,7 +971,7 @@ fun MainScreen(
                 )
                 Brush.linearGradient(colors = colors)
             }
-            "tonal" -> SolidColor(MaterialTheme.colorScheme.surfaceContainerHighest)
+            "tonal" -> SolidColor(surfaceContainerHighest)
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(

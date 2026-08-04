@@ -570,6 +570,7 @@ fun ConnectionDashboard(
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
     val surfaceContainerHigh = MaterialTheme.colorScheme.surfaceContainerHigh
+    val surfaceContainerHighest = MaterialTheme.colorScheme.surfaceContainerHighest
     val primaryContainer = MaterialTheme.colorScheme.primaryContainer
     val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
     val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
@@ -605,7 +606,7 @@ fun ConnectionDashboard(
         }
     }
 
-    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHigh, primaryContainer, secondaryContainer) {
+    val primaryCardBrush = remember(isDark, cardStyle, primaryColor, secondaryColor, surfaceContainerHighest, primaryContainer, secondaryContainer) {
         when (cardStyle) {
             "solid" -> SolidColor(primaryContainer)
             "vibrant" -> {
@@ -615,7 +616,7 @@ fun ConnectionDashboard(
                 )
                 Brush.linearGradient(colors = colors)
             }
-            "tonal" -> SolidColor(MaterialTheme.colorScheme.surfaceContainerHighest)
+            "tonal" -> SolidColor(surfaceContainerHighest)
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
