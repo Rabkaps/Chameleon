@@ -76,11 +76,13 @@ class SettingsManager(private val context: Context) {
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val DASHBOARD_CARDS = stringPreferencesKey("dashboard_cards")
         val DASHBOARD_CARD_SIZES = stringPreferencesKey("dashboard_card_sizes")
+        val APP_ICON = stringPreferencesKey("app_icon")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
         val defaultSettings = UserSettings(
             appLanguage = "system",
+            appIcon = "neon",
             isAdvancedMode = false,
             enableDebugLogging = false,
             bypassIran = true,
@@ -158,6 +160,7 @@ class SettingsManager(private val context: Context) {
 
         UserSettings(
             appLanguage = prefs[APP_LANGUAGE] ?: "system",
+            appIcon = prefs[APP_ICON] ?: "neon",
             isAdvancedMode = prefs[IS_ADVANCED_MODE] ?: false,
             enableDebugLogging = prefs[ENABLE_DEBUG_LOGGING] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
@@ -243,6 +246,7 @@ class SettingsManager(private val context: Context) {
     val splitTunnelingApps: Flow<Set<String>> = context.dataStore.data.map { it[SPLIT_TUNNELING_APPS] ?: emptySet() }.distinctUntilChanged()
     val manualServers: Flow<String> = context.dataStore.data.map { it[MANUAL_SERVERS] ?: "" }.distinctUntilChanged()
     val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: defaultThemeKey }.distinctUntilChanged()
+    val appIcon: Flow<String> = context.dataStore.data.map { it[APP_ICON] ?: "neon" }.distinctUntilChanged()
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "system" }.distinctUntilChanged()
     val cardStyle: Flow<String> = context.dataStore.data.map { it[CARD_STYLE] ?: "vibrant" }.distinctUntilChanged()
     val bypassLan: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_LAN] ?: true }.distinctUntilChanged()
@@ -300,6 +304,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setSplitTunnelingApps(value: Set<String>) { context.dataStore.edit { it[SPLIT_TUNNELING_APPS] = value } }
     suspend fun setManualServers(value: String) { context.dataStore.edit { it[MANUAL_SERVERS] = value } }
     suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
+    suspend fun setAppIcon(value: String) { context.dataStore.edit { it[APP_ICON] = value } }
     val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }.distinctUntilChanged()
     suspend fun setAppLanguage(value: String) { context.dataStore.edit { it[APP_LANGUAGE] = value } }
 
@@ -404,6 +409,7 @@ class SettingsManager(private val context: Context) {
 
 data class UserSettings(
     val appLanguage: String,
+    val appIcon: String,
     val isAdvancedMode: Boolean,
     val enableDebugLogging: Boolean,
     val bypassIran: Boolean,

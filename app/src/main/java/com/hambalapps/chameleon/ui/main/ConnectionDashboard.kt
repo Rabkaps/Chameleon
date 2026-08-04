@@ -83,6 +83,7 @@ import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -187,6 +188,7 @@ fun getCardTitle(cardId: String): String = when (cardId) {
     "mode_selector" -> "VPN Routing Mode"
     "warp_status" -> "WARP Detour Bypass"
     "telegram_proxy" -> "Telegram MTProxy Server"
+    "auto_connect" -> "Auto-Connect Toggle"
     else -> cardId
 }
 
@@ -2327,6 +2329,81 @@ fun ConnectionDashboard(
     }
 
     @Composable
+    fun AutoConnectCard(cardSize: String = "1x1") {
+        val isExpanded = cardSize == "2x2" || cardSize == "2x3"
+        val isCompactTile = cardSize == "1x1"
+        
+        val autoConnectSubs = settingsManager.autoConnectSubs.collectAsState(initial = emptySet()).value
+        val isAutoConnectEnabled = autoConnectSubs.contains(activeSubId)
+        
+        ExpressiveCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    scope.launch {
+                        settingsManager.toggleAutoConnectSub(activeSubId)
+                    }
+                },
+            brush = secondaryCardBrush,
+            shape = ExpressiveCardShape,
+            borderBrush = cardBorderBrush,
+            cardStyle = cardStyle
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isExpanded) 16.dp else 14.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = if (isAutoConnectEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(if (isCompactTile) 20.dp else 22.dp)
+                    )
+                    if (!isCompactTile) {
+                        Switch(
+                            checked = isAutoConnectEnabled,
+                            onCheckedChange = {
+                                scope.launch { settingsManager.toggleAutoConnectSub(activeSubId) }
+                            },
+                            modifier = Modifier.scale(0.8f)
+                        )
+                    } else {
+                        if (isAutoConnectEnabled) {
+                            Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                        }
+                    }
+                }
+                
+                Column {
+                    Text(
+                        text = "Auto Connect",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!isCompactTile) {
+                        Text(
+                            text = if (isAutoConnectEnabled) "Fastest node" else "Off for this sub",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
     fun RenderCardById(cardId: String, cardSize: String) {
         when (cardId) {
             "connect_button" -> ConnectCard(cardSize = cardSize)
@@ -2338,6 +2415,7 @@ fun ConnectionDashboard(
             "mode_selector" -> GamingModeCard(cardSize = cardSize)
             "warp_status" -> BypassCard(cardSize = cardSize)
             "telegram_proxy" -> TelegramProxyCard(cardSize = cardSize)
+            "auto_connect" -> AutoConnectCard(cardSize = cardSize)
             else -> {}
         }
     }
@@ -2739,7 +2817,8 @@ fun ConnectionDashboard(
             "live_logs" to ("Live Engine Stream" to "Real-time sing-box terminal log console"),
             "mode_selector" to ("VPN Routing Mode" to "Standard vs Gaming routing mode chips"),
             "warp_status" to ("WARP Detour Bypass" to "Cloudflare WARP account and detour options"),
-            "telegram_proxy" to ("Telegram MTProxy Server" to "Local MTProto proxy server toggle")
+            "telegram_proxy" to ("Telegram MTProxy Server" to "Local MTProto proxy server toggle"),
+            "auto_connect" to ("Auto-Connect Toggle" to "Fastest server on startup toggle")
         )
         val inactiveCards = allAvailableCards.filter { !activeCardIds.contains(it.first) }
 

@@ -28,10 +28,6 @@
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
             <intent-filter>
@@ -46,6 +42,32 @@
                 <data android:scheme="chameleon" />
             </intent-filter>
         </activity>
+
+        <activity-alias
+            android:name=".MainActivityAliasNeon"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_neon"
+            android:roundIcon="@mipmap/ic_launcher_neon"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityAliasDynamic"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_dynamic"
+            android:roundIcon="@mipmap/ic_launcher_dynamic"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.main.NodesPopupActivity"
@@ -70,7 +92,7 @@
 
         <service
             android:name=".vpn.VpnQuickSettingsTileService"
-            android:icon="@drawable/ic_vpn_tile"
+            android:icon="@drawable/ic_chameleon_monochrome"
             android:label="Chameleon VPN"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:exported="true">
