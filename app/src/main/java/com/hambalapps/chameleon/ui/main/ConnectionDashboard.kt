@@ -189,7 +189,7 @@ fun getCardTitle(cardId: String): String = when (cardId) {
     "mode_selector" -> "VPN Routing Mode"
     "warp_status" -> "WARP Detour Bypass"
     "telegram_proxy" -> "Telegram MTProxy Server"
-    "auto_connect" -> "Auto-Connect Toggle"
+    "auto_connect" -> "Fastest Server"
     else -> cardId
 }
 
