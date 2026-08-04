@@ -615,7 +615,7 @@ fun ConnectionDashboard(
                 )
                 Brush.linearGradient(colors = colors)
             }
-            "tonal" -> SolidColor(surfaceContainerHigh)
+            "tonal" -> SolidColor(MaterialTheme.colorScheme.surfaceContainerHighest)
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
@@ -645,7 +645,7 @@ fun ConnectionDashboard(
                 )
                 Brush.linearGradient(colors = colors)
             }
-            "tonal" -> SolidColor(surfaceContainer)
+            "tonal" -> SolidColor(surfaceContainerHigh)
             "glass" -> {
                 val colors = if (isDark) {
                     listOf(
