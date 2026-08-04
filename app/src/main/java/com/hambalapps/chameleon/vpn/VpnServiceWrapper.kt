@@ -118,6 +118,14 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
         } catch (e: Exception) {
             log("Error closing TUN file descriptor: ${e.message}")
         }
+        if (tunFdInt != -1) {
+            try {
+                android.os.ParcelFileDescriptor.adoptFd(tunFdInt).close()
+                log("Forcibly closed duplicated native TUN fd: $tunFdInt")
+            } catch (e: Exception) {
+                log("Error closing native TUN fd: ${e.message}")
+            }
+        }
         tunFd = null
         tunFdInt = -1
     }
@@ -1039,7 +1047,11 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 _vpnState.value = "DISCONNECTED"
                 val manager = getSystemService(NotificationManager::class.java)
                 manager?.cancel(NOTIFICATION_ID)
-                stopForeground(true)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    stopForeground(true)
+                }
                 isForeground = false
                 stopSelf()
             }
