@@ -317,7 +317,7 @@ class SettingsManager(private val context: Context) {
     }
 
     val dashboardCardSizes: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
-        val raw = prefs[DASHBOARD_CARD_SIZES] ?: "connect_button:2x2;selected_server:1x1;auto_connect:1x1"
+        val raw = prefs[DASHBOARD_CARD_SIZES] ?: "connect_button:2x3;selected_server:1x1;auto_connect:1x1"
         if (raw.isEmpty()) emptyMap()
         else raw.split(";").mapNotNull {
             val parts = it.split(":")
