@@ -2378,7 +2378,7 @@ fun ConnectionDashboard(
                 
                 Column {
                     Text(
-                        text = "Auto Connect",
+                        text = "Fastest Server",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,

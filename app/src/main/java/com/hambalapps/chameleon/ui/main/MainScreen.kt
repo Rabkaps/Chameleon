@@ -1957,7 +1957,7 @@ fun MainScreen(
                                                                 DropdownMenuItem(
                                                                     text = {
                                                                         Text(
-                                                                            text = if (isAutoConnectEnabled) "Auto Connect (Enabled)" else "Auto Connect",
+                                                                            text = if (isAutoConnectEnabled) "Fastest Server (Enabled)" else "Fastest Server",
                                                                             style = MaterialTheme.typography.bodyMedium
                                                                         )
                                                                     },
