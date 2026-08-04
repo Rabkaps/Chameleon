@@ -309,7 +309,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setAppLanguage(value: String) { context.dataStore.edit { it[APP_LANGUAGE] = value } }
 
     val dashboardCards: Flow<List<String>> = context.dataStore.data.map { prefs ->
-        val raw = prefs[DASHBOARD_CARDS] ?: "connect_button,selected_server,auto_connect"
+        val raw = prefs[DASHBOARD_CARDS] ?: "connect_button,selected_server,auto_connect,traffic,current_ip"
         raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     }.flowOn(Dispatchers.Default).distinctUntilChanged()
     suspend fun setDashboardCards(cards: List<String>) {
@@ -317,7 +317,7 @@ class SettingsManager(private val context: Context) {
     }
 
     val dashboardCardSizes: Flow<Map<String, String>> = context.dataStore.data.map { prefs ->
-        val raw = prefs[DASHBOARD_CARD_SIZES] ?: "connect_button:2x3;selected_server:1x1;auto_connect:1x1"
+        val raw = prefs[DASHBOARD_CARD_SIZES] ?: "connect_button:2x3;selected_server:1x1;auto_connect:1x1;traffic:1x1;current_ip:1x1"
         if (raw.isEmpty()) emptyMap()
         else raw.split(";").mapNotNull {
             val parts = it.split(":")
