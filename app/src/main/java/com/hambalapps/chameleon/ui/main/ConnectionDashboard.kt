@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.foundation.BorderStroke
