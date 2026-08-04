@@ -391,6 +391,7 @@ fun MainScreen(
     val delayTestUrl = settings.delayTestUrl
     val warpDetourMode = settings.warpDetourMode
     val warpPort = settings.warpPort
+    val appIcon = settings.appIcon
 
     val subscriptions = remember(settings.subscriptionList) { settings.deserializedSubscriptions }
     val manualServerSet = remember(manualServersStr) {
@@ -5359,6 +5360,68 @@ fun MainScreen(
                                             )
 
                                             Spacer(modifier = Modifier.height(16.dp))
+
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.height(16.dp))
+
+                                                Text("App Icon", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                ConnectedButtonGroup(
+                                                    selectedIndex = when (appIcon) {
+                                                        "neon" -> 0
+                                                        "dynamic" -> 1
+                                                        else -> 0
+                                                    },
+                                                    options = listOf("Neon Glow", "Dynamic"),
+                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                    indicatorColor = MaterialTheme.colorScheme.primary,
+                                                    selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                    onSelect = { index ->
+                                                        val iconVal = when (index) {
+                                                            0 -> "neon"
+                                                            1 -> "dynamic"
+                                                            else -> "neon"
+                                                        }
+                                                        scope.launch {
+                                                            settingsManager.setAppIcon(iconVal)
+                                                            
+                                                            val pm = context.packageManager
+                                                            val pkgName = context.packageName
+                                                            val neonComponent = android.content.ComponentName(pkgName, "$pkgName.MainActivityAliasNeon")
+                                                            val dynamicComponent = android.content.ComponentName(pkgName, "$pkgName.MainActivityAliasDynamic")
+                                                            
+                                                            if (iconVal == "neon") {
+                                                                pm.setComponentEnabledSetting(
+                                                                    neonComponent,
+                                                                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                                                                    android.content.pm.PackageManager.DONT_KILL_APP
+                                                                )
+                                                                pm.setComponentEnabledSetting(
+                                                                    dynamicComponent,
+                                                                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                                                                    android.content.pm.PackageManager.DONT_KILL_APP
+                                                                )
+                                                            } else {
+                                                                pm.setComponentEnabledSetting(
+                                                                    dynamicComponent,
+                                                                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                                                                    android.content.pm.PackageManager.DONT_KILL_APP
+                                                                )
+                                                                pm.setComponentEnabledSetting(
+                                                                    neonComponent,
+                                                                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                                                                    android.content.pm.PackageManager.DONT_KILL_APP
+                                                                )
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                            }
+
                                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                             Spacer(modifier = Modifier.height(16.dp))
 

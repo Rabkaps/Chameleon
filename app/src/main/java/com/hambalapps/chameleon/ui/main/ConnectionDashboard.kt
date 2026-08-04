@@ -2366,19 +2366,13 @@ fun ConnectionDashboard(
                         tint = if (isAutoConnectEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(if (isCompactTile) 20.dp else 22.dp)
                     )
-                    if (!isCompactTile) {
-                        Switch(
-                            checked = isAutoConnectEnabled,
-                            onCheckedChange = {
-                                scope.launch { settingsManager.toggleAutoConnectSub(activeSubId) }
-                            },
-                            modifier = Modifier.scale(0.8f)
-                        )
-                    } else {
-                        if (isAutoConnectEnabled) {
-                            Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
-                        }
-                    }
+                    Switch(
+                        checked = isAutoConnectEnabled,
+                        onCheckedChange = {
+                            scope.launch { settingsManager.toggleAutoConnectSub(activeSubId) }
+                        },
+                        modifier = Modifier.scale(if (isCompactTile) 0.6f else 0.8f)
+                    )
                 }
                 
                 Column {
@@ -2390,14 +2384,13 @@ fun ConnectionDashboard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (!isCompactTile) {
-                        Text(
-                            text = if (isAutoConnectEnabled) "Fastest node" else "Off for this sub",
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
+                    Text(
+                        text = if (isAutoConnectEnabled) "Fastest node" else "Off for this sub",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = if (isCompactTile) 8.sp else 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        lineHeight = if (isCompactTile) 10.sp else 12.sp
+                    )
                 }
             }
         }
