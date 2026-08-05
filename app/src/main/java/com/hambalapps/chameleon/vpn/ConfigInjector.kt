@@ -954,9 +954,20 @@ object ConfigInjector {
 
         val camConfigs = deserializeCamouflageSettings(settings.camouflageSettings)
 
+        val supportedTypes = setOf(
+            "direct", "block", "dns", "vless", "vmess", "trojan", "shadowsocks", 
+            "shadowsocksr", "wireguard", "amneziawg", "hysteria2", "tuic", "socks", 
+            "http", "shadowtls", "mieru", "snell", "masque", "ssh", "selector", "urltest", "openvpn"
+        )
+
         for (i in 0 until outbounds.length()) {
             val out = outbounds.optJSONObject(i) ?: continue
-            val type = out.optString("type")
+            val type = out.optString("type").lowercase()
+            
+            // Ignore anything that's not a supported config type
+            if (!supportedTypes.contains(type)) {
+                continue
+            }
             if (type == "openvpn") {
                 continue
             }
@@ -1293,8 +1304,21 @@ object ConfigInjector {
         val endpoints = config.optJSONArray("endpoints") ?: JSONArray()
         val cleanEndpoints = JSONArray()
         
+        val supportedTypes = setOf(
+            "direct", "block", "dns", "vless", "vmess", "trojan", "shadowsocks", 
+            "shadowsocksr", "wireguard", "amneziawg", "hysteria2", "tuic", "socks", 
+            "http", "shadowtls", "mieru", "snell", "masque", "ssh", "selector", "urltest", "openvpn"
+        )
+        
         for (i in 0 until endpoints.length()) {
             val ep = endpoints.optJSONObject(i) ?: continue
+            val type = ep.optString("type").lowercase()
+            
+            // Ignore anything that's not a supported config type
+            if (!supportedTypes.contains(type)) {
+                continue
+            }
+            
             val tag = ep.optString("tag")
             if (tag != "warp-endpoint" && tag != "warp-out") {
                 cleanEndpoints.put(ep)
