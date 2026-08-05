@@ -521,7 +521,7 @@ fun MainScreen(
     val vpnState by VpnServiceWrapper.vpnState.collectAsStateWithLifecycle()
     val sessionDownBytesState = VpnServiceWrapper.sessionDownBytes.collectAsStateWithLifecycle()
     val sessionUpBytesState = VpnServiceWrapper.sessionUpBytes.collectAsStateWithLifecycle()
-    var appVersion by remember { mutableStateOf("v1.6.12") }
+    var appVersion by remember { mutableStateOf("v1.8") }
     var isCheckingUpdates by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var updateDialogTitle by remember { mutableStateOf("") }
@@ -595,7 +595,7 @@ fun MainScreen(
                     @Suppress("DEPRECATION")
                     context.packageManager.getPackageInfo(context.packageName, 0)
                 }
-                val version = "v${pInfo.versionName ?: "1.6.12"}"
+                val version = "v${pInfo.versionName ?: "1.8"}"
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     appVersion = version
                 }
