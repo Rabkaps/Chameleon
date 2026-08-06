@@ -870,6 +870,10 @@ fun MainScreen(
     var editMasqueToken by remember { mutableStateOf("") }
     var editMasqueUseHttp2 by remember { mutableStateOf(false) }
     var editMasqueUseIpv6 by remember { mutableStateOf(false) }
+    var editWgPrivateKey by remember { mutableStateOf("") }
+    var editWgMtu by remember { mutableStateOf("1420") }
+    var editWgReserved by remember { mutableStateOf("") }
+    var editHy2Insecure by remember { mutableStateOf(false) }
     var editTransportType by remember { mutableStateOf("tcp") }
     var editTransportPath by remember { mutableStateOf("") }
     var editTransportHost by remember { mutableStateOf("") }
@@ -3004,22 +3008,22 @@ fun MainScreen(
                                                                 )
                                                             }
 
-                                                            if (activeSubId == "manual") {
-                                                                IconButton(
-                                                                    onClick = {
-                                                                        editingNodeLink = serverLink
-                                                                        editLinkInput = serverLink
-                                                                    },
-                                                                    modifier = Modifier.size(36.dp)
-                                                                ) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.Edit,
-                                                                        contentDescription = stringResource(R.string.edit_config),
-                                                                        tint = MaterialTheme.colorScheme.primary,
-                                                                        modifier = Modifier.size(18.dp)
-                                                                    )
-                                                                }
+                                                            IconButton(
+                                                                onClick = {
+                                                                    editingNodeLink = serverLink
+                                                                    editLinkInput = serverLink
+                                                                },
+                                                                modifier = Modifier.size(36.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Edit,
+                                                                    contentDescription = stringResource(R.string.edit_config),
+                                                                    tint = MaterialTheme.colorScheme.primary,
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                            }
 
+                                                            if (activeSubId == "manual") {
                                                                 IconButton(
                                                                     onClick = {
                                                                         scope.launch {
@@ -3773,16 +3777,16 @@ fun MainScreen(
                                                                         qrCodeToShare = Pair(name, serverLink)
                                                                     }
                                                                 )
+                                                                DropdownMenuItem(
+                                                                    text = { Text(stringResource(R.string.edit_config)) },
+                                                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                                                    onClick = {
+                                                                        menuExpanded = false
+                                                                        editingNodeLink = serverLink
+                                                                        editLinkInput = serverLink
+                                                                    }
+                                                                )
                                                                 if (isManualNode) {
-                                                                    DropdownMenuItem(
-                                                                        text = { Text(stringResource(R.string.edit_config)) },
-                                                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                                                        onClick = {
-                                                                            menuExpanded = false
-                                                                            editingNodeLink = serverLink
-                                                                            editLinkInput = serverLink
-                                                                        }
-                                                                    )
                                                                     DropdownMenuItem(
                                                                         text = { Text(stringResource(R.string.delete_config)) },
                                                                         leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
@@ -5983,6 +5987,10 @@ fun MainScreen(
                 editMasqueToken = ""
                 editMasqueUseHttp2 = false
                 editMasqueUseIpv6 = false
+                editWgPrivateKey = ""
+                editWgMtu = "1420"
+                editWgReserved = ""
+                editHy2Insecure = false
             } else if (link.startsWith("{")) {
                 editorMode = "link"
                 editLinkInput = link
@@ -6091,6 +6099,11 @@ fun MainScreen(
                     editMasqueToken = queryParams["token"] ?: queryParams["auth_token"] ?: ""
                     editMasqueUseHttp2 = queryParams["use_http2"] == "true" || queryParams["use_http2"] == "1"
                     editMasqueUseIpv6 = queryParams["use_ipv6"] == "true" || queryParams["use_ipv6"] == "1"
+                    
+                    editWgPrivateKey = queryParams["privateKey"] ?: queryParams["private_key"] ?: ""
+                    editWgMtu = queryParams["mtu"] ?: "1420"
+                    editWgReserved = queryParams["reserved"] ?: ""
+                    editHy2Insecure = queryParams["insecure"] == "1" || queryParams["insecure"] == "true"
                     
                     editLinkInput = link
                     editorMode = "form"
@@ -6220,37 +6233,29 @@ fun MainScreen(
 
                     if (editorMode == "form") {
                         // Protocol selector
+                        // Protocol selector
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(R.string.protocol), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                listOf("vless", "trojan", "ss").forEach { proto ->
-                                    val label = if (proto == "ss") "Shadowsocks" else proto.uppercase()
+                                listOf("vless", "trojan", "ss", "hy2", "tuic", "wg", "socks5", "http", "https", "masque").forEach { proto ->
+                                    val label = when (proto) {
+                                        "ss" -> "Shadowsocks"
+                                        "hy2" -> "Hysteria2"
+                                        "tuic" -> "TUIC"
+                                        "wg" -> "WireGuard"
+                                        else -> proto.uppercase()
+                                    }
                                     FilterChip(
                                         selected = editType == proto,
                                         onClick = { 
                                             editType = proto
-                                            if (proto == "ss") editTls = false
+                                            if (proto == "ss" || proto == "wg") editTls = false
+                                            if (proto == "https" || proto == "hy2" || proto == "tuic") editTls = true
                                         },
                                         label = { Text(label) },
-                                        shape = ExpressiveChipShape
-                                    )
-                                }
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("socks5", "http", "https", "masque").forEach { proto ->
-                                    FilterChip(
-                                        selected = editType == proto,
-                                        onClick = { 
-                                            editType = proto 
-                                            if (proto == "https") editTls = true
-                                        },
-                                        label = { Text(proto.uppercase()) },
                                         shape = ExpressiveChipShape
                                     )
                                 }
@@ -6283,7 +6288,14 @@ fun MainScreen(
                         OutlinedTextField(
                             value = editCreds,
                             onValueChange = { editCreds = it },
-                            label = { Text(if (editType == "vless") stringResource(R.string.uuid) else if (editType == "masque") "Private Key (Optional)" else stringResource(R.string.password_credentials)) },
+                            label = { Text(
+                                when (editType) {
+                                    "vless" -> stringResource(R.string.uuid)
+                                    "masque" -> "Private Key (Optional)"
+                                    "wg" -> "Peer Public Key"
+                                    else -> stringResource(R.string.password_credentials)
+                                }
+                            ) },
                             modifier = Modifier.fillMaxWidth(),
                             shape = ExpressiveButtonShape
                         )
@@ -6329,6 +6341,56 @@ fun MainScreen(
                                 Switch(
                                     checked = editMasqueUseIpv6,
                                     onCheckedChange = { editMasqueUseIpv6 = it }
+                                )
+                            }
+                        }
+                        
+                        if (editType == "wg") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editWgPrivateKey,
+                                onValueChange = { editWgPrivateKey = it },
+                                label = { Text("Private Key") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = ExpressiveButtonShape,
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = editWgMtu,
+                                    onValueChange = { editWgMtu = it },
+                                    label = { Text("MTU") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = ExpressiveButtonShape,
+                                    singleLine = true
+                                )
+                                OutlinedTextField(
+                                    value = editWgReserved,
+                                    onValueChange = { editWgReserved = it },
+                                    label = { Text("Reserved (Optional)") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = ExpressiveButtonShape,
+                                    singleLine = true,
+                                    placeholder = { Text("e.g. 0,0,0") }
+                                )
+                            }
+                        }
+                        
+                        if (editType == "hy2" || editType == "tuic") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Allow Insecure (Skip Cert Verify)", fontWeight = FontWeight.Bold)
+                                Switch(
+                                    checked = editHy2Insecure,
+                                    onCheckedChange = { editHy2Insecure = it }
                                 )
                             }
                         }
@@ -6681,6 +6743,13 @@ fun MainScreen(
                                          if (editMasqueUseHttp2) queryList.add("use_http2=1")
                                          if (editMasqueUseIpv6) queryList.add("use_ipv6=1")
                                          if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                     } else if (editType == "hy2" || editType == "tuic") {
+                                         if (editSni.isNotEmpty()) queryList.add("sni=${java.net.URLEncoder.encode(editSni.trim(), "UTF-8")}")
+                                         if (editHy2Insecure) queryList.add("insecure=1")
+                                     } else if (editType == "wg" || editType == "wireguard") {
+                                         if (editWgPrivateKey.isNotEmpty()) queryList.add("privateKey=${java.net.URLEncoder.encode(editWgPrivateKey.trim(), "UTF-8")}")
+                                         if (editWgMtu.isNotEmpty()) queryList.add("mtu=${java.net.URLEncoder.encode(editWgMtu.trim(), "UTF-8")}")
+                                         if (editWgReserved.isNotEmpty()) queryList.add("reserved=${java.net.URLEncoder.encode(editWgReserved.trim(), "UTF-8")}")
                                      }
 
                                     if (editShowAdvanced && editTransportType != "tcp") {
@@ -6725,11 +6794,24 @@ fun MainScreen(
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
                                     } else {
-                                        val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
-                                        val updatedManualList = currentManualList.map {
-                                            if (it == originalLink) finalLink else it
-                                        }.distinct()
-                                        settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                        val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(originalLink) }
+                                        if (parentSub != null) {
+                                            val updatedServers = parentSub.servers.split("\n").map { s ->
+                                                if (s.trim() == originalLink) finalLink else s.trim()
+                                            }.filter { it.isNotEmpty() }.joinToString("\n")
+                                            val updatedSub = parentSub.copy(servers = updatedServers)
+                                            val updatedList = subscriptions.map {
+                                                if (it.id == parentSub.id) updatedSub else it
+                                            }
+                                            settingsManager.setSubscriptionList(serializeSubscriptions(updatedList.filter { !it.url.startsWith("local://") }))
+                                            android.widget.Toast.makeText(context, "Subscription node updated (May revert on update)", android.widget.Toast.LENGTH_LONG).show()
+                                        } else {
+                                            val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+                                            val updatedManualList = currentManualList.map {
+                                                if (it == originalLink) finalLink else it
+                                            }.distinct()
+                                            settingsManager.setManualServers(updatedManualList.joinToString("\n"))
+                                        }
                                         if (activeProfile == originalLink) {
                                             settingsManager.setActiveProfile(finalLink)
                                         }
