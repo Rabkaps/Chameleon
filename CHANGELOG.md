@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-08-30
+
+### Added
+- **Context-Aware Subscription Updates**: Updating subscriptions now targets only the selected/active subscription group when a specific sub is selected.
+- **Context-Aware Ping Tests**: Pinging now tests latency across only the currently visible node list (respecting sub group, country, favorites, and search filters).
+
+### Fixed
+- **Accurate Ping Diagnostics**: Removed flawed SSL handshake check to eliminate false-positive "SNI Block" errors on VLESS Reality, self-signed/custom CA, and non-HTTPS proxy ports.
+- **Instant Manual Node Visibility**: Fixed caching in DataStore observation so newly created or imported manual nodes and proxy chains appear immediately in the UI without requiring an app restart.
+
 ## [1.6.12] - 2026-06-28
 
 ### Added
