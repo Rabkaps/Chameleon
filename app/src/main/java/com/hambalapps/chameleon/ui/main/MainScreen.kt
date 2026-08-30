@@ -393,7 +393,7 @@ fun MainScreen(
     val warpPort = settings.warpPort
     val appIcon = settings.appIcon
 
-    val subscriptions = remember(settings.subscriptionList) { settings.deserializedSubscriptions }
+    val subscriptions = settings.deserializedSubscriptions
     val manualServerSet = remember(manualServersStr) {
         manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     }
@@ -686,51 +686,64 @@ fun MainScreen(
                 var anyUpdated = false
                 var updateFailed = false
                 val currentSubs = subscriptions
-                val updatedSubs = currentSubs.map { sub ->
-                    if (!sub.url.startsWith("local://")) {
-                        try {
-                            val result = fetchSubscription(sub.url)
-                            if (result.servers.isNotEmpty()) {
-                                anyUpdated = true
-                                sub.copy(
-                                    servers = result.servers.joinToString("\n"),
-                                    upload = result.upload,
-                                    download = result.download,
-                                    total = result.total,
-                                    expire = result.expire
-                                )
-                            } else {
+
+                val targetSub = if (selectedSubGroupFilter != "All Groups" && selectedSubGroupFilter != "Favorites") {
+                    currentSubs.find { it.name == selectedSubGroupFilter }
+                } else null
+
+                if (targetSub != null && targetSub.url.startsWith("local://")) {
+                    android.widget.Toast.makeText(context, "Local subscription cannot be updated online", android.widget.Toast.LENGTH_SHORT).show()
+                    isUpdatingSubs = false
+                } else {
+                    val updatedSubs = currentSubs.map { sub ->
+                        val isTarget = targetSub == null || sub.id == targetSub.id
+                        if (isTarget && !sub.url.startsWith("local://")) {
+                            try {
+                                val result = fetchSubscription(sub.url)
+                                if (result.servers.isNotEmpty()) {
+                                    anyUpdated = true
+                                    sub.copy(
+                                        servers = result.servers.joinToString("\n"),
+                                        upload = result.upload,
+                                        download = result.download,
+                                        total = result.total,
+                                        expire = result.expire
+                                    )
+                                } else {
+                                    sub
+                                }
+                            } catch (e: Exception) {
+                                updateFailed = true
                                 sub
                             }
-                        } catch (e: Exception) {
-                            updateFailed = true
+                        } else {
                             sub
                         }
-                    } else {
-                        sub
                     }
-                }
-                if (anyUpdated) {
-                    settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
-                    val activeSubIdVal = settings.activeSubId
-                    val activeProfileVal = settings.activeProfile
-                    val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
-                    if (updatedActiveSub != null) {
-                        val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
-                        if (sList.isNotEmpty() && !sList.contains(activeProfileVal)) {
-                            settingsManager.setActiveProfile(sList[0])
-                            if (vpnState == "CONNECTED") {
-                                startVpnService(context)
+                    if (anyUpdated) {
+                        settingsManager.setSubscriptionList(serializeSubscriptions(updatedSubs.filter { !it.url.startsWith("local://") }))
+                        val activeSubIdVal = settings.activeSubId
+                        val activeProfileVal = settings.activeProfile
+                        val updatedActiveSub = updatedSubs.find { it.id == activeSubIdVal }
+                        if (updatedActiveSub != null) {
+                            val sList = updatedActiveSub.servers.split("\n").filter { it.isNotEmpty() }
+                            if (sList.isNotEmpty() && !sList.contains(activeProfileVal)) {
+                                settingsManager.setActiveProfile(sList[0])
+                                if (vpnState == "CONNECTED") {
+                                    startVpnService(context)
+                                }
                             }
                         }
+                        val msg = if (targetSub != null) "${targetSub.name} updated!" else "Subscriptions updated!"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (updateFailed) {
+                        val msg = if (targetSub != null) "Failed to update ${targetSub.name}" else "Failed to update some subscriptions"
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(context, "No updates found", android.widget.Toast.LENGTH_SHORT).show()
                     }
-                    android.widget.Toast.makeText(context, "Subscriptions updated!", android.widget.Toast.LENGTH_SHORT).show()
-                } else if (updateFailed) {
-                    android.widget.Toast.makeText(context, "Failed to update some subscriptions", android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    android.widget.Toast.makeText(context, "No updates found", android.widget.Toast.LENGTH_SHORT).show()
+                    isUpdatingSubs = false
                 }
-                isUpdatingSubs = false
             }
         }
     }
@@ -840,6 +853,30 @@ fun MainScreen(
             val latency1 = if (p1 < 0) Int.MAX_VALUE else p1
             val latency2 = if (p2 < 0) Int.MAX_VALUE else p2
             latency1.compareTo(latency2)
+        }
+    }
+
+    val onTestPings = {
+        if (!isTestingPings) {
+            scope.launch {
+                isTestingPings = true
+                val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
+                val jobs = targets.map { link ->
+                    scope.async(kotlinx.coroutines.Dispatchers.IO) {
+                        val hostPort = getHostAndPortFromLink(link)
+                        if (hostPort != null) {
+                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                            Triple(link, res.delayMs, res.status)
+                        } else {
+                            Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                        }
+                    }
+                }
+                val results = jobs.awaitAll()
+                pingsMap = pingsMap + results.associate { it.first to it.second }
+                diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
+                isTestingPings = false
+            }
         }
     }
 
@@ -2406,28 +2443,7 @@ fun MainScreen(
                                                 }
 
                                                 IconButton(
-                                                    onClick = {
-                                                        if (!isTestingPings) {
-                                                            scope.launch {
-                                                                isTestingPings = true
-                                                                val jobs = serverList.map { link ->
-                                                                    scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                        val hostPort = getHostAndPortFromLink(link)
-                                                                        if (hostPort != null) {
-                                                                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
-                                                                            Triple(link, res.delayMs, res.status)
-                                                                        } else {
-                                                                            Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
-                                                                        }
-                                                                    }
-                                                                }
-                                                                val results = jobs.awaitAll()
-                                                                pingsMap = pingsMap + results.associate { it.first to it.second }
-                                                                diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
-                                                                isTestingPings = false
-                                                            }
-                                                        }
-                                                    },
+                                                    onClick = onTestPings,
                                                     enabled = !isTestingPings
                                                 ) {
                                                     if (isTestingPings) {
@@ -2636,28 +2652,7 @@ fun MainScreen(
 
                                                     // Ping/Speed test button
                                                     FilledIconButton(
-                                                        onClick = {
-                                                            if (!isTestingPings) {
-                                                                scope.launch {
-                                                                    isTestingPings = true
-                                                                    val jobs = serverList.map { link ->
-                                                                        scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                            val hostPort = getHostAndPortFromLink(link)
-                                                                            if (hostPort != null) {
-                                                                                val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
-                                                                                Triple(link, res.delayMs, res.status)
-                                                                            } else {
-                                                                                Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                    val results = jobs.awaitAll()
-                                                                    pingsMap = pingsMap + results.associate { it.first to it.second }
-                                                                    diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
-                                                                    isTestingPings = false
-                                                                }
-                                                            }
-                                                        },
+                                                        onClick = onTestPings,
                                                         modifier = Modifier.size(36.dp).pressScaleEffect(),
                                                         colors = IconButtonDefaults.filledIconButtonColors(
                                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -3429,28 +3424,7 @@ fun MainScreen(
 
                                         // 6. Ping / Speed Test
                                         FilledIconButton(
-                                            onClick = {
-                                                if (!isTestingPings) {
-                                                    scope.launch {
-                                                        isTestingPings = true
-                                                        val jobs = serverList.map { link ->
-                                                            scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                                                                val hostPort = getHostAndPortFromLink(link)
-                                                                if (hostPort != null) {
-                                                                    val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
-                                                                    Triple(link, res.delayMs, res.status)
-                                                                } else {
-                                                                    Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
-                                                                }
-                                                            }
-                                                        }
-                                                        val results = jobs.awaitAll()
-                                                        pingsMap = pingsMap + results.associate { it.first to it.second }
-                                                        diagnosticMap = diagnosticMap + results.associate { it.first to it.third }
-                                                        isTestingPings = false
-                                                    }
-                                                }
-                                            },
+                                            onClick = onTestPings,
                                             modifier = Modifier.size(smallBtnSize).pressScaleEffect(),
                                             colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
                                             shape = CircleShape,
@@ -5887,7 +5861,11 @@ fun MainScreen(
 
                                             if (addedCount > 0) {
                                                 settingsManager.setSubscriptionList(serializeSubscriptions(currentSubList))
-                                                if (lastSubId != null) settingsManager.setActiveSubId(lastSubId)
+                                                if (lastSubId != null) {
+                                                    settingsManager.setActiveSubId(lastSubId)
+                                                    val addedSubName = currentSubList.find { it.id == lastSubId }?.name
+                                                    if (addedSubName != null) selectedSubGroupFilter = addedSubName
+                                                }
                                                 if (lastActiveProfile != null) settingsManager.setActiveProfile(lastActiveProfile)
 
                                                 if (vpnState == "CONNECTED") {
@@ -5912,6 +5890,7 @@ fun MainScreen(
                                         settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
+                                        selectedSubGroupFilter = "Manual / Custom Configs"
                                         if (vpnState == "CONNECTED") {
                                             startVpnService(context)
                                         }
@@ -6165,6 +6144,7 @@ fun MainScreen(
                             settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                             settingsManager.setActiveSubId("manual")
                             settingsManager.setActiveProfile(finalLink)
+                            selectedSubGroupFilter = "Manual / Custom Configs"
                         } else {
                             val currentManualList = manualServersStr.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
                             val updatedManualList = currentManualList.map {
@@ -6793,6 +6773,7 @@ fun MainScreen(
                                         settingsManager.setManualServers(updatedManualList.joinToString("\n"))
                                         settingsManager.setActiveSubId("manual")
                                         settingsManager.setActiveProfile(finalLink)
+                                        selectedSubGroupFilter = "Manual / Custom Configs"
                                     } else {
                                         val parentSub = subscriptions.find { it.servers.split("\n").map { s -> s.trim() }.contains(originalLink) }
                                         if (parentSub != null) {
@@ -6961,27 +6942,7 @@ fun MainScreen(
                         }
 
                         IconButton(
-                            onClick = {
-                                if (!isTestingPings) {
-                                    scope.launch {
-                                        isTestingPings = true
-                                        val jobs = serverList.map { link ->
-                                            scope.async(Dispatchers.IO) {
-                                                val hostPort = getHostAndPortFromLink(link)
-                                                val ping = if (hostPort != null) {
-                                                    measurePingDelay(hostPort.first, hostPort.second)
-                                                } else {
-                                                    -1
-                                                }
-                                                link to ping
-                                            }
-                                        }
-                                        val results = jobs.awaitAll()
-                                        pingsMap = pingsMap + results.toMap()
-                                        isTestingPings = false
-                                    }
-                                }
-                            },
+                            onClick = onTestPings,
                             enabled = !isTestingPings,
                             modifier = Modifier.pressScaleEffect()
                         ) {

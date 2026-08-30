@@ -5,16 +5,14 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
-import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
 
 enum class CensorshipDiagnosticResult {
     OK,                 // Connection successful
     LOCAL_OFFLINE,      // Local network offline
     DNS_POISONED,       // Host resolved to DNS sinkhole or loopback
     IP_BLACKBOXED,      // TCP SYN dropped by firewall / network block
-    DPI_SNI_BLOCKED,    // TCP connected, but sending TLS ClientHello triggered ECONNRESET
-    SERVER_DOWN,        // Connection refused before TLS
+    DPI_SNI_BLOCKED,    // Kept for backward compatibility
+    SERVER_DOWN,        // Connection refused
     UNKNOWN_ERROR       // Generic timeout or IO failure
 }
 
@@ -64,30 +62,6 @@ object CensorshipDiagnostics {
         }
 
         val tcpDelay = (System.currentTimeMillis() - startTime).toInt()
-
-        // 3. Test TLS SNI Handshake (for HTTPS / SSL ports)
-        if (port == 443 || port == 8443 || port == 2053 || port == 2083) {
-            try {
-                val sslFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
-                Socket().use { plainSocket ->
-                    plainSocket.connect(InetSocketAddress(resolvedIp, port), 2500)
-                    (sslFactory.createSocket(plainSocket, sni, port, true) as javax.net.ssl.SSLSocket).use { sslSocket ->
-                        sslSocket.soTimeout = 2500
-                        sslSocket.startHandshake()
-                    }
-                }
-            } catch (e: java.io.IOException) {
-                val msg = e.message ?: ""
-                if (msg.contains("reset", ignoreCase = true) || msg.contains("broken pipe", ignoreCase = true) || msg.contains("RST", ignoreCase = true) || msg.contains("Connection reset", ignoreCase = true)) {
-                    return@withContext DetailedPingResult(-1, CensorshipDiagnosticResult.DPI_SNI_BLOCKED, "DPI Injected TCP RST during TLS Handshake")
-                } else {
-                    return@withContext DetailedPingResult(-1, CensorshipDiagnosticResult.DPI_SNI_BLOCKED, "TLS Handshake Failed ($msg)")
-                }
-            } catch (e: Exception) {
-                return@withContext DetailedPingResult(-1, CensorshipDiagnosticResult.DPI_SNI_BLOCKED, e.localizedMessage ?: "TLS Handshake Error")
-            }
-        }
-
         DetailedPingResult(tcpDelay, CensorshipDiagnosticResult.OK, "OK")
     }
 }

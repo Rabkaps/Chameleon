@@ -264,7 +264,8 @@ class NodesPopupActivity : ComponentActivity() {
                                                 if (!isTestingPings) {
                                                      scope.launch {
                                                          isTestingPings = true
-                                                         val jobs = serverList.map { link ->
+                                                         val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
+                                                         val jobs = targets.map { link ->
                                                              scope.async(Dispatchers.IO) {
                                                                  val hostPort = getHostAndPortFromLink(link)
                                                                  if (hostPort != null) {
