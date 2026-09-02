@@ -706,7 +706,7 @@ fun ChameleonTheme(
     }
 
     val colorScheme = remember(isDark, dynamicColor, specialTheme, amoledMode) {
-        val useDynamic = (specialTheme == "dynamic" || dynamicColor) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val useDynamic = specialTheme == "dynamic" && dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val baseScheme = if (useDynamic) {
             if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         } else {
