@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.foundation.background
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import kotlin.math.roundToInt
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.defaultMinSize
@@ -2493,6 +2494,16 @@ fun ConnectionDashboard(
             scope.launch { settingsManager.setDashboardCards(mutable) }
         }
     }
+
+    fun moveCardToIndex(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        if (fromIndex in activeCardIds.indices && toIndex in activeCardIds.indices) {
+            val mutable = activeCardIds.toMutableList()
+            val item = mutable.removeAt(fromIndex)
+            mutable.add(toIndex, item)
+            scope.launch { settingsManager.setDashboardCards(mutable) }
+        }
+    }
     @Composable
     fun CdnFrontingDashboardCard(cardSize: String = "2x1") {
         val cdnEnabled by settingsManager.globalCamouflageEnabled.collectAsState(initial = false)
@@ -2836,6 +2847,7 @@ fun ConnectionDashboard(
         cardSize: String, // "1x1", "2x1", "1x2", "2x2", "2x3"
         onMoveUp: () -> Unit,
         onMoveDown: () -> Unit,
+        onMoveToIndex: (Int) -> Unit = {},
         onSetSize: (String) -> Unit,
         onRemove: () -> Unit,
         modifier: Modifier = Modifier,
@@ -2862,9 +2874,15 @@ fun ConnectionDashboard(
             var isDragging by remember { mutableStateOf(false) }
             var totalDragX by remember { mutableStateOf(0f) }
             var totalDragY by remember { mutableStateOf(0f) }
+            var prospectiveSizeStr by remember(cardSize) { mutableStateOf(cardSize) }
 
             var isReorderDragging by remember { mutableStateOf(false) }
             var reorderDragY by remember { mutableStateOf(0f) }
+
+            val density = LocalDensity.current
+            val stepHeightPx = with(density) { 90.dp.toPx() }
+            val prospectiveShift = if (isReorderDragging) (reorderDragY / stepHeightPx).roundToInt() else 0
+            val prospectiveTargetIndex = (index + prospectiveShift).coerceIn(0, activeCardIds.size - 1)
 
             val targetHeightDp = bentoSize.heightDp
             val animatedHeightDp by animateDpAsState(
@@ -2874,39 +2892,27 @@ fun ConnectionDashboard(
             )
 
             val liveScaleX by animateFloatAsState(
-                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.88f, 1.12f) else if (isReorderDragging) 1.03f else 1f,
+                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.88f, 1.12f) else if (isReorderDragging) 1.04f else 1f,
                 animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
                 label = "liveScaleX"
             )
             val liveScaleY by animateFloatAsState(
-                targetValue = if (isReorderDragging) 1.03f else 1f,
+                targetValue = if (isReorderDragging) 1.04f else 1f,
                 animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
                 label = "liveScaleY"
             )
 
-            val prospectiveW = when {
-                totalDragX > 55f -> 2
-                totalDragX < -55f -> 1
-                else -> bentoSize.widthSlots
-            }
-            val prospectiveH = when {
-                totalDragY > 75f -> (bentoSize.heightSlots + 1).coerceAtMost(3)
-                totalDragY < -75f -> (bentoSize.heightSlots - 1).coerceAtLeast(1)
-                else -> bentoSize.heightSlots
-            }
-            val prospectiveSizeStr = "${prospectiveW}x${prospectiveH}"
-
             Card(
                 modifier = modifier
                     .height(animatedHeightDp)
-                    .offset { IntOffset(0, reorderDragY.toInt()) }
+                    .offset { IntOffset(0, reorderDragY.roundToInt()) }
                     .graphicsLayer {
                         scaleX = liveScaleX
                         scaleY = liveScaleY
-                        shadowElevation = if (isReorderDragging) 24f else if (isDragging) 16f else 4f
+                        shadowElevation = if (isReorderDragging) 30f else if (isDragging) 18f else 4f
                     }
                     .animateContentSize(animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow))
-                    .border(2.dp, if (isDragging) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary, ExpressiveCardShape),
+                    .border(2.dp, if (isDragging) MaterialTheme.colorScheme.tertiary else if (isReorderDragging) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary, ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
@@ -2915,7 +2921,7 @@ fun ConnectionDashboard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                                .background(if (isReorderDragging) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -2923,27 +2929,28 @@ fun ConnectionDashboard(
                             Row(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .pointerInput(index) {
+                                    .pointerInput(Unit) {
                                         detectDragGestures(
-                                            onDragStart = { isReorderDragging = true },
-                                            onDragEnd = {
-                                                isReorderDragging = false
-                                                reorderDragY = 0f
-                                            },
-                                            onDragCancel = {
-                                                isReorderDragging = false
+                                            onDragStart = {
+                                                isReorderDragging = true
                                                 reorderDragY = 0f
                                             },
                                             onDrag = { change, dragAmount ->
                                                 change.consume()
                                                 reorderDragY += dragAmount.y
-                                                if (reorderDragY > 70f && index < activeCardIds.size - 1) {
-                                                    onMoveDown()
-                                                    reorderDragY = 0f
-                                                } else if (reorderDragY < -70f && index > 0) {
-                                                    onMoveUp()
-                                                    reorderDragY = 0f
+                                            },
+                                            onDragEnd = {
+                                                isReorderDragging = false
+                                                val shift = (reorderDragY / stepHeightPx).roundToInt()
+                                                val targetIdx = (index + shift).coerceIn(0, activeCardIds.size - 1)
+                                                if (targetIdx != index) {
+                                                    onMoveToIndex(targetIdx)
                                                 }
+                                                reorderDragY = 0f
+                                            },
+                                            onDragCancel = {
+                                                isReorderDragging = false
+                                                reorderDragY = 0f
                                             }
                                         )
                                     },
@@ -2952,15 +2959,15 @@ fun ConnectionDashboard(
                                 Icon(
                                     imageVector = Icons.Default.DragIndicator,
                                     contentDescription = "Drag to reorder card",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    tint = if (isReorderDragging) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = getCardTitle(cardId),
+                                    text = if (isReorderDragging) "Drop at #${prospectiveTargetIndex + 1}" else getCardTitle(cardId),
                                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = if (isReorderDragging) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -2978,14 +2985,14 @@ fun ConnectionDashboard(
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
-                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(22.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
+                                IconButton(onClick = onMoveUp, enabled = index > 0, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up", tint = if (index > 0) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
                                 }
-                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(22.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(14.dp))
+                                IconButton(onClick = onMoveDown, enabled = index < activeCardIds.size - 1, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down", tint = if (index < activeCardIds.size - 1) MaterialTheme.colorScheme.primary else Color.Gray, modifier = Modifier.size(16.dp))
                                 }
-                                IconButton(onClick = onRemove, modifier = Modifier.size(22.dp)) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove Card", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -3032,28 +3039,47 @@ fun ConnectionDashboard(
                             .align(Alignment.BottomEnd)
                             .padding(6.dp)
                             .size(32.dp)
-                            .pointerInput(cardSize) {
+                            .pointerInput(Unit) {
                                 detectDragGestures(
                                     onDragStart = {
                                         isDragging = true
                                         totalDragX = 0f
                                         totalDragY = 0f
-                                    },
-                                    onDragEnd = {
-                                        isDragging = false
-                                        onSetSize(prospectiveSizeStr)
-                                        totalDragX = 0f
-                                        totalDragY = 0f
-                                    },
-                                    onDragCancel = {
-                                        isDragging = false
-                                        totalDragX = 0f
-                                        totalDragY = 0f
+                                        prospectiveSizeStr = cardSize
                                     },
                                     onDrag = { change, dragAmount ->
                                         change.consume()
                                         totalDragX += dragAmount.x
                                         totalDragY += dragAmount.y
+
+                                        val curW = bentoSize.widthSlots
+                                        val curH = bentoSize.heightSlots
+                                        val targetW = when {
+                                            totalDragX > 45f -> 2
+                                            totalDragX < -45f -> 1
+                                            else -> curW
+                                        }
+                                        val targetH = when {
+                                            totalDragY > 55f -> (curH + 1).coerceAtMost(3)
+                                            totalDragY < -55f -> (curH - 1).coerceAtLeast(1)
+                                            else -> curH
+                                        }
+                                        prospectiveSizeStr = "${targetW}x${targetH}"
+                                    },
+                                    onDragEnd = {
+                                        isDragging = false
+                                        val finalSize = prospectiveSizeStr
+                                        if (finalSize != cardSize) {
+                                            onSetSize(finalSize)
+                                        }
+                                        totalDragX = 0f
+                                        totalDragY = 0f
+                                    },
+                                    onDragCancel = {
+                                        isDragging = false
+                                        prospectiveSizeStr = cardSize
+                                        totalDragX = 0f
+                                        totalDragY = 0f
                                     }
                                 )
                             },
@@ -3220,6 +3246,7 @@ fun ConnectionDashboard(
                             cardSize = rawSize1,
                             onMoveUp = { moveCard(idx1, -1) },
                             onMoveDown = { moveCard(idx1, 1) },
+                            onMoveToIndex = { toIdx -> moveCardToIndex(idx1, toIdx) },
                             onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
                             onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
                             modifier = Modifier.weight(1f)
@@ -3232,6 +3259,7 @@ fun ConnectionDashboard(
                             cardSize = rawSize2,
                             onMoveUp = { moveCard(idx2, -1) },
                             onMoveDown = { moveCard(idx2, 1) },
+                            onMoveToIndex = { toIdx -> moveCardToIndex(idx2, toIdx) },
                             onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId2, newSize) } },
                             onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId2) } },
                             modifier = Modifier.weight(1f)
@@ -3256,6 +3284,7 @@ fun ConnectionDashboard(
                         cardSize = rawSize1,
                         onMoveUp = { moveCard(idx, -1) },
                         onMoveDown = { moveCard(idx, 1) },
+                        onMoveToIndex = { toIdx -> moveCardToIndex(idx, toIdx) },
                         onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
                         onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
                         modifier = Modifier.weight(1f)
@@ -3271,6 +3300,7 @@ fun ConnectionDashboard(
                     cardSize = rawSize1,
                     onMoveUp = { moveCard(idx, -1) },
                     onMoveDown = { moveCard(idx, 1) },
+                    onMoveToIndex = { toIdx -> moveCardToIndex(idx, toIdx) },
                     onSetSize = { newSize -> scope.launch { settingsManager.setCardSize(cardId1, newSize) } },
                     onRemove = { scope.launch { settingsManager.setDashboardCards(activeCardIds - cardId1) } },
                     modifier = Modifier.fillMaxWidth()
