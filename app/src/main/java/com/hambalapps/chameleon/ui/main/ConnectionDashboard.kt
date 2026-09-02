@@ -8,6 +8,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -28,6 +30,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Security
@@ -467,6 +473,7 @@ fun ConnectionDashboard(
 
     var userIpAddress by remember { mutableStateOf("Detecting...") }
     var resolvedIpCountryCode by remember { mutableStateOf<String?>(null) }
+    var isRefreshingIp by remember { mutableStateOf(false) }
     
     val ipFlagEmoji = remember(resolvedIpCountryCode) {
         if (!resolvedIpCountryCode.isNullOrEmpty() && resolvedIpCountryCode != "🌐") {
@@ -491,46 +498,53 @@ fun ConnectionDashboard(
         }
     }
 
+    fun refreshPublicIp() {
+        if (isRefreshingIp) return
+        isRefreshingIp = true
+        userIpAddress = "Detecting..."
+        resolvedIpCountryCode = null
+        scope.launch(Dispatchers.IO) {
+            var ip = "Unknown"
+            var attempts = 3
+            while (attempts > 0) {
+                var connection: java.net.HttpURLConnection? = null
+                try {
+                    val url = java.net.URL("https://api.ipify.org")
+                    connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.connectTimeout = 3000
+                    connection.readTimeout = 3000
+                    connection.requestMethod = "GET"
+                    connection.useCaches = false
+                    val responseCode = connection.responseCode
+                    if (responseCode == 200) {
+                        ip = connection.inputStream.bufferedReader().use { it.readText().trim() }
+                        break
+                    }
+                } catch (e: Exception) {
+                    attempts--
+                    delay(1000)
+                } finally {
+                    connection?.disconnect()
+                }
+            }
+            var cc: String? = null
+            if (ip != "Unknown" && ip != "Detecting...") {
+                cc = IpCountryResolver.resolveCountryCode(ip)
+            }
+            withContext(Dispatchers.Main) {
+                userIpAddress = ip
+                resolvedIpCountryCode = cc
+                isRefreshingIp = false
+            }
+        }
+    }
+
     LaunchedEffect(state) {
         if (state == "CONNECTING" || state == "DISCONNECTING") {
             userIpAddress = "Detecting..."
             resolvedIpCountryCode = null
         } else {
-            userIpAddress = "Detecting..."
-            resolvedIpCountryCode = null
-            launch(Dispatchers.IO) {
-                var ip = "Unknown"
-                var attempts = 3
-                while (attempts > 0) {
-                    var connection: java.net.HttpURLConnection? = null
-                    try {
-                        val url = java.net.URL("https://api.ipify.org")
-                        connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 3000
-                        connection.readTimeout = 3000
-                        connection.requestMethod = "GET"
-                        connection.useCaches = false
-                        val responseCode = connection.responseCode
-                        if (responseCode == 200) {
-                            ip = connection.inputStream.bufferedReader().use { it.readText().trim() }
-                            break
-                        }
-                    } catch (e: Exception) {
-                        attempts--
-                        delay(1000)
-                    } finally {
-                        connection?.disconnect()
-                    }
-                }
-                var cc: String? = null
-                if (ip != "Unknown" && ip != "Detecting...") {
-                    cc = IpCountryResolver.resolveCountryCode(ip)
-                }
-                withContext(Dispatchers.Main) {
-                    userIpAddress = ip
-                    resolvedIpCountryCode = cc
-                }
-            }
+            refreshPublicIp()
         }
     }
 
@@ -675,7 +689,8 @@ fun ConnectionDashboard(
 
     @Composable
     fun ConnectCard(cardSize: String = "2x2") {
-        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
+        val isCompact = cardSize == "1x1"
+        val isTall = cardSize == "1x2"
         val isWideBar = cardSize == "2x1"
         
         ExpressiveCard(
@@ -687,7 +702,7 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            if (isCompactTile) {
+            if (isCompact) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -719,6 +734,82 @@ fun ConnectionDashboard(
                                 modifier = Modifier.size(26.dp)
                             )
                         }
+                    }
+                }
+            } else if (isTall) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val auraAlpha by animateFloatAsState(targetValue = if (state == "CONNECTED") 0.3f else 0f, label = "MiniAura")
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(68.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(68.dp)
+                                .graphicsLayer { alpha = auraAlpha }
+                                .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                .blur(16.dp)
+                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(58.dp)
+                                .clip(CircleShape)
+                                .background(buttonColor)
+                        ) {
+                            if (state == "CONNECTING") {
+                                androidx.compose.material3.LoadingIndicator(modifier = Modifier.size(26.dp), color = buttonIconColor)
+                            } else {
+                                Icon(
+                                    imageVector = if (state == "CONNECTED") Icons.Default.Shield else Icons.Default.PowerSettingsNew,
+                                    contentDescription = null,
+                                    tint = buttonIconColor,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = stateText,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = contentColor
+                        )
+                        if (state == "CONNECTED") {
+                            val durationVal = remember { mutableStateOf("00:00:00") }
+                            val serviceManager = VpnServiceWrapper.vpnState
+                            LaunchedEffect(state) {
+                                val startTime = System.currentTimeMillis()
+                                while (serviceManager.value == "CONNECTED") {
+                                    val elapsed = System.currentTimeMillis() - startTime
+                                    val sec = (elapsed / 1000) % 60
+                                    val min = (elapsed / (1000 * 60)) % 60
+                                    val hr = elapsed / (1000 * 60 * 60)
+                                    durationVal.value = String.format(java.util.Locale.US, "%02d:%02d:%02d", hr, min, sec)
+                                    delay(1000)
+                                }
+                            }
+                            Text(
+                                text = durationVal.value,
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold),
+                                color = contentColor.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    Surface(
+                        shape = ExpressivePillShape,
+                        color = buttonColor.copy(alpha = 0.25f)
+                    ) {
+                        Text(
+                            text = if (state == "CONNECTED") "Disconnect" else "Connect",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = contentColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
                     }
                 }
             } else if (isWideBar) {
@@ -946,8 +1037,10 @@ fun ConnectionDashboard(
 
     @Composable
     fun ServerCard(cardSize: String = "2x1") {
-        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
-        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+        val isCompact = cardSize == "1x1"
+        val isTall = cardSize == "1x2"
+        val isWide = cardSize == "2x1"
+        val isExpanded = cardSize == "2x2" || cardSize == "2x3"
 
         ExpressiveCard(
             modifier = Modifier
@@ -959,23 +1052,33 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            if (isCompactTile) {
+            if (isCompact) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(12.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Dns,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        val serverFlag = getFlagEmoji(serverName, null)
+                        if (serverFlag.isNotEmpty() && serverFlag != "🌐") {
+                            Text(serverFlag, fontSize = 14.sp)
+                        }
+                    }
                     Column {
                         Text(
                             text = serverName,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -983,10 +1086,65 @@ fun ConnectionDashboard(
                         )
                         Text(
                             text = activeSubName,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                    }
+                }
+            } else if (isTall) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        val serverFlag = getFlagEmoji(serverName, null)
+                        if (serverFlag.isNotEmpty()) {
+                            Text(serverFlag, fontSize = 18.sp)
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = activeSubName,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = serverName,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Surface(
+                        shape = ExpressivePillShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Change Node", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             } else if (isExpanded) {
@@ -1150,8 +1308,24 @@ fun ConnectionDashboard(
 
     @Composable
     fun TrafficCard(cardSize: String = "2x1") {
-        val isCompactTile = cardSize == "1x1" || cardSize == "1x2"
-        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+        val isCompact = cardSize == "1x1"
+        val isTall = cardSize == "1x2"
+        val isWide = cardSize == "2x1"
+        val isExpanded = cardSize == "2x2" || cardSize == "2x3"
+
+        val downBytes = sessionDownBytesProvider()
+        val upBytes = sessionUpBytesProvider()
+
+        val wavePhase = androidx.compose.animation.core.rememberInfiniteTransition(label = "trafficWave")
+        val phaseAnim by wavePhase.animateFloat(
+            initialValue = 0f,
+            targetValue = (2 * Math.PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(2200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "phaseAnim"
+        )
 
         ExpressiveCard(
             modifier = Modifier.fillMaxWidth(),
@@ -1160,18 +1334,71 @@ fun ConnectionDashboard(
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            if (isCompactTile) {
+            if (isCompact) {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(12.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "TRAFFIC",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(11.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(formatBytes(downBytes), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurface)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(11.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(formatBytes(upBytes), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            } else if (isTall) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.SwapVert, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text("DATA", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     Column {
-                        Text("Down: ${formatBytes(sessionDownBytesProvider())}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold))
-                        Text("Up: ${formatBytes(sessionUpBytesProvider())}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ArrowDownward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Download", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(formatBytes(downBytes), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                    }
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Upload", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(formatBytes(upBytes), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             } else if (isExpanded) {
+                val waveColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                val waveSecondary = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1179,8 +1406,15 @@ fun ConnectionDashboard(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text("Live Session Traffic", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
+                        Surface(shape = ExpressivePillShape, color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)) {
+                            Text(
+                                text = if (state == "CONNECTED") "Live Stream" else "Idle",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1188,7 +1422,7 @@ fun ConnectionDashboard(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Downloaded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Text(formatBytes(sessionDownBytesProvider()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(formatBytes(downBytes), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1196,7 +1430,33 @@ fun ConnectionDashboard(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(Icons.Default.ArrowUpward, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                             }
-                            Text(formatBytes(sessionUpBytesProvider()), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text(formatBytes(upBytes), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(if (cardSize == "2x3") 80.dp else 40.dp)) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val w = size.width
+                            val h = size.height
+                            val path = androidx.compose.ui.graphics.Path()
+                            val path2 = androidx.compose.ui.graphics.Path()
+                            path.moveTo(0f, h * 0.5f)
+                            path2.moveTo(0f, h * 0.6f)
+                            for (x in 0..w.toInt() step 6) {
+                                val normX = x / w
+                                val y = (h * 0.5f + (h * 0.35f) * Math.sin(normX * 3 * Math.PI + phaseAnim)).toFloat()
+                                val y2 = (h * 0.6f + (h * 0.28f) * Math.cos(normX * 2.5 * Math.PI + phaseAnim)).toFloat()
+                                path.lineTo(x.toFloat(), y)
+                                path2.lineTo(x.toFloat(), y2)
+                            }
+                            path.lineTo(w, h)
+                            path.lineTo(0f, h)
+                            path.close()
+                            drawPath(path, color = waveColor)
+
+                            path2.lineTo(w, h)
+                            path2.lineTo(0f, h)
+                            path2.close()
+                            drawPath(path2, color = waveSecondary)
                         }
                     }
                 }
@@ -1212,10 +1472,10 @@ fun ConnectionDashboard(
                             Spacer(modifier = Modifier.width(3.dp))
                             Text("Down", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                         }
-                        Text(formatBytes(sessionDownBytesProvider()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Text(formatBytes(downBytes), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                     }
                     Column(modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 10.dp, end = 14.dp), horizontalAlignment = Alignment.End) {
-                        Text(formatBytes(sessionUpBytesProvider()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+                        Text(formatBytes(upBytes), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Up", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                             Spacer(modifier = Modifier.width(3.dp))
@@ -1229,16 +1489,179 @@ fun ConnectionDashboard(
 
     @Composable
     fun IpAddressCard(cardSize: String = "1x1") {
-        val isExpanded = cardSize.endsWith("x2") || cardSize.endsWith("x3")
+        val isExpanded = cardSize == "2x2" || cardSize == "2x3"
+        val isTall = cardSize == "1x2"
+        val isWide = cardSize == "2x1"
+        val isCompact = cardSize == "1x1"
+
+        val spinTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "ipSpin")
+        val spinAngle by spinTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(900, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "spinAngle"
+        )
 
         ExpressiveCard(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .pressScaleEffect()
+                .clickable { refreshPublicIp() },
             brush = secondaryCardBrush,
             shape = ExpressiveCardShape,
             borderBrush = cardBorderBrush,
             cardStyle = cardStyle
         ) {
-            if (isExpanded) {
+            if (isCompact) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
+                        if (isRefreshingIp) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refreshing IP",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp).graphicsLayer { rotationZ = spinAngle }
+                            )
+                        } else if (ipFlagEmoji != "🌐") {
+                            if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
+                                Image(
+                                    painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
+                                    contentDescription = "Iran Flag",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(ipFlagEmoji, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Tap to refresh IP",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "IP ADDRESS",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp, fontSize = 9.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = userIpAddress,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else if (isTall) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                        if (isRefreshingIp) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refreshing IP",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = spinAngle }
+                            )
+                        } else if (ipFlagEmoji != "🌐") {
+                            Text(ipFlagEmoji, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "PUBLIC IP",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = userIpAddress,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)) {
+                        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("DNS Protected", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+            } else if (isWide) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "PUBLIC IP ADDRESS",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (ipFlagEmoji != "🌐") {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(ipFlagEmoji, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            Text(
+                                text = userIpAddress,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)) {
+                            Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("DNS Secure", style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                        IconButton(onClick = { refreshPublicIp() }, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh IP",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp).graphicsLayer { if (isRefreshingIp) rotationZ = spinAngle }
+                            )
+                        }
+                    }
+                }
+            } else {
+                // 2x2 & 2x3 Expanded Hub
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1255,49 +1678,39 @@ fun ConnectionDashboard(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("IP & Security Diagnostics", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
-                        if (ipFlagEmoji != "🌐") {
-                            if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
-                                Image(
-                                    painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
-                                    contentDescription = "Iran Flag",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
-                                Text(ipFlagEmoji, style = MaterialTheme.typography.titleLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (ipFlagEmoji != "🌐") {
+                                if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
+                                    Image(
+                                        painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
+                                        contentDescription = "Iran Flag",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text(ipFlagEmoji, style = MaterialTheme.typography.titleLarge)
+                                }
                             }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("PUBLIC IP ADDRESS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(userIpAddress, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("DNS Leak Protection Active", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                }
-            } else {
-                Column(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
-                        if (ipFlagEmoji != "🌐") {
-                            if (ipFlagEmoji == "🇮🇷" || resolvedIpCountryCode.equals("IR", ignoreCase = true)) {
-                                Image(
-                                    painter = painterResource(id = com.hambalapps.chameleon.R.drawable.ic_lion_sun_flag),
-                                    contentDescription = "Iran Flag",
-                                    modifier = Modifier.size(22.dp)
+                            IconButton(onClick = { refreshPublicIp() }, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh IP",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp).graphicsLayer { if (isRefreshingIp) rotationZ = spinAngle }
                                 )
-                            } else {
-                                Text(ipFlagEmoji, style = MaterialTheme.typography.titleMedium)
                             }
                         }
                     }
                     Column {
-                        Text("IP ADDRESS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
-                        Text(userIpAddress, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("PUBLIC IP ADDRESS", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(userIpAddress, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
+                    }
+                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("DNS Leak Protection Active", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
                     }
                 }
             }
@@ -2450,27 +2863,50 @@ fun ConnectionDashboard(
             var totalDragX by remember { mutableStateOf(0f) }
             var totalDragY by remember { mutableStateOf(0f) }
 
+            var isReorderDragging by remember { mutableStateOf(false) }
+            var reorderDragY by remember { mutableStateOf(0f) }
+
             val targetHeightDp = bentoSize.heightDp
             val animatedHeightDp by animateDpAsState(
-                targetValue = if (isDragging) (targetHeightDp + (totalDragY / 2.5f).dp).coerceIn(100.dp, 400.dp) else targetHeightDp,
+                targetValue = if (isDragging) (targetHeightDp + (totalDragY / 2.5f).dp).coerceIn(88.dp, 420.dp) else targetHeightDp,
                 animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow),
                 label = "animatedHeightDp"
             )
 
             val liveScaleX by animateFloatAsState(
-                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.88f, 1.12f) else 1f,
+                targetValue = if (isDragging) (1f + totalDragX / 400f).coerceIn(0.88f, 1.12f) else if (isReorderDragging) 1.03f else 1f,
                 animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
                 label = "liveScaleX"
             )
+            val liveScaleY by animateFloatAsState(
+                targetValue = if (isReorderDragging) 1.03f else 1f,
+                animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
+                label = "liveScaleY"
+            )
+
+            val prospectiveW = when {
+                totalDragX > 55f -> 2
+                totalDragX < -55f -> 1
+                else -> bentoSize.widthSlots
+            }
+            val prospectiveH = when {
+                totalDragY > 75f -> (bentoSize.heightSlots + 1).coerceAtMost(3)
+                totalDragY < -75f -> (bentoSize.heightSlots - 1).coerceAtLeast(1)
+                else -> bentoSize.heightSlots
+            }
+            val prospectiveSizeStr = "${prospectiveW}x${prospectiveH}"
 
             Card(
                 modifier = modifier
                     .height(animatedHeightDp)
+                    .offset { IntOffset(0, reorderDragY.toInt()) }
                     .graphicsLayer {
                         scaleX = liveScaleX
+                        scaleY = liveScaleY
+                        shadowElevation = if (isReorderDragging) 24f else if (isDragging) 16f else 4f
                     }
                     .animateContentSize(animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessLow))
-                    .border(2.dp, MaterialTheme.colorScheme.primary, ExpressiveCardShape),
+                    .border(2.dp, if (isDragging) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary, ExpressiveCardShape),
                 shape = ExpressiveCardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
@@ -2484,15 +2920,51 @@ fun ConnectionDashboard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = getCardTitle(cardId),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .pointerInput(index) {
+                                        detectDragGestures(
+                                            onDragStart = { isReorderDragging = true },
+                                            onDragEnd = {
+                                                isReorderDragging = false
+                                                reorderDragY = 0f
+                                            },
+                                            onDragCancel = {
+                                                isReorderDragging = false
+                                                reorderDragY = 0f
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                reorderDragY += dragAmount.y
+                                                if (reorderDragY > 70f && index < activeCardIds.size - 1) {
+                                                    onMoveDown()
+                                                    reorderDragY = 0f
+                                                } else if (reorderDragY < -70f && index > 0) {
+                                                    onMoveUp()
+                                                    reorderDragY = 0f
+                                                }
+                                            }
+                                        )
+                                    },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DragIndicator,
+                                    contentDescription = "Drag to reorder card",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = getCardTitle(cardId),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Surface(
                                     modifier = Modifier.clickable { showSizeSheet = true },
@@ -2527,6 +2999,33 @@ fun ConnectionDashboard(
                     Box(modifier = Modifier.align(Alignment.TopEnd).offset(x = (-4).dp, y = 4.dp).size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                     Box(modifier = Modifier.align(Alignment.BottomStart).offset(x = 4.dp, y = (-4).dp).size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
 
+                    // Drag-to-Resize Real-time Snap Badge Overlay
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isDragging,
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut(),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
+                        Surface(
+                            shape = ExpressivePillShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.AspectRatio, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Snap: $prospectiveSizeStr",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                        }
+                    }
+
                     // Drag-to-Resize Handle at Bottom Right
                     Surface(
                         modifier = Modifier
@@ -2542,19 +3041,7 @@ fun ConnectionDashboard(
                                     },
                                     onDragEnd = {
                                         isDragging = false
-                                        var targetW = bentoSize.widthSlots
-                                        var targetH = bentoSize.heightSlots
-
-                                        if (totalDragX > 60f) targetW = 2
-                                        else if (totalDragX < -60f) targetW = 1
-
-                                        if (totalDragY > 80f) {
-                                            targetH = if (bentoSize.heightSlots == 1) 2 else 3
-                                        } else if (totalDragY < -80f) {
-                                            targetH = if (bentoSize.heightSlots == 3) 2 else 1
-                                        }
-
-                                        onSetSize("${targetW}x${targetH}")
+                                        onSetSize(prospectiveSizeStr)
                                         totalDragX = 0f
                                         totalDragY = 0f
                                     },
