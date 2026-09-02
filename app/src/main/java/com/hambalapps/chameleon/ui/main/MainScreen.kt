@@ -127,52 +127,11 @@ fun VibrantCardContent(
 ) {
     val originalColorScheme = MaterialTheme.colorScheme
     val textCol = if (isSecondary) originalColorScheme.onSecondaryContainer else originalColorScheme.onPrimaryContainer
-    val bgCol = if (isSecondary) originalColorScheme.secondaryContainer else originalColorScheme.primaryContainer
     
-    val targetColorScheme = if (cardStyle == "vibrant" || cardStyle == "solid") {
-        originalColorScheme.copy(
-            primary = textCol,
-            onPrimary = bgCol,
-            primaryContainer = textCol.copy(alpha = 0.20f),
-            onPrimaryContainer = textCol,
-            
-            secondary = textCol,
-            onSecondary = bgCol,
-            secondaryContainer = textCol.copy(alpha = 0.20f),
-            onSecondaryContainer = textCol,
-            
-            tertiary = textCol,
-            onTertiary = bgCol,
-            tertiaryContainer = textCol.copy(alpha = 0.20f),
-            onTertiaryContainer = textCol,
-            
-            surface = bgCol,
-            onSurface = textCol,
-            onSurfaceVariant = textCol.copy(alpha = 0.80f),
-            surfaceVariant = textCol.copy(alpha = 0.15f),
-            
-            outline = textCol.copy(alpha = 0.45f),
-            outlineVariant = textCol.copy(alpha = 0.25f),
-            onError = Color.White,
-            
-            surfaceContainerLowest = textCol.copy(alpha = 0.05f),
-            surfaceContainerLow = textCol.copy(alpha = 0.10f),
-            surfaceContainer = textCol.copy(alpha = 0.15f),
-            surfaceContainerHigh = textCol.copy(alpha = 0.20f),
-            surfaceContainerHighest = textCol.copy(alpha = 0.25f)
-        )
-    } else {
-        originalColorScheme
-    }
-
-    androidx.compose.material3.MaterialExpressiveTheme(
-        colorScheme = targetColorScheme
-    ) {
-        CompositionLocalProvider(
-            LocalContentColor provides MaterialTheme.colorScheme.onSurface,
-            content = content
-        )
-    }
+    CompositionLocalProvider(
+        LocalContentColor provides textCol,
+        content = content
+    )
 }
 
 @Composable
@@ -392,6 +351,7 @@ fun MainScreen(
     val warpDetourMode = settings.warpDetourMode
     val warpPort = settings.warpPort
     val appIcon = settings.appIcon
+    val amoledMode = settings.amoledMode
 
     val subscriptions = settings.deserializedSubscriptions
     val manualServerSet = remember(manualServersStr) {
@@ -5266,6 +5226,34 @@ fun MainScreen(
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             )
+
+                                            val isCurrentDark = when (themeMode) {
+                                                "dark" -> true
+                                                "light" -> false
+                                                else -> isSystemInDarkTheme()
+                                            }
+
+                                            androidx.compose.animation.AnimatedVisibility(visible = isCurrentDark) {
+                                                Column {
+                                                    Spacer(modifier = Modifier.height(12.dp))
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                                            Text("Pure Black (AMOLED)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                                            Text("Pitch-black surfaces to maximize battery savings on OLED displays", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        }
+                                                        Switch(
+                                                            checked = amoledMode,
+                                                            onCheckedChange = { isChecked ->
+                                                                scope.launch { settingsManager.setAmoledMode(isChecked) }
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
 
                                             Spacer(modifier = Modifier.height(16.dp))
                                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

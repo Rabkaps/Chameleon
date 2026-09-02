@@ -37,6 +37,7 @@ class SettingsManager(private val context: Context) {
         val MANUAL_SERVERS = stringPreferencesKey("manual_servers")
         val SPECIAL_THEME = stringPreferencesKey("special_theme")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val AMOLED_MODE = booleanPreferencesKey("amoled_mode")
         val CARD_STYLE = stringPreferencesKey("card_style")
         val BYPASS_LAN = booleanPreferencesKey("bypass_lan")
         val AUTO_UPDATE_SUBS = booleanPreferencesKey("auto_update_subs")
@@ -106,6 +107,7 @@ class SettingsManager(private val context: Context) {
             manualServers = "",
             specialTheme = defaultThemeKey,
             themeMode = "system",
+            amoledMode = true,
             cardStyle = "vibrant",
             bypassLan = true,
             autoUpdateSubs = true,
@@ -184,6 +186,7 @@ class SettingsManager(private val context: Context) {
             manualServers = manualStr,
             specialTheme = prefs[SPECIAL_THEME] ?: defaultThemeKey,
             themeMode = prefs[THEME_MODE] ?: "system",
+            amoledMode = prefs[AMOLED_MODE] ?: true,
             cardStyle = prefs[CARD_STYLE] ?: "vibrant",
             bypassLan = prefs[BYPASS_LAN] ?: true,
             autoUpdateSubs = prefs[AUTO_UPDATE_SUBS] ?: true,
@@ -248,6 +251,7 @@ class SettingsManager(private val context: Context) {
     val specialTheme: Flow<String> = context.dataStore.data.map { it[SPECIAL_THEME] ?: defaultThemeKey }.distinctUntilChanged()
     val appIcon: Flow<String> = context.dataStore.data.map { it[APP_ICON] ?: "neon" }.distinctUntilChanged()
     val themeMode: Flow<String> = context.dataStore.data.map { it[THEME_MODE] ?: "system" }.distinctUntilChanged()
+    val amoledMode: Flow<Boolean> = context.dataStore.data.map { it[AMOLED_MODE] ?: true }.distinctUntilChanged()
     val cardStyle: Flow<String> = context.dataStore.data.map { it[CARD_STYLE] ?: "vibrant" }.distinctUntilChanged()
     val bypassLan: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_LAN] ?: true }.distinctUntilChanged()
     val autoUpdateSubs: Flow<Boolean> = context.dataStore.data.map { it[AUTO_UPDATE_SUBS] ?: true }.distinctUntilChanged()
@@ -339,6 +343,7 @@ class SettingsManager(private val context: Context) {
     }
 
     suspend fun setThemeMode(value: String) { context.dataStore.edit { it[THEME_MODE] = value } }
+    suspend fun setAmoledMode(value: Boolean) { context.dataStore.edit { it[AMOLED_MODE] = value } }
     suspend fun setCardStyle(value: String) { context.dataStore.edit { it[CARD_STYLE] = value } }
     suspend fun setBypassLan(value: Boolean) { context.dataStore.edit { it[BYPASS_LAN] = value } }
     suspend fun setAutoUpdateSubs(value: Boolean) { context.dataStore.edit { it[AUTO_UPDATE_SUBS] = value } }
@@ -433,6 +438,7 @@ data class UserSettings(
     val manualServers: String,
     val specialTheme: String,
     val themeMode: String,
+    val amoledMode: Boolean = true,
     val cardStyle: String,
     val bypassLan: Boolean,
     val autoUpdateSubs: Boolean,
