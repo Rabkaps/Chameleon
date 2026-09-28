@@ -22,6 +22,7 @@ import com.hambalapps.chameleon.theme.ChameleonTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import com.hambalapps.chameleon.vpn.VpnServiceWrapper
 import com.hambalapps.chameleon.vpn.getHostAndPortFromLink
+import com.hambalapps.chameleon.vpn.getNodeConnectionInfo
 import com.hambalapps.chameleon.vpn.measurePingDelay
 import com.hambalapps.chameleon.data.SettingsManager
 import com.google.android.material.color.DynamicColors
@@ -216,9 +217,9 @@ class MainActivity : ComponentActivity() {
           val scope = this
           val results = list.map { link ->
             scope.async {
-              val hostPort = getHostAndPortFromLink(link)
-              if (hostPort != null) {
-                val latency = measurePingDelay(hostPort.first, hostPort.second)
+              val nodeInfo = getNodeConnectionInfo(link)
+              if (nodeInfo != null) {
+                val latency = measurePingDelay(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
                 if (latency >= 0) Pair(link, latency) else null
               } else null
             }

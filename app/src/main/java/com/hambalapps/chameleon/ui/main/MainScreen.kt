@@ -70,6 +70,7 @@ import com.hambalapps.chameleon.vpn.VpnServiceWrapper
 import com.hambalapps.chameleon.vpn.ConfigInjector
 import com.hambalapps.chameleon.vpn.measurePingDelay
 import com.hambalapps.chameleon.vpn.getHostAndPortFromLink
+import com.hambalapps.chameleon.vpn.getNodeConnectionInfo
 import com.hambalapps.chameleon.vpn.tryBase64Decode
 import com.hambalapps.chameleon.vpn.ProxyNameResolver
 import com.hambalapps.chameleon.vpn.registerWarpAccount
@@ -823,9 +824,9 @@ fun MainScreen(
                 val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
                 val jobs = targets.map { link ->
                     scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                        val hostPort = getHostAndPortFromLink(link)
-                        if (hostPort != null) {
-                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                        val nodeInfo = getNodeConnectionInfo(link)
+                        if (nodeInfo != null) {
+                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
                             Triple(link, res.delayMs, res.status)
                         } else {
                             Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)

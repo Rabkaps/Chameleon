@@ -502,6 +502,10 @@ object ConfigInjector {
         }
 
         val trimmed = address.trim()
+        if (trimmed == "local") {
+            serverObj.put("type", "local")
+            return serverObj
+        }
         if (trimmed.startsWith("https://")) {
             serverObj.put("type", "https")
             val rawHost = trimmed.substringAfter("https://").substringBefore("/")
@@ -589,11 +593,11 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 3. Local Bypass DNS Server for Iran domains (routes directly over physical network interface)
-        val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
+        val directServer = if (settings.bypassIran) createDnsServer("dns-direct", "178.22.122.100", "direct") else createDnsServer("dns-direct", "1.1.1.1", "direct")
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
         val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
-        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
+        val bootstrapServer = if (settings.bypassIran) createDnsServer("dns-bootstrap", "local", "direct") else createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
@@ -1032,6 +1036,15 @@ object ConfigInjector {
             val isVision = flow.contains("vision")
             val isReality = tls?.has("reality") ?: false
 
+            // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
+            if (tls != null && hasTls && !tls.has("utls")) {
+                val utls = JSONObject().apply {
+                    put("enabled", true)
+                    put("fingerprint", "chrome")
+                }
+                tls.put("utls", utls)
+            }
+
             if (settings.enableFragment && isProxyOrRelay && !isOpenVpn && !isWireGuard && hasTls && !isReality && !isVision && !isCloudflare) {
                 injectFragmentToOutbound(out, settings)
             } else if (tls != null) {
@@ -1291,13 +1304,16 @@ object ConfigInjector {
         if (outbound.optString("type") == "openvpn") return
         val tls = outbound.optJSONObject("tls") ?: JSONObject().also { outbound.put("tls", it) }
         tls.put("enabled", true)
-        val fragObj = JSONObject().apply {
-            put("enabled", true)
-            put("size", settings.fragmentLength.ifEmpty { "10-20" })
-            put("sleep", settings.fragmentInterval.ifEmpty { "10-20" })
-        }
-        tls.put("fragment", fragObj)
+        tls.put("fragment", true)
         tls.put("record_fragment", true)
+        val intervalRaw = settings.fragmentInterval.trim()
+        val delayStr = if (intervalRaw.isNotEmpty()) {
+            val num = intervalRaw.filter { it.isDigit() }
+            if (num.isNotEmpty()) "${num}ms" else "500ms"
+        } else {
+            "500ms"
+        }
+        tls.put("fragment_fallback_delay", delayStr)
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
@@ -1728,14 +1744,12 @@ object ConfigInjector {
                         tls.put("server_name", sni)
                     }
 
-                    // Enable uTLS if security is reality or fingerprint is specified
-                    if (isReality || queryParams.containsKey("fp")) {
-                        val utls = JSONObject()
-                        utls.put("enabled", true)
-                        val fingerprint = queryParams["fp"] ?: "chrome"
-                        utls.put("fingerprint", fingerprint)
-                        tls.put("utls", utls)
-                    }
+                    // Enable uTLS by default (chrome) for all TLS connections to prevent Go crypto/tls DPI blocks
+                    val utls = JSONObject()
+                    utls.put("enabled", true)
+                    val fingerprint = queryParams["fp"] ?: "chrome"
+                    utls.put("fingerprint", fingerprint)
+                    tls.put("utls", utls)
 
                     if (isReality) {
                         val reality = JSONObject()
@@ -1759,13 +1773,12 @@ object ConfigInjector {
                 tls.put("enabled", true)
                 queryParams["sni"]?.let { tls.put("server_name", it) }
 
-                if (queryParams.containsKey("fp")) {
-                    val utls = JSONObject()
-                    utls.put("enabled", true)
-                    val fingerprint = queryParams["fp"] ?: "chrome"
-                    utls.put("fingerprint", fingerprint)
-                    tls.put("utls", utls)
-                }
+                // Enable uTLS by default (chrome) for all Trojan TLS connections to prevent Go crypto/tls DPI blocks
+                val utls = JSONObject()
+                utls.put("enabled", true)
+                val fingerprint = queryParams["fp"] ?: "chrome"
+                utls.put("fingerprint", fingerprint)
+                tls.put("utls", utls)
                 outbound.put("tls", tls)
 
                 // Transport

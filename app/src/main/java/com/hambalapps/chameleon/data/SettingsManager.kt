@@ -92,7 +92,7 @@ class SettingsManager(private val context: Context) {
             enableFragment = true,
             fragmentLength = "10-20",
             fragmentInterval = "10-20",
-            enableMux = true,
+            enableMux = false,
             vpnMtu = 1280,
             autoUpdateIntervalHours = 1,
             activeProfile = "",
@@ -171,7 +171,7 @@ class SettingsManager(private val context: Context) {
             enableFragment = prefs[ENABLE_FRAGMENT] ?: true,
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10-20",
-            enableMux = prefs[ENABLE_MUX] ?: true,
+            enableMux = prefs[ENABLE_MUX] ?: false,
             vpnMtu = prefs[VPN_MTU] ?: 1280,
             autoUpdateIntervalHours = prefs[AUTO_UPDATE_INTERVAL_HOURS] ?: 1,
             activeProfile = prefs[ACTIVE_PROFILE] ?: "",
@@ -235,7 +235,7 @@ class SettingsManager(private val context: Context) {
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
-    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: true }.distinctUntilChanged()
+    val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
     val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1280 }.distinctUntilChanged()
     val autoUpdateIntervalHours: Flow<Int> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL_HOURS] ?: 1 }.distinctUntilChanged()
     val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }.distinctUntilChanged()

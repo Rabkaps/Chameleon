@@ -12,19 +12,11 @@ import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 
 
-suspend fun measurePingDelay(host: String, port: Int): Int = withContext(Dispatchers.IO) {
-    val startTime = System.currentTimeMillis()
-    try {
-        Socket().use { socket ->
-            socket.connect(InetSocketAddress(host, port), 2000) // 2-second timeout
-        }
-        (System.currentTimeMillis() - startTime).toInt()
-    } catch (e: Exception) {
-        -1
-    }
+suspend fun measurePingDelay(host: String, port: Int, sni: String = host): Int = withContext(Dispatchers.IO) {
+    CensorshipDiagnostics.diagnoseConnection(host, port, sni).delayMs
 }
 
-suspend fun measureDetailedPingDelay(host: String, port: Int): DetailedPingResult = CensorshipDiagnostics.diagnoseConnection(host, port)
+suspend fun measureDetailedPingDelay(host: String, port: Int, sni: String = host): DetailedPingResult = CensorshipDiagnostics.diagnoseConnection(host, port, sni)
 
 fun tryBase64Decode(str: String): String? {
     val trimmed = str.trim()
@@ -76,6 +68,128 @@ fun tryBase64Decode(str: String): String? {
         // continue
     }
     return null
+}
+
+data class NodeConnectionInfo(
+    val host: String,
+    val port: Int,
+    val sni: String = host
+)
+
+fun getNodeConnectionInfo(link: String): NodeConnectionInfo? {
+    try {
+        val trimmed = link.trim()
+        if (trimmed.startsWith("{")) {
+            try {
+                val json = JSONObject(trimmed)
+                var server = json.optString("server").ifEmpty { json.optString("add") }
+                var portVal = json.opt("server_port") ?: json.opt("port")
+                var port = when (portVal) {
+                    is Number -> portVal.toInt()
+                    is String -> portVal.toIntOrNull() ?: 443
+                    else -> 443
+                }
+                var sni = json.optString("sni").ifEmpty { json.optString("host") }
+                val tls = json.optJSONObject("tls")
+                if (tls != null) {
+                    val sName = tls.optString("server_name")
+                    if (sName.isNotEmpty()) sni = sName
+                }
+                if (server.isEmpty()) {
+                    val peers = json.optJSONArray("peers")
+                    if (peers != null && peers.length() > 0) {
+                        val peer = peers.optJSONObject(0)
+                        val pAddr = peer?.optString("address")?.ifEmpty { peer.optString("server")?.ifEmpty { peer.optString("endpoint")?.substringBefore(":") } } ?: ""
+                        val pPort = peer?.optInt("port", peer.optInt("server_port", 2408)) ?: 2408
+                        if (pAddr.isNotEmpty()) {
+                            server = pAddr
+                            port = pPort
+                        }
+                    }
+                }
+                if (server.isEmpty()) {
+                    val outbounds = json.optJSONArray("outbounds")
+                    if (outbounds != null) {
+                        for (i in 0 until outbounds.length()) {
+                            val out = outbounds.optJSONObject(i) ?: continue
+                            val s = out.optString("server").ifEmpty { out.optString("add") }
+                            val pVal = out.opt("server_port") ?: out.opt("port")
+                            val p = when (pVal) {
+                                is Number -> pVal.toInt()
+                                is String -> pVal.toIntOrNull() ?: 443
+                                else -> 443
+                            }
+                            val outTls = out.optJSONObject("tls")
+                            var outSni = out.optString("sni").ifEmpty { out.optString("host") }
+                            if (outTls != null) {
+                                val sName = outTls.optString("server_name")
+                                if (sName.isNotEmpty()) outSni = sName
+                            }
+                            if (s.isNotEmpty()) {
+                                server = s
+                                port = p
+                                if (outSni.isNotEmpty()) sni = outSni
+                                break
+                            }
+                        }
+                    }
+                }
+                if (server.isNotEmpty()) {
+                    return NodeConnectionInfo(server, port, if (sni.isNotEmpty()) sni else server)
+                }
+            } catch (e: Exception) {}
+        }
+
+        val rest = if (trimmed.contains("#")) trimmed.substring(0, trimmed.indexOf("#")) else trimmed
+        val schemeIdx = rest.indexOf("://")
+        val scheme = if (schemeIdx >= 0) rest.substring(0, schemeIdx).lowercase() else ""
+        val content = if (schemeIdx >= 0) rest.substring(schemeIdx + 3) else rest
+        val queryIdx = content.indexOf("?")
+        val mainPart = if (queryIdx >= 0) content.substring(0, queryIdx) else content
+        val queryPart = if (queryIdx >= 0) content.substring(queryIdx + 1) else ""
+
+        if (scheme == "vmess") {
+            val decoded = tryBase64Decode(mainPart)
+            if (decoded != null && decoded.startsWith("{")) {
+                val vmessJson = JSONObject(decoded)
+                val add = vmessJson.optString("add")
+                val portVal = vmessJson.opt("port")
+                val port = when (portVal) {
+                    is Number -> portVal.toInt()
+                    is String -> portVal.toIntOrNull() ?: 443
+                    else -> 443
+                }
+                val sni = vmessJson.optString("sni").ifEmpty { vmessJson.optString("host") }
+                if (add.isNotEmpty()) {
+                    return NodeConnectionInfo(add, port, if (sni.isNotEmpty()) sni else add)
+                }
+            }
+        }
+
+        var sni = ""
+        if (queryPart.isNotEmpty()) {
+            val pairs = queryPart.split("&")
+            for (p in pairs) {
+                val kv = p.split("=")
+                if (kv.size == 2) {
+                    val k = kv[0].lowercase()
+                    if (k == "sni" || k == "host" || k == "peer") {
+                        sni = try { URLDecoder.decode(kv[1], "UTF-8") } catch (e: Exception) { kv[1] }
+                    }
+                }
+            }
+        }
+
+        val serverPart = if (mainPart.contains("@")) mainPart.substring(mainPart.indexOf("@") + 1) else mainPart
+        val colonIdx = serverPart.lastIndexOf(":")
+        val host = if (colonIdx >= 0) serverPart.substring(0, colonIdx) else serverPart
+        val portStr = if (colonIdx >= 0) serverPart.substring(colonIdx + 1) else "443"
+        val port = portStr.toIntOrNull() ?: 443
+        return NodeConnectionInfo(host, port, if (sni.isNotEmpty()) sni else host)
+    } catch (e: Exception) {
+        val hp = getHostAndPortFromLink(link)
+        return hp?.let { NodeConnectionInfo(it.first, it.second, it.first) }
+    }
 }
 
 fun getHostAndPortFromLink(link: String): Pair<String, Int>? {

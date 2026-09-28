@@ -38,6 +38,7 @@ import com.hambalapps.chameleon.theme.ChameleonTheme
 import com.hambalapps.chameleon.vpn.VpnServiceWrapper
 import com.hambalapps.chameleon.vpn.measurePingDelay
 import com.hambalapps.chameleon.vpn.getHostAndPortFromLink
+import com.hambalapps.chameleon.vpn.getNodeConnectionInfo
 import com.hambalapps.chameleon.vpn.ProxyNameResolver
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -267,9 +268,9 @@ class NodesPopupActivity : ComponentActivity() {
                                                          val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
                                                          val jobs = targets.map { link ->
                                                              scope.async(Dispatchers.IO) {
-                                                                 val hostPort = getHostAndPortFromLink(link)
-                                                                 if (hostPort != null) {
-                                                                     val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(hostPort.first, hostPort.second)
+                                                                 val nodeInfo = getNodeConnectionInfo(link)
+                                                                 if (nodeInfo != null) {
+                                                                     val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
                                                                      Triple(link, res.delayMs, res.status)
                                                                  } else {
                                                                      Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
