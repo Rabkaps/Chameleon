@@ -1036,8 +1036,25 @@ object ConfigInjector {
             val isVision = flow.contains("vision")
             val isReality = tls?.has("reality") ?: false
 
-            // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
-            if (tls != null && hasTls && !tls.has("utls")) {
+            if (tls != null && isReality) {
+                // Normalize JSON fields for Reality in case user imported a raw JSON profile
+                val reality = tls.optJSONObject("reality")
+                if (reality != null) {
+                    if (reality.has("publicKey") && !reality.has("public_key")) {
+                        reality.put("public_key", reality.optString("publicKey"))
+                    }
+                    if (reality.has("shortId") && !reality.has("short_id")) {
+                        reality.put("short_id", reality.optString("shortId"))
+                    }
+                }
+                val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
+                utls.put("enabled", true)
+                val currentFp = utls.optString("fingerprint")
+                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
+                    utls.put("fingerprint", "firefox")
+                }
+            } else if (tls != null && hasTls && !tls.has("utls")) {
+                // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
                 val utls = JSONObject().apply {
                     put("enabled", true)
                     put("fingerprint", "chrome")
@@ -1739,23 +1756,40 @@ object ConfigInjector {
                     val tls = JSONObject()
                     tls.put("enabled", true)
                     
-                    val sni = queryParams["sni"] ?: queryParams["host"]
+                    val sni = queryParams["sni"] ?: queryParams["serverName"] ?: queryParams["server_name"] ?: queryParams["host"]
                     if (sni != null && sni.isNotEmpty()) {
                         tls.put("server_name", sni)
                     }
 
-                    // Enable uTLS by default (chrome) for all TLS connections to prevent Go crypto/tls DPI blocks
+                    // For REALITY: modern Xray-core servers (v26.9.8+) enforce that if the client claims to be "chrome",
+                    // the ClientHello must include an X25519MLKEM768 key share. sing-box filters this out, triggering
+                    // "reality verification failed" on the server fallback. Firefox does not send or require
+                    // post-quantum key shares, bypassing this check and establishing a byte-authentic TLS handshake.
+                    val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
+                    val fingerprint = if (isReality) {
+                        if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
+                            "firefox"
+                        } else {
+                            rawFp
+                        }
+                    } else {
+                        rawFp ?: "chrome"
+                    }
+
                     val utls = JSONObject()
                     utls.put("enabled", true)
-                    val fingerprint = queryParams["fp"] ?: "chrome"
                     utls.put("fingerprint", fingerprint)
                     tls.put("utls", utls)
 
                     if (isReality) {
                         val reality = JSONObject()
                         reality.put("enabled", true)
-                        queryParams["pbk"]?.let { reality.put("public_key", it) }
-                        queryParams["sid"]?.let { reality.put("short_id", it) }
+                        val pbk = queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"]
+                        if (!pbk.isNullOrEmpty()) {
+                            reality.put("public_key", pbk)
+                        }
+                        val sid = queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: ""
+                        reality.put("short_id", sid)
                         tls.put("reality", reality)
                     }
                     outbound.put("tls", tls)
@@ -1769,16 +1803,43 @@ object ConfigInjector {
                 outbound.put("server", host)
                 outbound.put("server_port", port)
 
+                val security = queryParams["security"]?.lowercase()
+                val isReality = security == "reality"
+
                 val tls = JSONObject()
                 tls.put("enabled", true)
-                queryParams["sni"]?.let { tls.put("server_name", it) }
+                val sni = queryParams["sni"] ?: queryParams["serverName"] ?: queryParams["server_name"] ?: queryParams["host"]
+                if (sni != null && sni.isNotEmpty()) {
+                    tls.put("server_name", sni)
+                }
 
-                // Enable uTLS by default (chrome) for all Trojan TLS connections to prevent Go crypto/tls DPI blocks
+                val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
+                val fingerprint = if (isReality) {
+                    if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
+                        "firefox"
+                    } else {
+                        rawFp
+                    }
+                } else {
+                    rawFp ?: "chrome"
+                }
+
                 val utls = JSONObject()
                 utls.put("enabled", true)
-                val fingerprint = queryParams["fp"] ?: "chrome"
                 utls.put("fingerprint", fingerprint)
                 tls.put("utls", utls)
+
+                if (isReality) {
+                    val reality = JSONObject()
+                    reality.put("enabled", true)
+                    val pbk = queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"]
+                    if (!pbk.isNullOrEmpty()) {
+                        reality.put("public_key", pbk)
+                    }
+                    val sid = queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: ""
+                    reality.put("short_id", sid)
+                    tls.put("reality", reality)
+                }
                 outbound.put("tls", tls)
 
                 // Transport
