@@ -314,6 +314,9 @@ object ConfigInjector {
             sanitizePortFields(configJson)
             sanitizeXhttpTransport(configJson)
 
+            // Inject NTP time synchronization to ensure Reality TLS timestamps never drift
+            injectNtp(configJson)
+
             // 1. Pre-resolve proxy server domains to raw IPs to bypass DNS hijacking
             preResolveProxyServers(context, configJson, settings)
 
@@ -348,6 +351,17 @@ object ConfigInjector {
             e.printStackTrace()
             return buildDefaultSkeleton(settings).toString(2)
         }
+    }
+
+    private fun injectNtp(config: JSONObject) {
+        val ntp = JSONObject().apply {
+            put("enabled", true)
+            put("server", "time.apple.com")
+            put("server_port", 123)
+            put("interval", "30m")
+            put("detour", "direct")
+        }
+        config.put("ntp", ntp)
     }
 
     private fun injectTunInbound(config: JSONObject, settings: InjectorSettings) {
@@ -603,7 +617,7 @@ object ConfigInjector {
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
         val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
-        val bootstrapServer = if (settings.bypassIran) createDnsServer("dns-bootstrap", "local", "direct") else createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
+        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
 
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
@@ -955,9 +969,11 @@ object ConfigInjector {
         route.put("override_android_vpn", !settings.rootMode)
         if (settings.ipVersion.isNotEmpty()) {
             route.put("default_domain_resolver", JSONObject().apply {
-                put("server", "dns-secure")
+                put("server", "dns-bootstrap")
                 put("strategy", settings.ipVersion)
             })
+        } else {
+            route.put("default_domain_resolver", "dns-bootstrap")
         }
     }
 
@@ -1061,9 +1077,8 @@ object ConfigInjector {
                 }
                 val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
                 utls.put("enabled", true)
-                val currentFp = utls.optString("fingerprint")
-                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
-                    utls.put("fingerprint", "firefox")
+                if (!utls.has("fingerprint") || utls.optString("fingerprint").isEmpty()) {
+                    utls.put("fingerprint", "chrome")
                 }
             } else if (tls != null && hasTls && !tls.has("utls")) {
                 // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
@@ -1777,20 +1792,8 @@ object ConfigInjector {
                         tls.put("server_name", sni)
                     }
 
-                    // For REALITY: modern Xray-core servers (v26.9.8+) enforce that if the client claims to be "chrome",
-                    // the ClientHello must include an X25519MLKEM768 key share. sing-box filters this out, triggering
-                    // "reality verification failed" on the server fallback. Firefox does not send or require
-                    // post-quantum key shares, bypassing this check and establishing a byte-authentic TLS handshake.
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -1830,15 +1833,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -3173,15 +3168,15 @@ object ConfigInjector {
         val dnsServers = mutableListOf<String>()
         
         if (settings.bypassIran) {
-            // For Iran: prioritize clean public resolvers (e.g. 8.8.8.8, 4.2.2.4, 178.22.122.100, 185.51.200.2) to prevent local mobile carrier poisoning
-            listOf("8.8.8.8", "4.2.2.4", "185.51.200.2", "178.22.122.100").forEach { ip ->
+            // For Iran: prioritize clean public resolvers to prevent local mobile carrier and domestic DNS poisoning
+            listOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222", "4.2.2.4").forEach { ip ->
                 if (!dnsServers.contains(ip)) {
                     dnsServers.add(ip)
                 }
             }
         } else {
-            // Outside Iran: prioritize Google, Quad9, then Shecan
-            listOf("8.8.8.8", "9.9.9.9", "178.22.122.100").forEach { ip ->
+            // Outside Iran: prioritize Cloudflare, Google, Quad9
+            listOf("1.1.1.1", "8.8.8.8", "9.9.9.9").forEach { ip ->
                 if (!dnsServers.contains(ip)) {
                     dnsServers.add(ip)
                 }

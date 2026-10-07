@@ -92,6 +92,9 @@ object ConfigInjector {
             // Sanitize invalid port fields in outbounds and inbounds
             sanitizePortFields(configJson)
 
+            // Inject NTP time synchronization to ensure Reality TLS timestamps never drift
+            injectNtp(configJson)
+
             // 1. Pre-resolve proxy server domains to raw IP addresses to bypass DNS hijacking
             preResolveProxyServers(configJson)
 
@@ -115,6 +118,17 @@ object ConfigInjector {
             e.printStackTrace()
             return buildDefaultSkeleton(settings).toString(2)
         }
+    }
+
+    private fun injectNtp(config: JSONObject) {
+        val ntp = JSONObject().apply {
+            put("enabled", true)
+            put("server", "time.apple.com")
+            put("server_port", 123)
+            put("interval", "30m")
+            put("detour", "direct")
+        }
+        config.put("ntp", ntp)
     }
 
     private fun injectMixedInbound(config: JSONObject, settings: UserSettings) {
@@ -261,7 +275,7 @@ object ConfigInjector {
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
         val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
-        val bootstrapServer = createDnsServer("dns-bootstrap", "178.22.122.100", "direct")
+        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
 
         if (settings.bypassIran) {
             servers.put(secureServer)
@@ -564,7 +578,7 @@ object ConfigInjector {
         route.put("rules", newRules)
         if (settings.ipVersion.isNotEmpty()) {
             route.put("default_domain_resolver", JSONObject().apply {
-                put("server", "dns-secure")
+                put("server", "dns-bootstrap")
                 put("strategy", settings.ipVersion)
             })
         } else {
@@ -641,9 +655,8 @@ object ConfigInjector {
                 }
                 val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
                 utls.put("enabled", true)
-                val currentFp = utls.optString("fingerprint")
-                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
-                    utls.put("fingerprint", "firefox")
+                if (!utls.has("fingerprint") || utls.optString("fingerprint").isEmpty()) {
+                    utls.put("fingerprint", "chrome")
                 }
             } else if (tls != null && hasTls && !tls.has("utls")) {
                 val utls = JSONObject().apply {
@@ -798,20 +811,8 @@ object ConfigInjector {
                         tls.put("server_name", sni)
                     }
 
-                    // For REALITY: modern Xray-core servers (v26.9.8+) enforce that if the client claims to be "chrome",
-                    // the ClientHello must include an X25519MLKEM768 key share. sing-box filters this out, triggering
-                    // "reality verification failed" on the server fallback. Firefox does not send or require
-                    // post-quantum key shares, bypassing this check and establishing a byte-authentic TLS handshake.
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -850,15 +851,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -1466,20 +1459,8 @@ object ConfigInjector {
                         tls.put("server_name", sni)
                     }
 
-                    // For REALITY: modern Xray-core servers (v26.9.8+) enforce that if the client claims to be "chrome",
-                    // the ClientHello must include an X25519MLKEM768 key share. sing-box filters this out, triggering
-                    // "reality verification failed" on the server fallback. Firefox does not send or require
-                    // post-quantum key shares, bypassing this check and establishing a byte-authentic TLS handshake.
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -1518,15 +1499,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp == null || rawFp.isEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -1834,7 +1807,7 @@ object ConfigInjector {
             }
         } catch (e: Exception) {}
 
-        listOf("178.22.122.100", "10.202.10.10", "8.8.8.8", "1.1.1.1").forEach { dnsIp ->
+        listOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222", "4.2.2.4").forEach { dnsIp ->
             val resolved = resolveDomainDirectlyUDP(domain, dnsIp)
             if (resolved != null && isPublicIp(resolved)) {
                 return resolved
