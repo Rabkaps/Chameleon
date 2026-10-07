@@ -272,23 +272,11 @@ object ConfigInjector {
 
         // 2. Local Bypass & Bootstrap DNS Servers
         val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
-        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
-        val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
-        val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
         val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
 
-        if (settings.bypassIran) {
-            servers.put(secureServer)
-            servers.put(directServer)
-            servers.put(shecanServer)
-            servers.put(radarServer)
-            servers.put(online403Server)
-            servers.put(bootstrapServer)
-        } else {
-            servers.put(secureServer)
-            servers.put(directServer)
-            servers.put(bootstrapServer)
-        }
+        servers.put(secureServer)
+        servers.put(directServer)
+        servers.put(bootstrapServer)
 
         dns.put("servers", servers)
         dns.put("final", "dns-secure")
@@ -447,23 +435,15 @@ object ConfigInjector {
         }
         
         // Ensure default fallback direct DNS address is added
-        val defaultDirectDns = "178.22.122.100"
+        val defaultDirectDns = "1.1.1.1"
         if (!directIps.contains(defaultDirectDns)) {
             directIps.add(defaultDirectDns)
         }
         
-        // Dynamic bootstrap DNS address matching the one in injectDns (Shecan 178.22.122.100)
-        val bootstrapDnsAddr = "178.22.122.100"
+        // Dynamic bootstrap DNS address matching the one in injectDns (1.1.1.1)
+        val bootstrapDnsAddr = "1.1.1.1"
         if (!directIps.contains(bootstrapDnsAddr)) {
             directIps.add(bootstrapDnsAddr)
-        }
-
-        if (settings.bypassIran) {
-            listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
-                if (!directIps.contains(ip)) {
-                    directIps.add(ip)
-                }
-            }
         }
 
         val proxyEndpoints = getProxyServerEndpoints(config)

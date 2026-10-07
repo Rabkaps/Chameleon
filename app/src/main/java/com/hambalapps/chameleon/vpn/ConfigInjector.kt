@@ -503,7 +503,7 @@ object ConfigInjector {
 
     private fun getSystemDnsAddress(context: Context, settings: InjectorSettings? = null): String {
         val systemDnsList = getSystemDnsServers(context)
-        var directDnsAddr = "178.22.122.100" // Default public domestic Shecan DNS for unthrottled Iranian mobile data & Wi-Fi
+        var directDnsAddr = "1.1.1.1" // Clean fallback DNS
         for (dnsIp in systemDnsList) {
             val trimmed = dnsIp.trim()
             if (trimmed.isNotEmpty() && !trimmed.startsWith("172.") && !trimmed.startsWith("10.") && !trimmed.startsWith("192.168.") && trimmed != "127.0.0.1" && trimmed != "8.8.8.8" && trimmed != "8.8.4.4" && trimmed != "1.1.1.1") {
@@ -613,7 +613,7 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 3. Local Bypass DNS Server for Iran domains (routes directly over physical network interface)
-        val directServer = if (settings.bypassIran) createDnsServer("dns-direct", "178.22.122.100", "direct") else createDnsServer("dns-direct", "1.1.1.1", "direct")
+        val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
         val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
         val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
         val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
@@ -622,16 +622,12 @@ object ConfigInjector {
         if (settings.vpnMode == "gaming" && !settings.vpnModeTunnelGames) {
             servers.put(secureServer)
             servers.put(radarServer)
-            servers.put(shecanServer)
             servers.put(online403Server)
             servers.put(directServer)
             servers.put(bootstrapServer)
         } else if (settings.bypassIran) {
             servers.put(secureServer)
             servers.put(directServer)
-            servers.put(shecanServer)
-            servers.put(radarServer)
-            servers.put(online403Server)
             servers.put(bootstrapServer)
         } else {
             servers.put(secureServer)
@@ -831,8 +827,8 @@ object ConfigInjector {
             directIps.add(bootstrapDnsAddr)
         }
 
-        if (settings.bypassIran || settings.vpnMode == "gaming") {
-            listOf("10.202.10.10", "10.202.10.11", "10.202.10.202", "185.51.200.2", "178.22.122.100").forEach { ip ->
+        if (settings.vpnMode == "gaming") {
+            listOf("10.202.10.10", "10.202.10.11", "10.202.10.202").forEach { ip ->
                 if (!directIps.contains(ip)) {
                     directIps.add(ip)
                 }
@@ -2919,6 +2915,35 @@ object ConfigInjector {
                     if (server.isNotEmpty()) {
                         hosts.add(server)
                     }
+                    val tlsObj = outbound.optJSONObject("tls")
+                    if (tlsObj != null) {
+                        val sni = tlsObj.optString("server_name")
+                        if (sni.isNotEmpty()) hosts.add(sni)
+                    }
+                    val transObj = outbound.optJSONObject("transport")
+                    if (transObj != null) {
+                        val hostOpt = transObj.opt("host")
+                        if (hostOpt is String && hostOpt.isNotEmpty()) {
+                            hosts.add(hostOpt)
+                        } else if (hostOpt is JSONArray) {
+                            for (j in 0 until hostOpt.length()) {
+                                val h = hostOpt.optString(j)
+                                if (h.isNotEmpty()) hosts.add(h)
+                            }
+                        }
+                        val headers = transObj.optJSONObject("headers")
+                        if (headers != null) {
+                            val headerHost = headers.opt("Host")
+                            if (headerHost is String && headerHost.isNotEmpty()) {
+                                hosts.add(headerHost)
+                            } else if (headerHost is JSONArray) {
+                                for (j in 0 until headerHost.length()) {
+                                    val h = headerHost.optString(j)
+                                    if (h.isNotEmpty()) hosts.add(h)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3449,10 +3474,11 @@ object ConfigInjector {
             val p0 = parts[0].toInt()
             val p1 = parts[1].toInt()
             if (p0 == 127) return false
-            if (p0 == 10) return false
+            if (p0 == 10) return false // Blocks 10.0.0.0/8 including 10.10.34.34 & 10.10.34.35
             if (p0 == 172 && p1 in 16..31) return false
             if (p0 == 192 && p1 == 168) return false
             if (p0 == 169 && p1 == 254) return false
+            if (p0 == 100 && p1 in 64..127) return false // CGNAT
             if (p0 == 0 || p0 >= 224) return false
             return true
         } catch (e: Exception) {
