@@ -500,14 +500,11 @@ object ConfigInjector {
         return directDnsAddr
     }
 
-    private fun createDnsServer(tag: String, address: String, detour: String?, strategy: String? = null): JSONObject {
+    private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
         val serverObj = JSONObject()
         serverObj.put("tag", tag)
         if (detour != null) {
             serverObj.put("detour", detour)
-        }
-        if (!strategy.isNullOrEmpty()) {
-            serverObj.put("strategy", strategy)
         }
 
         val trimmed = address.trim()
@@ -599,7 +596,7 @@ object ConfigInjector {
         }
 
         // 2. Secure DNS Server (routes via the proxy)
-        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy", settings.ipVersion)
+        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 3. Local Bypass DNS Server for Iran domains (routes directly over physical network interface)
         val directServer = if (settings.bypassIran) createDnsServer("dns-direct", "178.22.122.100", "direct") else createDnsServer("dns-direct", "1.1.1.1", "direct")

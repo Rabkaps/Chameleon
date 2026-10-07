@@ -187,14 +187,11 @@ object ConfigInjector {
         return dnsList
     }
 
-    private fun createDnsServer(tag: String, address: String, detour: String?, strategy: String? = null): JSONObject {
+    private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
         val serverObj = JSONObject()
         serverObj.put("tag", tag)
         if (detour != null) {
             serverObj.put("detour", detour)
-        }
-        if (!strategy.isNullOrEmpty()) {
-            serverObj.put("strategy", strategy)
         }
 
         val trimmed = address.trim()
@@ -257,7 +254,7 @@ object ConfigInjector {
         val servers = JSONArray()
 
         // 1. Secure DNS Server (routes via the proxy)
-        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy", settings.ipVersion)
+        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 2. Local Bypass & Bootstrap DNS Servers
         val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
