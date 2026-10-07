@@ -185,6 +185,30 @@ fun SettingsHubScreen(
                             onCheckedChange = { settingsManager.setBypassLan(it) }
                         )
                     }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+                    // IP Version Strategy
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("IP Version Strategy", fontWeight = FontWeight.Bold)
+                        Text("Select IPv6 preference or restriction for DNS queries and outbound routing", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                "prefer_ipv6" to "Prefer IPv6",
+                                "prefer_ipv4" to "Prefer IPv4",
+                                "ipv6_only" to "IPv6 Only",
+                                "ipv4_only" to "IPv4 Only"
+                            ).forEach { (key, name) ->
+                                val isSelected = settings.ipVersion == key
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { settingsManager.setIpVersion(key) },
+                                    label = { Text(name, fontSize = 12.sp) },
+                                    shape = CircleShape
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

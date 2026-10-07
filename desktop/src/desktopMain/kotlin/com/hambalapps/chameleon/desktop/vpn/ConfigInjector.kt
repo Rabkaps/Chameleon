@@ -138,11 +138,15 @@ object ConfigInjector {
         newInbounds.put(mixedInbound)
 
         if (settings.enableTun) {
+            val tunAddresses = mutableListOf("172.19.0.1/30")
+            if (settings.ipVersion != "ipv4_only") {
+                tunAddresses.add("fdfe:dcba:9876::1/126")
+            }
             val tunInbound = JSONObject().apply {
                 put("type", "tun")
                 put("tag", "tun-in")
                 put("interface_name", "sing-box-tun")
-                put("address", JSONArray(listOf("172.19.0.1/30")))
+                put("address", JSONArray(tunAddresses))
                 put("mtu", 1280)
                 put("auto_route", true)
                 put("strict_route", true)
@@ -183,17 +187,20 @@ object ConfigInjector {
         return dnsList
     }
 
-    private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
+    private fun createDnsServer(tag: String, address: String, detour: String?, strategy: String? = null): JSONObject {
         val serverObj = JSONObject()
         serverObj.put("tag", tag)
         if (detour != null) {
             serverObj.put("detour", detour)
         }
+        if (!strategy.isNullOrEmpty()) {
+            serverObj.put("strategy", strategy)
+        }
 
         val trimmed = address.trim()
         if (trimmed.startsWith("https://")) {
-            serverObj.put("type", "https")
             val hostPart = trimmed.substringAfter("https://").substringBefore("/")
+            serverObj.put("type", "https")
             serverObj.put("server", hostPart)
             val path = "/" + trimmed.substringAfter("https://").substringAfter("/", "")
             if (path.length > 1) {
@@ -246,11 +253,11 @@ object ConfigInjector {
     private fun injectDns(config: JSONObject, settings: UserSettings) {
         val dns = JSONObject()
         dns.put("reverse_mapping", true)
-        dns.put("strategy", "ipv4_only")
+        dns.put("strategy", settings.ipVersion)
         val servers = JSONArray()
 
         // 1. Secure DNS Server (routes via the proxy)
-        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
+        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy", settings.ipVersion)
 
         // 2. Local Bypass & Bootstrap DNS Servers
         val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
@@ -558,7 +565,14 @@ object ConfigInjector {
         }
 
         route.put("rules", newRules)
-        route.put("default_domain_resolver", "dns-bootstrap")
+        if (settings.ipVersion.isNotEmpty()) {
+            route.put("default_domain_resolver", JSONObject().apply {
+                put("server", "dns-secure")
+                put("strategy", settings.ipVersion)
+            })
+        } else {
+            route.put("default_domain_resolver", "dns-bootstrap")
+        }
         route.put("auto_detect_interface", true)
     }
 
@@ -659,6 +673,10 @@ object ConfigInjector {
                 out.put("multiplex", mux)
             } else {
                 out.remove("multiplex")
+            }
+
+            if ((isProxyOrRelay || tag.startsWith("proxy-")) && settings.ipVersion.isNotEmpty()) {
+                out.put("domain_strategy", settings.ipVersion)
             }
             cleanOutbounds.put(out)
         }

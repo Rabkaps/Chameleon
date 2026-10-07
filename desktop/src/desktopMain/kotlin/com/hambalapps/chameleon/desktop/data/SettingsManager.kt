@@ -78,7 +78,8 @@ data class UserSettings(
     val dashboardCardSizes: String = "",
     val minimizeToTray: Boolean = true,
     val launchAtStartup: Boolean = false,
-    val proxyChains: String = ""
+    val proxyChains: String = "",
+    val ipVersion: String = "prefer_ipv6"
 ) {
     @Transient
     val deserializedSubscriptions: List<Subscription> by lazy {
@@ -214,6 +215,7 @@ class SettingsManager {
     fun setBypassIran(value: Boolean) { saveSettings(currentSettings.copy(bypassIran = value)) }
     fun setSecureDns(value: String) { saveSettings(currentSettings.copy(secureDns = value)) }
     fun setTunStack(value: String) { saveSettings(currentSettings.copy(tunStack = value)) }
+    fun setIpVersion(value: String) { saveSettings(currentSettings.copy(ipVersion = value)) }
     fun setEnableFragment(value: Boolean) { saveSettings(currentSettings.copy(enableFragment = value)) }
     fun setFragmentLength(value: String) { saveSettings(currentSettings.copy(fragmentLength = value)) }
     fun setFragmentInterval(value: String) { saveSettings(currentSettings.copy(fragmentInterval = value)) }

@@ -119,6 +119,12 @@
     <string name="enable_debug_logging_desc">ثبت لاگ‌های عیب‌یابی عمیق هسته sing-box (ممکن است مصرف باتری را مقداری افزایش دهد)</string>
     <string name="secure_dns_doh">پروتکل دی‌ان‌اس امن (DoH)</string>
     <string name="tun_network_stack">پشته شبکه TUN</string>
+    <string name="ip_version_strategy">استراتژی نسخه IP (IPv6 / IPv4)</string>
+    <string name="ip_version_strategy_desc">اولویت مسیریابی و تفکیک اتصال بین IPv6 و IPv4</string>
+    <string name="ip_prefer_ipv6">اولویت IPv6</string>
+    <string name="ip_prefer_ipv4">اولویت IPv4</string>
+    <string name="ip_ipv6_only">فقط IPv6</string>
+    <string name="ip_ipv4_only">فقط IPv4</string>
     <string name="tls_fragmentation">تکه‌تکه کردن TLS (Fragmentation)</string>
     <string name="tls_fragmentation_desc">تقسیم بسته‌های TLS جهت عبور از سیستم‌های فیلترینگ پیشرفته</string>
     <string name="tcp_multiplexing">چندکاناله کردن اتصال (Multiplexing)</string>

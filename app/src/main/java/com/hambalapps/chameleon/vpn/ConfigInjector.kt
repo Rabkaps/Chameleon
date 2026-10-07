@@ -48,7 +48,8 @@ data class InjectorSettings(
     val mtProxySecret: String = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
     val localProxyOnly: Boolean = false,
     val enableDebugLogging: Boolean = false,
-    val vpnMtu: Int = 1280
+    val vpnMtu: Int = 1280,
+    val ipVersion: String = "prefer_ipv6"
 )
 
 object ConfigInjector {
@@ -364,6 +365,11 @@ object ConfigInjector {
             }
         }
 
+        val tunAddresses = mutableListOf("172.19.0.1/30")
+        if (settings.ipVersion != "ipv4_only") {
+            tunAddresses.add("fdfe:dcba:9876::1/126")
+        }
+
         val tunInbound = JSONObject().apply {
             put("type", "tun")
             put("tag", "tun-in")
@@ -372,7 +378,7 @@ object ConfigInjector {
             put("mtu", settings.vpnMtu)
             put("auto_route", true)
             put("strict_route", true)
-            put("address", JSONArray(listOf("172.19.0.1/30")))
+            put("address", JSONArray(tunAddresses))
         }
         newInbounds.put(tunInbound)
         config.put("inbounds", newInbounds)
@@ -494,11 +500,14 @@ object ConfigInjector {
         return directDnsAddr
     }
 
-    private fun createDnsServer(tag: String, address: String, detour: String?): JSONObject {
+    private fun createDnsServer(tag: String, address: String, detour: String?, strategy: String? = null): JSONObject {
         val serverObj = JSONObject()
         serverObj.put("tag", tag)
         if (detour != null) {
             serverObj.put("detour", detour)
+        }
+        if (!strategy.isNullOrEmpty()) {
+            serverObj.put("strategy", strategy)
         }
 
         val trimmed = address.trim()
@@ -566,7 +575,7 @@ object ConfigInjector {
     private fun injectDns(context: Context, config: JSONObject, settings: InjectorSettings) {
         val dns = JSONObject()
         dns.put("reverse_mapping", true)
-        dns.put("strategy", "ipv4_only")
+        dns.put("strategy", settings.ipVersion)
         val servers = JSONArray()
 
         // 1. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options / AntiZapret)
@@ -590,7 +599,7 @@ object ConfigInjector {
         }
 
         // 2. Secure DNS Server (routes via the proxy)
-        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
+        val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy", settings.ipVersion)
 
         // 3. Local Bypass DNS Server for Iran domains (routes directly over physical network interface)
         val directServer = if (settings.bypassIran) createDnsServer("dns-direct", "178.22.122.100", "direct") else createDnsServer("dns-direct", "1.1.1.1", "direct")
@@ -947,6 +956,12 @@ object ConfigInjector {
         route.put("rules", newRules)
         route.put("auto_detect_interface", true)
         route.put("override_android_vpn", !settings.rootMode)
+        if (settings.ipVersion.isNotEmpty()) {
+            route.put("default_domain_resolver", JSONObject().apply {
+                put("server", "dns-secure")
+                put("strategy", settings.ipVersion)
+            })
+        }
     }
 
     private fun injectOutbounds(context: Context, config: JSONObject, settings: InjectorSettings) {
@@ -1084,6 +1099,10 @@ object ConfigInjector {
                 out.put("multiplex", mux)
             } else {
                 out.remove("multiplex")
+            }
+
+            if ((isProxyOrRelay || tag.startsWith("proxy-")) && settings.ipVersion.isNotEmpty()) {
+                out.put("domain_strategy", settings.ipVersion)
             }
             cleanOutbounds.put(out)
         }

@@ -322,6 +322,7 @@ fun MainScreen(
     val bypassLan = settings.bypassLan
     val secureDns = settings.secureDns
     val tunStack = settings.tunStack
+    val ipVersion = settings.ipVersion
     val enableFragment = settings.enableFragment
     val fragmentLength = settings.fragmentLength
     val fragmentInterval = settings.fragmentInterval
@@ -4934,6 +4935,50 @@ fun MainScreen(
                                                         else -> "mixed"
                                                     }
                                                     scope.launch { settingsManager.setTunStack(stackVal); if (vpnState == "CONNECTED") startVpnService(context) }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            // IP Version Strategy selector
+                                            Text(stringResource(R.string.ip_version_strategy), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                stringResource(R.string.ip_version_strategy_desc),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            ConnectedButtonGroup(
+                                                selectedIndex = when (ipVersion) {
+                                                    "prefer_ipv6" -> 0
+                                                    "prefer_ipv4" -> 1
+                                                    "ipv6_only" -> 2
+                                                    "ipv4_only" -> 3
+                                                    else -> 0
+                                                },
+                                                options = listOf(
+                                                    stringResource(R.string.ip_prefer_ipv6),
+                                                    stringResource(R.string.ip_prefer_ipv4),
+                                                    stringResource(R.string.ip_ipv6_only),
+                                                    stringResource(R.string.ip_ipv4_only)
+                                                ),
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                                selectedTextColor = MaterialTheme.colorScheme.onPrimary,
+                                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                onSelect = { index ->
+                                                    val versionVal = when (index) {
+                                                        0 -> "prefer_ipv6"
+                                                        1 -> "prefer_ipv4"
+                                                        2 -> "ipv6_only"
+                                                        3 -> "ipv4_only"
+                                                        else -> "prefer_ipv6"
+                                                    }
+                                                    scope.launch { settingsManager.setIpVersion(versionVal); if (vpnState == "CONNECTED") startVpnService(context) }
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             )

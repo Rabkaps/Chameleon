@@ -118,6 +118,12 @@
     <string name="enable_debug_logging_desc">Generate verbose sing-box core debug logs. Warning: may increase CPU and battery usage.</string>
     <string name="secure_dns_doh">Secure DNS (DoH)</string>
     <string name="tun_network_stack">TUN Network Stack</string>
+    <string name="ip_version_strategy">IP Version Strategy</string>
+    <string name="ip_version_strategy_desc">Routing priority for IPv6 vs IPv4 connections</string>
+    <string name="ip_prefer_ipv6">Prefer IPv6</string>
+    <string name="ip_prefer_ipv4">Prefer IPv4</string>
+    <string name="ip_ipv6_only">IPv6 Only</string>
+    <string name="ip_ipv4_only">IPv4 Only</string>
     <string name="tls_fragmentation">TLS Fragmentation</string>
     <string name="tls_fragmentation_desc">Split TLS packets for DPI bypass</string>
     <string name="tcp_multiplexing">TCP Multiplexing</string>

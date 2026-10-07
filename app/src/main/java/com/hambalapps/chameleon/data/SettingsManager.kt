@@ -78,6 +78,7 @@ class SettingsManager(private val context: Context) {
         val DASHBOARD_CARDS = stringPreferencesKey("dashboard_cards")
         val DASHBOARD_CARD_SIZES = stringPreferencesKey("dashboard_card_sizes")
         val APP_ICON = stringPreferencesKey("app_icon")
+        val IP_VERSION = stringPreferencesKey("ip_version")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -141,7 +142,8 @@ class SettingsManager(private val context: Context) {
             enableMtProxy = false,
             mtProxyPort = "19999",
             mtProxySecret = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
-            favoriteServers = emptySet()
+            favoriteServers = emptySet(),
+            ipVersion = "prefer_ipv6"
         )
     }
 
@@ -220,7 +222,8 @@ class SettingsManager(private val context: Context) {
             enableMtProxy = prefs[ENABLE_MTPROXY] ?: false,
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
             mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
-            favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet()
+            favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet(),
+            ipVersion = prefs[IP_VERSION] ?: "prefer_ipv6"
         )
     }.flowOn(Dispatchers.Default).distinctUntilChanged()
 
@@ -232,6 +235,7 @@ class SettingsManager(private val context: Context) {
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://8.8.8.8/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
+    val ipVersion: Flow<String> = context.dataStore.data.map { it[IP_VERSION] ?: "prefer_ipv6" }.distinctUntilChanged()
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
@@ -291,6 +295,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setBypassIran(value: Boolean) { context.dataStore.edit { it[BYPASS_IRAN] = value } }
     suspend fun setSecureDns(value: String) { context.dataStore.edit { it[SECURE_DNS] = value } }
     suspend fun setTunStack(value: String) { context.dataStore.edit { it[TUN_STACK] = value } }
+    suspend fun setIpVersion(value: String) { context.dataStore.edit { it[IP_VERSION] = value } }
     suspend fun setEnableFragment(value: Boolean) { context.dataStore.edit { it[ENABLE_FRAGMENT] = value } }
     suspend fun setFragmentLength(value: String) { context.dataStore.edit { it[FRAGMENT_LENGTH] = value } }
     suspend fun setFragmentInterval(value: String) { context.dataStore.edit { it[FRAGMENT_INTERVAL] = value } }
@@ -472,7 +477,8 @@ data class UserSettings(
     val enableMtProxy: Boolean,
     val mtProxyPort: String,
     val mtProxySecret: String,
-    val favoriteServers: Set<String>
+    val favoriteServers: Set<String>,
+    val ipVersion: String = "prefer_ipv6"
 )
 
 data class Subscription(

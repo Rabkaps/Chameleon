@@ -763,6 +763,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 splitTunnelingAppsVal = settingsManager.splitTunnelingApps.first()
                 val enableDebugLoggingVal = settingsManager.enableDebugLogging.first()
                 val vpnMtuVal = settingsManager.vpnMtu.first()
+                val ipVersionVal = settingsManager.ipVersion.first()
                 rootModeVal = settingsManager.rootMode.first()
 
                 if (!rootModeVal) {
@@ -810,7 +811,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     enableMtProxy = enableMtProxyVal,
                     mtProxyPort = mtProxyPortVal,
                     mtProxySecret = mtProxySecretVal,
-                    localProxyOnly = localProxyOnlyMode
+                    localProxyOnly = localProxyOnlyMode,
+                    ipVersion = ipVersionVal
                 )
 
                 // Inject our custom bypass-Iran rules, split DNS, and advanced parameters
@@ -1278,6 +1280,13 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     builder.addDnsServer("8.8.8.8")
                 } catch (e: Exception) {
                     // Ignore
+                }
+            }
+            if (addedIpv6Address) {
+                try {
+                    builder.addDnsServer("2001:4860:4860::8888")
+                } catch (e: Exception) {
+                    log("Failed to add IPv6 DNS server: ${e.message}")
                 }
             }
 
