@@ -6,14 +6,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 /**
- * Real-time Bandwidth Speed Graph Canvas rendering upload and download curves.
+ * Real-time Bandwidth Speed Graph Canvas rendering upload and download curves with grid guides.
  */
 @Composable
 fun BandwidthCanvasGraph(
@@ -21,18 +24,32 @@ fun BandwidthCanvasGraph(
     downloadHistory: List<Long>,
     modifier: Modifier = Modifier.fillMaxWidth().height(120.dp)
 ) {
-    val upColor = Color(0xFF10B981)
-    val downColor = Color(0xFF3B82F6)
+    val upColor = Color(0xFF10B981) // Emerald
+    val downColor = Color(0xFF3B82F6) // Electric Blue
+    val outlineColor = MaterialTheme.colorScheme.outline
 
     Canvas(modifier = modifier) {
         val width = size.width
         val height = size.height
         if (width <= 0f || height <= 0f) return@Canvas
 
+        // Subtle background grid guides (3 horizontal lines)
+        val gridLines = 3
+        for (i in 1..gridLines) {
+            val y = (height / (gridLines + 1)) * i
+            drawLine(
+                color = outlineColor.copy(alpha = 0.08f),
+                start = Offset(0f, y),
+                end = Offset(width, y),
+                strokeWidth = 1f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+            )
+        }
+
         val maxVal = maxOf(
             uploadHistory.maxOrNull() ?: 1L,
             downloadHistory.maxOrNull() ?: 1L,
-            1024L * 10L
+            1024L * 10L // Baseline minimum scale: 10 KB/s
         ).toFloat()
 
         fun drawSpeedCurve(history: List<Long>, color: Color) {
@@ -44,14 +61,14 @@ fun BandwidthCanvasGraph(
             
             history.forEachIndexed { i, valBytes ->
                 val x = i * stepX
-                val y = height - ((valBytes.toFloat() / maxVal) * height).coerceIn(4f, height - 4f)
+                val y = height - ((valBytes.toFloat() / maxVal) * (height - 10f)).coerceIn(4f, height - 4f)
                 if (i == 0) {
                     path.moveTo(x, y)
                     fillPath.moveTo(x, height)
                     fillPath.lineTo(x, y)
                 } else {
                     val prevX = (i - 1) * stepX
-                    val prevY = height - ((history[i - 1].toFloat() / maxVal) * height).coerceIn(4f, height - 4f)
+                    val prevY = height - ((history[i - 1].toFloat() / maxVal) * (height - 10f)).coerceIn(4f, height - 4f)
                     val controlX1 = prevX + stepX / 2f
                     val controlX2 = prevX + stepX / 2f
                     path.cubicTo(controlX1, prevY, controlX2, y, x, y)
@@ -61,18 +78,38 @@ fun BandwidthCanvasGraph(
             fillPath.lineTo(width, height)
             fillPath.close()
 
+            // Smooth area gradient fill
             drawPath(
                 path = fillPath,
                 brush = Brush.verticalGradient(
-                    colors = listOf(color.copy(alpha = 0.25f), Color.Transparent)
+                    colors = listOf(color.copy(alpha = 0.30f), color.copy(alpha = 0.03f), Color.Transparent)
                 )
             )
 
+            // Anti-aliased glowing stroke
             drawPath(
                 path = path,
                 color = color,
-                style = Stroke(width = 2.5f)
+                style = Stroke(width = 2.5f, cap = StrokeCap.Round)
             )
+
+            // Draw current value indicator dot on the rightmost point
+            if (history.isNotEmpty()) {
+                val lastVal = history.last()
+                val lastX = width
+                val lastY = height - ((lastVal.toFloat() / maxVal) * (height - 10f)).coerceIn(4f, height - 4f)
+                drawCircle(
+                    color = Color.White,
+                    radius = 3.5f,
+                    center = Offset(lastX, lastY)
+                )
+                drawCircle(
+                    color = color,
+                    radius = 5.5f,
+                    center = Offset(lastX, lastY),
+                    style = Stroke(width = 2f)
+                )
+            }
         }
 
         drawSpeedCurve(downloadHistory, downColor)

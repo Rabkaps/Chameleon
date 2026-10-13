@@ -49,6 +49,7 @@ fun NodeSelectorScreen(
     var searchQuery by remember { mutableStateOf("") }
     val pings = remember { mutableStateMapOf<String, Long>() }
     var isTestingPings by remember { mutableStateOf(false) }
+    var selectedProtocolFilter by remember { mutableStateOf("ALL") }
 
     val rawServers = remember(settings.subscriptionServers, settings.subscriptionList, settings.manualServers) {
         val servers = mutableListOf<DesktopNode>()
@@ -86,10 +87,17 @@ fun NodeSelectorScreen(
         })
     }
 
-    val filteredServers = remember(sortedServers, searchQuery) {
-        if (searchQuery.isEmpty()) sortedServers
-        else sortedServers.filter {
-            it.name.contains(searchQuery, ignoreCase = true) || it.protocol.contains(searchQuery, ignoreCase = true)
+    val filteredServers = remember(sortedServers, searchQuery, selectedProtocolFilter) {
+        sortedServers.filter { node ->
+            val matchesSearch = if (searchQuery.isEmpty()) true else {
+                node.name.contains(searchQuery, ignoreCase = true) || node.protocol.contains(searchQuery, ignoreCase = true)
+            }
+            val matchesFilter = when (selectedProtocolFilter) {
+                "FAVORITES" -> settings.favoriteServers.contains(node.link)
+                "ALL" -> true
+                else -> node.protocol.equals(selectedProtocolFilter, ignoreCase = true)
+            }
+            matchesSearch && matchesFilter
         }
     }
 
@@ -106,7 +114,7 @@ fun NodeSelectorScreen(
         ) {
             Column {
                 Text(
-                    text = "Proxy Nodes (${rawServers.size})",
+                    text = "Proxy Nodes (${filteredServers.size})",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
@@ -122,11 +130,16 @@ fun NodeSelectorScreen(
                     if (!isTestingPings) {
                         isTestingPings = true
                         scope.launch(Dispatchers.IO) {
-                            rawServers.forEach { node ->
-                                val hp = getHostAndPortFromLink(node.link)
-                                if (hp != null) {
-                                    val delay = measurePingDelay(hp.first, hp.second)
-                                    pings[node.link] = delay.toLong()
+                            // Run concurrent pings in chunks of 8 to avoid socket starvation
+                            filteredServers.chunked(8).forEach { chunk ->
+                                chunk.map { node ->
+                                    launch {
+                                        val hp = getHostAndPortFromLink(node.link)
+                                        if (hp != null) {
+                                            val delay = measurePingDelay(hp.first, hp.second)
+                                            pings[node.link] = delay.toLong()
+                                        }
+                                    }
                                 }
                             }
                             isTestingPings = false
@@ -138,24 +151,52 @@ fun NodeSelectorScreen(
             ) {
                 Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isTestingPings) "Testing Latency..." else "Ping All Nodes")
+                Text(if (isTestingPings) "Testing Latency..." else "Ping Nodes")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Search Bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Search nodes by name or protocol...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        // Search Bar & Filter Chips
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = CircleShape,
-            singleLine = true
-        )
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search nodes...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier.weight(1f),
+                shape = CircleShape,
+                singleLine = true
+            )
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Protocol Filter Chips
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf("ALL", "FAVORITES", "VLESS", "VMESS", "TROJAN", "HY2", "SS").forEach { chip ->
+                val isSelected = selectedProtocolFilter == chip
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { selectedProtocolFilter = chip },
+                    label = { Text(chip, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                    shape = CircleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Node List
         LazyColumn(

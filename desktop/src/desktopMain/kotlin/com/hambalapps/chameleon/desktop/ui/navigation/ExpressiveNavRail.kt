@@ -65,20 +65,25 @@ fun ExpressiveNavRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // App Logo Icon
+        // App Logo Icon with live pulsating connection dot
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(colorScheme.primaryContainer)
+            modifier = Modifier.size(54.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.VpnKey,
-                contentDescription = "Chameleon Logo",
-                tint = colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(26.dp)
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(colorScheme.primaryContainer)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.VpnKey,
+                    contentDescription = "Chameleon Logo",
+                    tint = colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -112,8 +117,8 @@ fun ExpressiveNavRail(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .width(56.dp)
-                            .height(36.dp)
+                            .width(58.dp)
+                            .height(34.dp)
                             .clip(CircleShape)
                             .background(pillBgColor)
                     ) {
@@ -129,7 +134,7 @@ fun ExpressiveNavRail(
                         text = item.title,
                         color = iconColor,
                         fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                     )
                 }
             }
@@ -137,8 +142,8 @@ fun ExpressiveNavRail(
 
         // Version Badge
         Text(
-            text = "v1.5.0",
-            color = colorScheme.outline.copy(alpha = 0.6f),
+            text = "v1.6.0",
+            color = colorScheme.outline.copy(alpha = 0.5f),
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium
         )

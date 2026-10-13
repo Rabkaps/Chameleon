@@ -27,6 +27,12 @@ object SingboxManager {
     private val _trafficStats = MutableStateFlow(Pair(0L, 0L)) // upload, download in bytes/sec
     val trafficStats: StateFlow<Pair<Long, Long>> = _trafficStats.asStateFlow()
 
+    private val _totalTraffic = MutableStateFlow(Pair(0L, 0L)) // total upload, download in bytes
+    val totalTraffic: StateFlow<Pair<Long, Long>> = _totalTraffic.asStateFlow()
+
+    private val _connectedStartTime = MutableStateFlow(0L)
+    val connectedStartTime: StateFlow<Long> = _connectedStartTime.asStateFlow()
+
     val workingDir = File(System.getProperty("user.home"), ".chameleon").apply { mkdirs() }
     val exeFile = File(workingDir, "sing-box.exe")
     val geoip = File(workingDir, "geoip-ir.srs")
@@ -245,6 +251,8 @@ object SingboxManager {
             }
 
             _vpnState.value = "CONNECTED"
+            _connectedStartTime.value = System.currentTimeMillis()
+            _totalTraffic.value = Pair(0L, 0L)
             log("VPN Connected successfully.")
 
             startStatsPolling()
@@ -260,6 +268,7 @@ object SingboxManager {
 
     fun stop() {
         _vpnState.value = "DISCONNECTING"
+        _connectedStartTime.value = 0L
         
         SystemProxy.disable()
         
@@ -325,6 +334,8 @@ object SingboxManager {
                                 val up = line.substringAfter("\"up\":").substringBefore(",").trim().toLongOrNull() ?: 0L
                                 val down = line.substringAfter("\"down\":").substringBefore("}").trim().toLongOrNull() ?: 0L
                                 _trafficStats.value = Pair(up, down)
+                                val currentTotal = _totalTraffic.value
+                                _totalTraffic.value = Pair(currentTotal.first + up, currentTotal.second + down)
                             }
                         }
                     }
