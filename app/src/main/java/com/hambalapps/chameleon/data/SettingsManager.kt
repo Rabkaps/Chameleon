@@ -143,7 +143,7 @@ class SettingsManager(private val context: Context) {
             mtProxyPort = "19999",
             mtProxySecret = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
             favoriteServers = emptySet(),
-            ipVersion = "prefer_ipv6"
+            ipVersion = "ipv4_only"
         )
     }
 
@@ -223,7 +223,7 @@ class SettingsManager(private val context: Context) {
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
             mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
             favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet(),
-            ipVersion = prefs[IP_VERSION] ?: "prefer_ipv6"
+            ipVersion = prefs[IP_VERSION] ?: "ipv4_only"
         )
     }.flowOn(Dispatchers.Default).distinctUntilChanged()
 
@@ -235,7 +235,7 @@ class SettingsManager(private val context: Context) {
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://8.8.8.8/dns-query" }.distinctUntilChanged()
     val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
-    val ipVersion: Flow<String> = context.dataStore.data.map { it[IP_VERSION] ?: "prefer_ipv6" }.distinctUntilChanged()
+    val ipVersion: Flow<String> = context.dataStore.data.map { it[IP_VERSION] ?: "ipv4_only" }.distinctUntilChanged()
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
@@ -478,7 +478,7 @@ data class UserSettings(
     val mtProxyPort: String,
     val mtProxySecret: String,
     val favoriteServers: Set<String>,
-    val ipVersion: String = "prefer_ipv6"
+    val ipVersion: String = "ipv4_only"
 )
 
 data class Subscription(

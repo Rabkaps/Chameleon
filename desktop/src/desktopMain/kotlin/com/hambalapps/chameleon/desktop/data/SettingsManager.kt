@@ -79,7 +79,7 @@ data class UserSettings(
     val minimizeToTray: Boolean = true,
     val launchAtStartup: Boolean = false,
     val proxyChains: String = "",
-    val ipVersion: String = "prefer_ipv6"
+    val ipVersion: String = "ipv4_only"
 ) {
     @Transient
     val deserializedSubscriptions: List<Subscription> by lazy {

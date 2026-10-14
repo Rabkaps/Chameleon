@@ -271,12 +271,24 @@ object ConfigInjector {
         val secureServer = createDnsServer("dns-secure", settings.secureDns, "proxy")
 
         // 2. Local Bypass & Bootstrap DNS Servers
-        val directServer = createDnsServer("dns-direct", "1.1.1.1", "direct")
-        val bootstrapServer = createDnsServer("dns-bootstrap", "1.1.1.1", "direct")
+        val directServer = createDnsServer("dns-direct", "178.22.122.100", "direct")
+        val shecanServer = createDnsServer("dns-shecan", "178.22.122.100", "direct")
+        val radarServer = createDnsServer("dns-radar", "10.202.10.10", "direct")
+        val online403Server = createDnsServer("dns-403", "10.202.10.202", "direct")
+        val bootstrapServer = createDnsServer("dns-bootstrap", "178.22.122.100", "direct")
 
-        servers.put(secureServer)
-        servers.put(directServer)
-        servers.put(bootstrapServer)
+        if (settings.bypassIran) {
+            servers.put(secureServer)
+            servers.put(directServer)
+            servers.put(shecanServer)
+            servers.put(radarServer)
+            servers.put(online403Server)
+            servers.put(bootstrapServer)
+        } else {
+            servers.put(secureServer)
+            servers.put(directServer)
+            servers.put(bootstrapServer)
+        }
 
         dns.put("servers", servers)
         dns.put("final", "dns-secure")
@@ -308,13 +320,13 @@ object ConfigInjector {
         if (settings.bypassIran) {
             val irGeositeRule = JSONObject().apply {
                 put("rule_set", JSONArray(listOf("geosite-ir")))
-                put("server", "dns-direct")
+                put("server", "dns-shecan")
             }
             rules.put(irGeositeRule)
 
             val irSuffixRule = JSONObject().apply {
                 put("domain_suffix", JSONArray(listOf(".ir")))
-                put("server", "dns-direct")
+                put("server", "dns-shecan")
             }
             rules.put(irSuffixRule)
         }
@@ -435,15 +447,23 @@ object ConfigInjector {
         }
         
         // Ensure default fallback direct DNS address is added
-        val defaultDirectDns = "1.1.1.1"
+        val defaultDirectDns = "178.22.122.100"
         if (!directIps.contains(defaultDirectDns)) {
             directIps.add(defaultDirectDns)
         }
         
-        // Dynamic bootstrap DNS address matching the one in injectDns (1.1.1.1)
-        val bootstrapDnsAddr = "1.1.1.1"
+        // Dynamic bootstrap DNS address matching the one in injectDns (178.22.122.100)
+        val bootstrapDnsAddr = "178.22.122.100"
         if (!directIps.contains(bootstrapDnsAddr)) {
             directIps.add(bootstrapDnsAddr)
+        }
+
+        if (settings.bypassIran) {
+            listOf("10.202.10.10", "10.202.10.11", "185.51.200.2", "178.22.122.100").forEach { ip ->
+                if (!directIps.contains(ip)) {
+                    directIps.add(ip)
+                }
+            }
         }
 
         val proxyEndpoints = getProxyServerEndpoints(config)
@@ -1287,37 +1307,6 @@ object ConfigInjector {
             if (tag != "direct" && tag != "block") {
                 val server = out.optString("server")
                 if (server.isNotEmpty()) hosts.add(server)
-
-                val tlsObj = out.optJSONObject("tls")
-                if (tlsObj != null) {
-                    val sni = tlsObj.optString("server_name")
-                    if (sni.isNotEmpty()) hosts.add(sni)
-                }
-
-                val transObj = out.optJSONObject("transport")
-                if (transObj != null) {
-                    val hostOpt = transObj.opt("host")
-                    if (hostOpt is String && hostOpt.isNotEmpty()) {
-                        hosts.add(hostOpt)
-                    } else if (hostOpt is JSONArray) {
-                        for (j in 0 until hostOpt.length()) {
-                            val h = hostOpt.optString(j)
-                            if (h.isNotEmpty()) hosts.add(h)
-                        }
-                    }
-                    val headers = transObj.optJSONObject("headers")
-                    if (headers != null) {
-                        val headerHost = headers.opt("Host")
-                        if (headerHost is String && headerHost.isNotEmpty()) {
-                            hosts.add(headerHost)
-                        } else if (headerHost is JSONArray) {
-                            for (j in 0 until headerHost.length()) {
-                                val h = headerHost.optString(j)
-                                if (h.isNotEmpty()) hosts.add(h)
-                            }
-                        }
-                    }
-                }
             }
         }
         hosts.add("dns.google")
