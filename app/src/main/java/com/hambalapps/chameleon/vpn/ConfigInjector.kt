@@ -314,8 +314,8 @@ object ConfigInjector {
             sanitizePortFields(configJson)
             sanitizeXhttpTransport(configJson)
 
-            // Inject NTP time synchronization to ensure Reality TLS timestamps never drift
-            injectNtp(configJson)
+            // Strip any NTP block so sing-box relies on Android's synchronized system clock (time.Now())
+            configJson.remove("ntp")
 
             // 1. Pre-resolve proxy server domains to raw IPs to bypass DNS hijacking
             preResolveProxyServers(context, configJson, settings)
@@ -351,17 +351,6 @@ object ConfigInjector {
             e.printStackTrace()
             return buildDefaultSkeleton(settings).toString(2)
         }
-    }
-
-    private fun injectNtp(config: JSONObject) {
-        val ntp = JSONObject().apply {
-            put("enabled", true)
-            put("server", "time.apple.com")
-            put("server_port", 123)
-            put("interval", "30m")
-            put("detour", "direct")
-        }
-        config.put("ntp", ntp)
     }
 
     private fun injectTunInbound(config: JSONObject, settings: InjectorSettings) {
@@ -1073,11 +1062,23 @@ object ConfigInjector {
                     if (reality.has("shortId") && !reality.has("short_id")) {
                         reality.put("short_id", reality.optString("shortId"))
                     }
+                    val sid = reality.optString("short_id").trim().lowercase()
+                    reality.put("short_id", sid)
+                    val pbk = reality.optString("public_key").trim()
+                    if (pbk.isNotEmpty()) {
+                        reality.put("public_key", pbk)
+                    }
                 }
+                tls.remove("alpn")
+                tls.remove("fragment")
+                tls.remove("record_fragment")
+                tls.remove("fragment_fallback_delay")
+
                 val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
                 utls.put("enabled", true)
-                if (!utls.has("fingerprint") || utls.optString("fingerprint").isEmpty()) {
-                    utls.put("fingerprint", "chrome")
+                val currentFp = utls.optString("fingerprint")
+                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
+                    utls.put("fingerprint", "firefox")
                 }
             } else if (tls != null && hasTls && !tls.has("utls")) {
                 // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
@@ -1792,7 +1793,15 @@ object ConfigInjector {
                     }
 
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
+                    val fingerprint = if (isReality) {
+                        if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
+                            "firefox"
+                        } else {
+                            rawFp
+                        }
+                    } else {
+                        rawFp ?: "chrome"
+                    }
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -1802,13 +1811,14 @@ object ConfigInjector {
                     if (isReality) {
                         val reality = JSONObject()
                         reality.put("enabled", true)
-                        val pbk = queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"]
+                        val pbk = (queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"])?.trim()
                         if (!pbk.isNullOrEmpty()) {
                             reality.put("public_key", pbk)
                         }
-                        val sid = queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: ""
+                        val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                         reality.put("short_id", sid)
                         tls.put("reality", reality)
+                        tls.remove("alpn")
                     }
                     outbound.put("tls", tls)
                 }
@@ -1832,7 +1842,15 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
+                val fingerprint = if (isReality) {
+                    if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
+                        "firefox"
+                    } else {
+                        rawFp
+                    }
+                } else {
+                    rawFp ?: "chrome"
+                }
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -1842,13 +1860,14 @@ object ConfigInjector {
                 if (isReality) {
                     val reality = JSONObject()
                     reality.put("enabled", true)
-                    val pbk = queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"]
+                    val pbk = (queryParams["pbk"] ?: queryParams["publicKey"] ?: queryParams["public_key"])?.trim()
                     if (!pbk.isNullOrEmpty()) {
                         reality.put("public_key", pbk)
                     }
-                    val sid = queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: ""
+                    val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                     reality.put("short_id", sid)
                     tls.put("reality", reality)
+                    tls.remove("alpn")
                 }
                 outbound.put("tls", tls)
 
