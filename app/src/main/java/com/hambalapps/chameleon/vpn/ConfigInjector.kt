@@ -344,6 +344,10 @@ object ConfigInjector {
 
             // 7. Inject or update Routing Rules (Iran bypass)
             injectRouting(context, configJson, settings)
+
+            // Validate and log Reality outbound configuration
+            validateRealityOutbounds(configJson)
+
             return configJson.toString(2)
         } catch (e: IllegalArgumentException) {
             throw e
@@ -1009,7 +1013,7 @@ object ConfigInjector {
             val detour = out.optString("detour")
             val isEntryProxy = (tag == "proxy" || tag == "relay-out") && detour.isEmpty()
             val isCompatibleType = type == "vless" || type == "trojan" || type == "vmess" || type == "shadowsocks" || type == "ss"
-            if (isEntryProxy && isCompatibleType) {
+            if (isEntryProxy && isCompatibleType && !out.isRealityOutbound()) {
                 if (settings.globalCamouflageEnabled) {
                     val globalConfig = CamouflageConfig(
                         nodeLink = "",
@@ -1050,7 +1054,7 @@ object ConfigInjector {
             val hasTls = tls?.optBoolean("enabled", false) ?: (tls != null)
             val flow = out.optString("flow")
             val isVision = flow.contains("vision")
-            val isReality = tls?.has("reality") ?: false
+            val isReality = out.isRealityOutbound()
 
             if (tls != null && isReality) {
                 // Normalize JSON fields for Reality in case user imported a raw JSON profile
@@ -1077,8 +1081,8 @@ object ConfigInjector {
                 val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
                 utls.put("enabled", true)
                 val currentFp = utls.optString("fingerprint")
-                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
-                    utls.put("fingerprint", "firefox")
+                if (currentFp.isEmpty()) {
+                    utls.put("fingerprint", "chrome")
                 }
             } else if (tls != null && hasTls && !tls.has("utls")) {
                 // Ensure uTLS is always enabled when TLS is enabled (prevents Go crypto/tls DPI blocks)
@@ -1270,9 +1274,7 @@ object ConfigInjector {
 
     private fun applyCamouflage(outbound: JSONObject, config: CamouflageConfig, settings: InjectorSettings) {
         val type = outbound.optString("type")
-        val tlsObj = outbound.optJSONObject("tls")
-        val isReality = tlsObj?.has("reality") ?: false
-        if (type == "openvpn" || type == "wireguard" || type == "hysteria2" || type == "tuic" || isReality) return
+        if (type == "openvpn" || type == "wireguard" || type == "hysteria2" || type == "tuic" || outbound.isRealityOutbound()) return
         val originalServer = outbound.optString("server")
         if (originalServer.isEmpty()) return
 
@@ -1302,8 +1304,12 @@ object ConfigInjector {
         val existingHost = existingTransport?.optJSONObject("headers")?.optString("Host") ?: existingTransport?.optString("host") ?: ""
         val isCfPanelOrWorker = isCloudflareDomain(originalServer, existingSni, existingHost)
 
-        val targetSni = if (existingSni.isNotEmpty()) {
-            existingSni // Preserve existing SNI if outbound already has one (e.g. Cloudflare Workers / NovaProxy / BPB)
+        val targetSni = if (config.preset == "custom" && config.customSni.isNotEmpty()) {
+            config.customSni
+        } else if (settings.globalCamouflageEnabled && settings.globalCamouflageSni.isNotEmpty()) {
+            settings.globalCamouflageSni
+        } else if (existingSni.isNotEmpty() && !existingSni.equals(originalServer, ignoreCase = true)) {
+            existingSni // Preserve existing custom SNI if outbound already has one (e.g. Cloudflare Workers / NovaProxy / BPB)
         } else if (isCfPanelOrWorker) {
             if (existingHost.isNotEmpty()) existingHost else originalServer
         } else {
@@ -1793,15 +1799,7 @@ object ConfigInjector {
                     }
 
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -1842,15 +1840,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -2937,6 +2927,15 @@ object ConfigInjector {
                     if (server.isNotEmpty()) {
                         hosts.add(server)
                     }
+                    if (!outbound.isRealityOutbound()) {
+                        val tlsObj = outbound.optJSONObject("tls")
+                        if (tlsObj != null) {
+                            val sni = tlsObj.optString("server_name")
+                            if (sni.isNotEmpty() && !hosts.contains(sni)) {
+                                hosts.add(sni)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3036,10 +3035,49 @@ object ConfigInjector {
         return host.matches(ipv4Pattern.toRegex()) || host.matches(ipv6Pattern.toRegex())
     }
 
+    private fun JSONObject.isRealityOutbound(): Boolean =
+        optJSONObject("tls")?.optJSONObject("reality")?.optBoolean("enabled", false) == true ||
+        optJSONObject("tls")?.has("reality") == true
+
+    private fun validateRealityOutbounds(config: JSONObject) {
+        val outbounds = config.optJSONArray("outbounds") ?: return
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.optJSONObject(i) ?: continue
+            if (!out.isRealityOutbound()) continue
+            val tag = out.optString("tag")
+            val server = out.optString("server")
+            val port = out.optInt("server_port")
+            val tls = out.optJSONObject("tls")
+            val sni = tls?.optString("server_name") ?: ""
+            val reality = tls?.optJSONObject("reality")
+            val pbk = reality?.optString("public_key") ?: ""
+            val sid = reality?.optString("short_id") ?: ""
+            val fp = tls?.optJSONObject("utls")?.optString("fingerprint") ?: ""
+
+            android.util.Log.i(
+                "Chameleon",
+                "Reality Configuration Check [$tag]: server=$server:$port, sni=$sni, fp=$fp, sid=$sid, pbk=${if (pbk.isNotEmpty()) "valid(${pbk.length} chars)" else "MISSING"}"
+            )
+            if (server.isEmpty()) {
+                android.util.Log.w("Chameleon", "Reality Outbound [$tag] is missing server address!")
+            }
+            if (sni.isEmpty()) {
+                android.util.Log.w("Chameleon", "Reality Outbound [$tag] is missing tls.server_name (SNI)!")
+            }
+            if (pbk.isEmpty()) {
+                android.util.Log.w("Chameleon", "Reality Outbound [$tag] is missing reality.public_key!")
+            }
+        }
+    }
+
     private fun preResolveProxyServers(context: Context, config: JSONObject, settings: InjectorSettings) {
         val outbounds = config.optJSONArray("outbounds") ?: return
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
+            if (outbound.isRealityOutbound()) {
+                android.util.Log.i("Chameleon", "Skipping pre-resolution for Reality outbound (${outbound.optString("tag")}) to preserve real endpoint")
+                continue
+            }
             val detour = outbound.optString("detour")
             val tag = outbound.optString("tag")
             val type = outbound.optString("type")

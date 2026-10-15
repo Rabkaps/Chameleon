@@ -113,6 +113,9 @@ object ConfigInjector {
             // 5. Add Clash API for traffic stats
             injectClashApi(configJson)
 
+            // Validate Reality outbounds
+            validateRealityOutbounds(configJson)
+
             return configJson.toString(2)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -656,8 +659,8 @@ object ConfigInjector {
                 val utls = tls.optJSONObject("utls") ?: JSONObject().also { tls.put("utls", it) }
                 utls.put("enabled", true)
                 val currentFp = utls.optString("fingerprint")
-                if (currentFp.isEmpty() || currentFp.equals("chrome", ignoreCase = true) || currentFp.equals("edge", ignoreCase = true)) {
-                    utls.put("fingerprint", "firefox")
+                if (currentFp.isEmpty()) {
+                    utls.put("fingerprint", "chrome")
                 }
             } else if (tls != null && hasTls && !tls.has("utls")) {
                 val utls = JSONObject().apply {
@@ -813,15 +816,7 @@ object ConfigInjector {
                     }
 
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -861,15 +856,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -1448,15 +1435,7 @@ object ConfigInjector {
                     }
 
                     val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                    val fingerprint = if (isReality) {
-                        if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                            "firefox"
-                        } else {
-                            rawFp
-                        }
-                    } else {
-                        rawFp ?: "chrome"
-                    }
+                    val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                     val utls = JSONObject()
                     utls.put("enabled", true)
@@ -1496,15 +1475,7 @@ object ConfigInjector {
                 }
 
                 val rawFp = queryParams["fp"] ?: queryParams["fingerprint"]
-                val fingerprint = if (isReality) {
-                    if (rawFp.isNullOrEmpty() || rawFp.equals("chrome", ignoreCase = true) || rawFp.equals("edge", ignoreCase = true)) {
-                        "firefox"
-                    } else {
-                        rawFp
-                    }
-                } else {
-                    rawFp ?: "chrome"
-                }
+                val fingerprint = if (!rawFp.isNullOrEmpty()) rawFp else "chrome"
 
                 val utls = JSONObject()
                 utls.put("enabled", true)
@@ -1774,10 +1745,36 @@ object ConfigInjector {
         return outbound
     }
 
+    private fun JSONObject.isRealityOutbound(): Boolean =
+        optJSONObject("tls")?.optJSONObject("reality")?.optBoolean("enabled", false) == true ||
+        optJSONObject("tls")?.has("reality") == true
+
+    private fun validateRealityOutbounds(config: JSONObject) {
+        val outbounds = config.optJSONArray("outbounds") ?: return
+        for (i in 0 until outbounds.length()) {
+            val out = outbounds.optJSONObject(i) ?: continue
+            if (!out.isRealityOutbound()) continue
+            val tag = out.optString("tag")
+            val server = out.optString("server")
+            val port = out.optInt("server_port")
+            val tls = out.optJSONObject("tls")
+            val sni = tls?.optString("server_name") ?: ""
+            val reality = tls?.optJSONObject("reality")
+            val pbk = reality?.optString("public_key") ?: ""
+            val sid = reality?.optString("short_id") ?: ""
+            val fp = tls?.optJSONObject("utls")?.optString("fingerprint") ?: ""
+
+            println("Reality Configuration Check [$tag]: server=$server:$port, sni=$sni, fp=$fp, sid=$sid, pbk=${if (pbk.isNotEmpty()) "valid(${pbk.length} chars)" else "MISSING"}")
+        }
+    }
+
     private fun preResolveProxyServers(config: JSONObject) {
         val outbounds = config.optJSONArray("outbounds") ?: return
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
+            if (outbound.isRealityOutbound()) {
+                continue
+            }
             val tag = outbound.optString("tag")
             if (tag == "proxy") {
                 val server = outbound.optString("server")
