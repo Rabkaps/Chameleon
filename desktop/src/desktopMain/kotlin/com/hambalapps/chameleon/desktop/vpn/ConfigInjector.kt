@@ -380,11 +380,10 @@ object ConfigInjector {
 
         val newRules = JSONArray()
 
-        // Add sniffing rule at the beginning (with override_destination to replace Iranian DPI poisoned IPs with sniffed SNI)
+        // Add sniffing rule at the beginning
         val sniffRule = JSONObject().apply {
             put("action", "sniff")
             put("sniffer", JSONArray(listOf("http", "tls", "quic", "dns", "stun")))
-            put("override_destination", true)
             put("timeout", "300ms")
         }
         newRules.put(sniffRule)

@@ -757,7 +757,6 @@ object ConfigInjector {
         // 1. Sniff Rule (must be at the top to extract hostnames)
         val sniffRule = JSONObject().apply {
             put("action", "sniff")
-            put("override_destination", true)
             put("timeout", "300ms")
             if (settings.vpnMode == "gaming") {
                 put("sniffer", JSONArray(listOf("http", "tls")))
