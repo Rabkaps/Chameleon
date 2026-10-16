@@ -757,6 +757,8 @@ object ConfigInjector {
         // 1. Sniff Rule (must be at the top to extract hostnames)
         val sniffRule = JSONObject().apply {
             put("action", "sniff")
+            put("override_destination", true)
+            put("timeout", "300ms")
             if (settings.vpnMode == "gaming") {
                 put("sniffer", JSONArray(listOf("http", "tls")))
                 put("network", "tcp")
@@ -790,6 +792,15 @@ object ConfigInjector {
             put("method", "default")
         }
         newRules.put(blockDotRule)
+
+        // 4. Reject Iranian DPI Censorship IPs (10.10.34.34/31 and 10.10.34.36/32)
+        // Prevents leaked/cached censorship blockpage IPs from falsely falling into the 10.0.0.0/8 LAN bypass rule
+        val blockIranianCensorshipIpsRule = JSONObject().apply {
+            put("ip_cidr", JSONArray(listOf("10.10.34.34/31", "10.10.34.36/32")))
+            put("action", "reject")
+            put("method", "default")
+        }
+        newRules.put(blockIranianCensorshipIpsRule)
 
         // 4. Local Bypass LAN/Private IP Networks
         val localIps = mutableListOf<String>().apply {
@@ -1072,6 +1083,7 @@ object ConfigInjector {
                     if (pbk.isNotEmpty()) {
                         reality.put("public_key", pbk)
                     }
+                    reality.put("support_x25519mlkem768", true)
                 }
                 tls.remove("alpn")
                 tls.remove("fragment")
@@ -1815,6 +1827,7 @@ object ConfigInjector {
                         }
                         val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                         reality.put("short_id", sid)
+                        reality.put("support_x25519mlkem768", true)
                         tls.put("reality", reality)
                         tls.remove("alpn")
                     }
@@ -1856,6 +1869,7 @@ object ConfigInjector {
                     }
                     val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                     reality.put("short_id", sid)
+                    reality.put("support_x25519mlkem768", true)
                     tls.put("reality", reality)
                     tls.remove("alpn")
                 }
