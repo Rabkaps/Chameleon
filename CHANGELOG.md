@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.5] - 2026-10-16
+
+### Added
+- **Post-Quantum Reality Support (X25519MLKEM768)**: Updated core native engine (`libbox.aar`) with native support for hybrid post-quantum key exchange (`X25519MLKEM768`) in TLS Reality handshakes, resolving authentication failures against modern Xray-core servers.
+- **Dual-Stack & Configurable IP Strategy**: Added IPv6 dual-stack routing and user-selectable domain resolution strategies (`prefer_ipv4`, `prefer_ipv6`, `ipv4_only`, `ipv6_only`).
+- **Updated Iranian Geo Rule-Sets**: Refreshed binary `geoip-ir.srs` and `geosite-ir.srs` to the latest upstream releases for precise domestic routing and bypassing.
+- **Desktop Fluid M3 Expressive UI**: Revamped desktop client interface with a fluid Bento dashboard, spring motion physics, and responsive adaptive layouts.
+- **Bento Dashboard Customization**: Added interactive drag-and-drop card reordering with drop-on-release preview, live resize snapping, and single-tap IP diagnostic refresh.
+
+### Fixed
+- **Iranian DPI Censorship & Poisoning Bypass**: Added active rejection rules for carrier DPI block pages (`10.10.34.34/31`, `10.10.34.36/32`), isolated Reality SNI resolution, and routed bootstrap DNS cleanly over direct interfaces without DNS deadlocks.
+- **Strict Configuration Schema Conformance**: Cleaned up sing-box config serialization by removing unsupported fields (`override_destination` on sniff rule, `support_x25519mlkem768` on reality TLS) to prevent unmarshaling startup crashes.
+- **Theming & Dynamic Monet**: Migrated to the 2026 Material 3 Expressive Color Spec Sheet with authentic Android Monet tokens, pure black AMOLED dark mode, and reliable theme preset application.
+
 ## [1.8.1] - 2026-08-30
 
 ### Added
