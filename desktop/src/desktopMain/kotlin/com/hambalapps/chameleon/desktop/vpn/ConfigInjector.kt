@@ -659,7 +659,7 @@ object ConfigInjector {
                     if (pbk.isNotEmpty()) {
                         reality.put("public_key", pbk)
                     }
-                    reality.put("support_x25519mlkem768", true)
+                    reality.remove("support_x25519mlkem768")
                 }
                 tls.remove("alpn")
                 tls.remove("fragment")
@@ -842,7 +842,6 @@ object ConfigInjector {
                         }
                         val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                         reality.put("short_id", sid)
-                        reality.put("support_x25519mlkem768", true)
                         tls.put("reality", reality)
                         tls.remove("alpn")
                     }
@@ -883,7 +882,6 @@ object ConfigInjector {
                     }
                     val sid = (queryParams["sid"] ?: queryParams["shortId"] ?: queryParams["short_id"] ?: "").trim().lowercase()
                     reality.put("short_id", sid)
-                    reality.put("support_x25519mlkem768", true)
                     tls.put("reality", reality)
                     tls.remove("alpn")
                 }
