@@ -160,6 +160,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
 
     override fun onCreate() {
         super.onCreate()
+        CensorshipDiagnostics.init(applicationContext)
+        CensorshipDiagnostics.setSocketProtector { socket -> protect(socket) }
         android.util.Log.i("Chameleon", "VpnServiceWrapper onCreate called")
         createNotificationChannel()
         
@@ -1061,6 +1063,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
     }
 
     override fun onDestroy() {
+        CensorshipDiagnostics.setSocketProtector(null)
         localProxyOnlyMode = false
         updateWakeLock("DISCONNECTED")
         if (rootModeVal) {

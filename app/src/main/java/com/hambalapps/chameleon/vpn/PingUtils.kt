@@ -12,11 +12,21 @@ import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 
 
-suspend fun measurePingDelay(host: String, port: Int, sni: String = host): Int = withContext(Dispatchers.IO) {
-    CensorshipDiagnostics.diagnoseConnection(host, port, sni).delayMs
+suspend fun measurePingDelay(
+    host: String,
+    port: Int,
+    sni: String = host,
+    context: Context? = null
+): Int = withContext(Dispatchers.IO) {
+    CensorshipDiagnostics.diagnoseConnection(host, port, sni, context).delayMs
 }
 
-suspend fun measureDetailedPingDelay(host: String, port: Int, sni: String = host): DetailedPingResult = CensorshipDiagnostics.diagnoseConnection(host, port, sni)
+suspend fun measureDetailedPingDelay(
+    host: String,
+    port: Int,
+    sni: String = host,
+    context: Context? = null
+): DetailedPingResult = CensorshipDiagnostics.diagnoseConnection(host, port, sni, context)
 
 fun tryBase64Decode(str: String): String? {
     val trimmed = str.trim()

@@ -70,6 +70,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     DynamicColors.applyToActivityIfAvailable(this)
     super.onCreate(savedInstanceState)
+    com.hambalapps.chameleon.vpn.CensorshipDiagnostics.init(applicationContext)
 
     val action = intent?.action
     if (action == "com.hambalapps.chameleon.ACTION_SHORTCUT_CONNECT" || 

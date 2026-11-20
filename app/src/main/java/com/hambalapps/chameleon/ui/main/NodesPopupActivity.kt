@@ -56,6 +56,7 @@ class NodesPopupActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.hambalapps.chameleon.vpn.CensorshipDiagnostics.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             ChameleonTheme {
