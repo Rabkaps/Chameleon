@@ -4932,7 +4932,7 @@ fun MainScreen(
                                                     "mixed" -> 0
                                                     "gvisor" -> 1
                                                     "system" -> 2
-                                                    else -> 0
+                                                    else -> 2
                                                 },
                                                 options = listOf("Mixed", "gVisor", "System"),
                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -4944,7 +4944,7 @@ fun MainScreen(
                                                         0 -> "mixed"
                                                         1 -> "gvisor"
                                                         2 -> "system"
-                                                        else -> "mixed"
+                                                        else -> "system"
                                                     }
                                                     scope.launch { settingsManager.setTunStack(stackVal); if (vpnState == "CONNECTED") startVpnService(context) }
                                                 },
@@ -5120,7 +5120,7 @@ fun MainScreen(
                                             OutlinedButton(
                                                 onClick = {
                                                     scope.launch {
-                                                        settingsManager.setTunStack("mixed")
+                                                        settingsManager.setTunStack("system")
                                                         settingsManager.setVpnMtu(1280)
                                                         localMtu = 1280f
                                                         settingsManager.setEnableFragment(false)

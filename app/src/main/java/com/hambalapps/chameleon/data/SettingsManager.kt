@@ -89,7 +89,7 @@ class SettingsManager(private val context: Context) {
             enableDebugLogging = false,
             bypassIran = true,
             secureDns = "https://8.8.8.8/dns-query",
-            tunStack = "mixed",
+            tunStack = "system",
             enableFragment = true,
             fragmentLength = "10-20",
             fragmentInterval = "10",
@@ -169,7 +169,7 @@ class SettingsManager(private val context: Context) {
             enableDebugLogging = prefs[ENABLE_DEBUG_LOGGING] ?: false,
             bypassIran = prefs[BYPASS_IRAN] ?: true,
             secureDns = prefs[SECURE_DNS] ?: "https://8.8.8.8/dns-query",
-            tunStack = prefs[TUN_STACK] ?: "mixed",
+            tunStack = prefs[TUN_STACK] ?: "system",
             enableFragment = prefs[ENABLE_FRAGMENT] ?: true,
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10",
@@ -234,7 +234,7 @@ class SettingsManager(private val context: Context) {
     val mtProxySecret: Flow<String> = context.dataStore.data.map { it[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574" }.distinctUntilChanged()
     val bypassIran: Flow<Boolean> = context.dataStore.data.map { it[BYPASS_IRAN] ?: true }.distinctUntilChanged()
     val secureDns: Flow<String> = context.dataStore.data.map { it[SECURE_DNS] ?: "https://8.8.8.8/dns-query" }.distinctUntilChanged()
-    val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "mixed" }.distinctUntilChanged()
+    val tunStack: Flow<String> = context.dataStore.data.map { it[TUN_STACK] ?: "system" }.distinctUntilChanged()
     val ipVersion: Flow<String> = context.dataStore.data.map { it[IP_VERSION] ?: "ipv4_only" }.distinctUntilChanged()
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
