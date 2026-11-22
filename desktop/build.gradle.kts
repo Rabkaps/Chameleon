@@ -35,7 +35,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe)
             packageName = "Chameleon"
-            packageVersion = "1.8.5"
+            packageVersion = "1.8.6"
             
             windows {
                 menu = true

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.6] - 2026-11-22
+
+### Added
+- **Real Tunnel Delay Test**: Wired `delayTestUrl` into the dashboard `ConnectCard` to measure live HTTP round-trip latency through the active VPN tunnel on connect or tap.
+
+### Fixed
+- **Default `system` TUN Stack**: Changed default `tunStack` from `mixed` to `system` to resolve gVisor UDP/QUIC stalls (e.g., Discord Android app) and improve battery/throughput.
+- **VPN-Bypassing Ping & Censorship Diagnostics**: Routed node pings and diagnostics over the physical non-VPN network (with `VpnService.protect` fallback) so results stay accurate while VPN is connected.
+- **TLS Fragmentation & `8.8.8.8` Routing**: Fixed `fragment_fallback_delay` range parsing (`"10-20"` -> `"10ms"` instead of `"1020ms"`), removed unused Fragment Packet Length UI input, and stopped adding `8.8.8.8` to `direct` routing rules.
+- **Idle Clean-IP Failover**: Restricted Clean-IP pool failover to active-TX / zero-RX stalls with idle decay so idle devices no longer reconnect every 12 seconds.
+- **Proxy Chain (`chain://`) Pinging**: Resolved `chain://` URIs to their entry relay host/port/SNI (with self-recursion guard) for pings and auto-connect.
+- **Launcher Shortcut, Cold-Start Locale, & Bounded Pings**: Fixed `ACTION_SHORTCUT_CONNECT` subscription parsing, moved cold-start locale lookup to `SharedPreferences`, capped parallel pings at 16 (`Semaphore(16)`), skipped redundant GeoIP lookups for nodes with embedded flags, and removed dead OpenVPN UI/parser code.
+
 ## [1.8.5] - 2026-10-16
 
 ### Added

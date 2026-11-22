@@ -559,7 +559,7 @@ fun MainScreen(
                     @Suppress("DEPRECATION")
                     context.packageManager.getPackageInfo(context.packageName, 0)
                 }
-                val version = "v${pInfo.versionName ?: "1.8.5"}"
+                val version = "v${pInfo.versionName ?: "1.8.6"}"
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     appVersion = version
                 }

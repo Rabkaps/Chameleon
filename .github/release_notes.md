@@ -1,20 +1,20 @@
-# Chameleon v1.8.5 Release Notes
+# Chameleon v1.8.6 Release Notes
 
-Chameleon v1.8.5 introduces enhanced anti-censorship routing, native post-quantum TLS Reality support, updated Iran routing rules, and extensive UI polish across Android and Desktop!
+Chameleon v1.8.6 focuses on Android VPN stability, reliable UDP/Discord connectivity, accurate ping & real-delay diagnostics, and faster startup.
 
 ## What's New
 
 ### 🛡️ Core & Connectivity
-* **Post-Quantum Reality (X25519MLKEM768)**: Updated native core (`libbox.aar`) with full support for hybrid post-quantum key exchange in TLS Reality handshakes, eliminating `reality verification failed` against modern Xray-core servers.
-* **Carrier DPI Poisoning Defense**: Active rejection rules for Iranian carrier DPI block pages (`10.10.34.34/31`, `10.10.34.36/32`), isolated Reality SNI resolution, and clean bootstrap DNS to prevent deadlocks.
-* **Dual-Stack & IP Strategy**: Added IPv6 dual-stack support and customizable IP version strategies (`prefer_ipv4`, `prefer_ipv6`, `ipv4_only`, `ipv6_only`).
-* **Updated Geo Rule-Sets**: Refreshed Iran GeoIP and GeoSite binary rule-sets (`geoip-ir.srs`, `geosite-ir.srs`) from upstream for reliable domestic bypassing.
-* **Strict Config Conformance**: Cleaned up sing-box JSON configuration generation to prevent startup deserialization failures.
+* **Default `system` TUN Stack**: Switched the default TUN network stack from `mixed` to `system`, fixing UDP/QUIC stalls in apps like Discord while improving throughput and battery life.
+* **Direct-Network Ping & Censorship Diagnostics**: Node pings and censorship diagnostics now bypass the active VPN tunnel over the physical network interface, giving accurate results even while connected.
+* **Real Tunnel Delay Test**: Wired the configurable **Ping Delay Test URL** into the dashboard connection card so you can measure live HTTP round-trip latency through the active VPN tunnel.
+* **TLS Fragmentation & DNS Routing Fixes**: Fixed `fragment_fallback_delay` range parsing (`"10-20"` → `"10ms"` instead of `"1020ms"`) and prevented `8.8.8.8` from leaking into `direct` routing rules.
+* **Idle Clean-IP Failover Fix**: Clean-IP pool failover now triggers only on actual uplink-active stalls rather than when the device is simply idle.
+* **Proxy Chain (`chain://`) Ping Support**: Pinging and auto-connecting a Proxy Chain now resolves and tests its entry relay server cleanly.
 
-### ✨ UI & Personalization
-* **Desktop M3 Expressive UI**: Fluid Material 3 Expressive Bento dashboard on Desktop with spring physics and responsive card layouts.
-* **Bento Dashboard Customization**: Interactive drag-and-drop card reordering with drop-on-release preview, live resize snapping, and 1-tap IP refresh.
-* **2026 Material 3 Expressive Palette**: Authentic Android Monet dynamic theming with pure black AMOLED dark mode and fixed theme presets.
+### ✨ Performance & QoL
+* **Bounded Concurrent Pings & Faster Country Flags**: Capped parallel node pings at 16 to prevent router NAT saturation, and skipped redundant external GeoIP/DNS lookups when a node's name already contains a country or flag emoji.
+* **Connect Fastest Shortcut & Cold-Start Locale**: Fixed the home-screen **Connect Fastest** shortcut to read all active subscriptions and removed blocking DataStore I/O from cold startup.
 
 ---
 Thank you for using Chameleon!
