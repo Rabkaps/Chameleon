@@ -92,7 +92,7 @@ class SettingsManager(private val context: Context) {
             tunStack = "mixed",
             enableFragment = true,
             fragmentLength = "10-20",
-            fragmentInterval = "10-20",
+            fragmentInterval = "10",
             enableMux = false,
             vpnMtu = 1280,
             autoUpdateIntervalHours = 1,
@@ -172,7 +172,7 @@ class SettingsManager(private val context: Context) {
             tunStack = prefs[TUN_STACK] ?: "mixed",
             enableFragment = prefs[ENABLE_FRAGMENT] ?: true,
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
-            fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10-20",
+            fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10",
             enableMux = prefs[ENABLE_MUX] ?: false,
             vpnMtu = prefs[VPN_MTU] ?: 1280,
             autoUpdateIntervalHours = prefs[AUTO_UPDATE_INTERVAL_HOURS] ?: 1,
@@ -238,7 +238,7 @@ class SettingsManager(private val context: Context) {
     val ipVersion: Flow<String> = context.dataStore.data.map { it[IP_VERSION] ?: "ipv4_only" }.distinctUntilChanged()
     val enableFragment: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_FRAGMENT] ?: true }.distinctUntilChanged()
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
-    val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10-20" }.distinctUntilChanged()
+    val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10" }.distinctUntilChanged()
     val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
     val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1280 }.distinctUntilChanged()
     val autoUpdateIntervalHours: Flow<Int> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL_HOURS] ?: 1 }.distinctUntilChanged()
@@ -315,7 +315,13 @@ class SettingsManager(private val context: Context) {
     suspend fun setSpecialTheme(value: String) { context.dataStore.edit { it[SPECIAL_THEME] = value } }
     suspend fun setAppIcon(value: String) { context.dataStore.edit { it[APP_ICON] = value } }
     val appLanguage: Flow<String> = context.dataStore.data.map { it[APP_LANGUAGE] ?: "system" }.distinctUntilChanged()
-    suspend fun setAppLanguage(value: String) { context.dataStore.edit { it[APP_LANGUAGE] = value } }
+    suspend fun setAppLanguage(value: String) {
+        context.getSharedPreferences("locale_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("app_language", value)
+            .apply()
+        context.dataStore.edit { it[APP_LANGUAGE] = value }
+    }
 
     val dashboardCards: Flow<List<String>> = context.dataStore.data.map { prefs ->
         val raw = prefs[DASHBOARD_CARDS] ?: "connect_button,selected_server,auto_connect,traffic,current_ip"

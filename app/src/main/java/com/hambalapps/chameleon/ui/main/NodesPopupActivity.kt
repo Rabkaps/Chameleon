@@ -45,6 +45,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -266,15 +268,19 @@ class NodesPopupActivity : ComponentActivity() {
                                                 if (!isTestingPings) {
                                                      scope.launch {
                                                          isTestingPings = true
+                                                         val proxyChainsRaw = settings.proxyChains
+                                                         val semaphore = Semaphore(16)
                                                          val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
                                                          val jobs = targets.map { link ->
                                                              scope.async(Dispatchers.IO) {
-                                                                 val nodeInfo = getNodeConnectionInfo(link)
-                                                                 if (nodeInfo != null) {
-                                                                     val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
-                                                                     Triple(link, res.delayMs, res.status)
-                                                                 } else {
-                                                                     Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                                                                 semaphore.withPermit {
+                                                                     val nodeInfo = getNodeConnectionInfo(link, proxyChainsRaw)
+                                                                     if (nodeInfo != null) {
+                                                                         val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
+                                                                         Triple(link, res.delayMs, res.status)
+                                                                     } else {
+                                                                         Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                                                                     }
                                                                  }
                                                              }
                                                          }

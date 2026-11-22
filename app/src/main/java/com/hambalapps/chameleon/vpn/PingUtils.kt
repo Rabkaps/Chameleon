@@ -1,7 +1,11 @@
 package com.hambalapps.chameleon.vpn
 
 import android.util.Base64
+import com.hambalapps.chameleon.data.SettingsManager
+import com.hambalapps.chameleon.data.deserializeProxyChains
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.InetSocketAddress
@@ -86,9 +90,31 @@ data class NodeConnectionInfo(
     val sni: String = host
 )
 
-fun getNodeConnectionInfo(link: String): NodeConnectionInfo? {
+private fun resolveChainRelayLink(link: String, proxyChainsRaw: String = ""): String? {
+    val trimmed = link.trim()
+    if (!trimmed.startsWith("chain://")) return null
+    val chainId = trimmed.substringAfter("chain://").substringBefore("#")
+    val raw = proxyChainsRaw.ifEmpty {
+        val ctx = CensorshipDiagnostics.getAppContext() ?: return null
+        try {
+            runBlocking(Dispatchers.IO) { SettingsManager(ctx).proxyChains.first() }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+    if (raw.isEmpty()) return null
+    return deserializeProxyChains(raw).find { it.id == chainId }?.relayLink
+}
+
+fun getNodeConnectionInfo(link: String, proxyChainsRaw: String = ""): NodeConnectionInfo? {
     try {
         val trimmed = link.trim()
+        if (trimmed.startsWith("chain://")) {
+            val relayLink = resolveChainRelayLink(trimmed, proxyChainsRaw)
+            return if (!relayLink.isNullOrEmpty() && !relayLink.trim().startsWith("chain://")) {
+                getNodeConnectionInfo(relayLink, proxyChainsRaw)
+            } else null
+        }
         if (trimmed.startsWith("{")) {
             try {
                 val json = JSONObject(trimmed)
@@ -202,9 +228,15 @@ fun getNodeConnectionInfo(link: String): NodeConnectionInfo? {
     }
 }
 
-fun getHostAndPortFromLink(link: String): Pair<String, Int>? {
+fun getHostAndPortFromLink(link: String, proxyChainsRaw: String = ""): Pair<String, Int>? {
     try {
         val trimmed = link.trim()
+        if (trimmed.startsWith("chain://")) {
+            val relayLink = resolveChainRelayLink(trimmed, proxyChainsRaw)
+            return if (!relayLink.isNullOrEmpty() && !relayLink.trim().startsWith("chain://")) {
+                getHostAndPortFromLink(relayLink, proxyChainsRaw)
+            } else null
+        }
         if (trimmed.startsWith("{")) {
             try {
                 val json = JSONObject(trimmed)
@@ -431,14 +463,18 @@ object ProxyNameResolver {
         val name = try {
             val schemeIdx = trimmed.indexOf("://")
             val scheme = if (schemeIdx >= 0) trimmed.substring(0, schemeIdx).uppercase() else "VPN"
-            val rest = if (schemeIdx >= 0) trimmed.substring(schemeIdx + 3) else trimmed
-            val host = if (rest.contains("@")) {
-                rest.substringAfter("@").substringBefore(":")
+            if (scheme == "CHAIN") {
+                "Proxy Chain"
             } else {
-                rest.substringBefore(":")
+                val rest = if (schemeIdx >= 0) trimmed.substring(schemeIdx + 3) else trimmed
+                val host = if (rest.contains("@")) {
+                    rest.substringAfter("@").substringBefore(":")
+                } else {
+                    rest.substringBefore(":")
+                }
+                val cleanHost = if (host.length > 20) host.take(20) + "..." else host
+                "$scheme ($cleanHost)"
             }
-            val cleanHost = if (host.length > 20) host.take(20) + "..." else host
-            "$scheme ($cleanHost)"
         } catch (e: Exception) {
             context.getString(com.hambalapps.chameleon.R.string.notif_unnamed)
         }

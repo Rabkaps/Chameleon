@@ -47,6 +47,10 @@ object IpCountryResolver {
         }
     }
 
+    fun flushCache() {
+        saveCache()
+    }
+
     fun getCachedCountryCode(host: String): String? {
         return cache[host]
     }
@@ -65,7 +69,7 @@ object IpCountryResolver {
         return false
     }
 
-    fun resolveCountryCode(host: String): String {
+    fun resolveCountryCode(host: String, saveImmediately: Boolean = true): String {
         val trimmed = host.trim()
         if (trimmed.isEmpty() || trimmed.equals("localhost", ignoreCase = true) || isPrivateIp(trimmed)) {
             return "🌐"
@@ -101,7 +105,9 @@ object IpCountryResolver {
 
         if (cc.isNotEmpty() && cc != "🌐") {
             cache[trimmed] = cc
-            saveCache()
+            if (saveImmediately) {
+                saveCache()
+            }
             return cc
         }
         return "🌐"
@@ -166,6 +172,18 @@ fun getFlagEmojiFromCountryCode(countryCode: String): String {
 fun getFlagEmoji(serverName: String, countryCode: String? = null): String {
     if (!countryCode.isNullOrEmpty() && countryCode != "🌐" && countryCode != "??") {
         return getFlagEmojiFromCountryCode(countryCode)
+    }
+    var idx = 0
+    while (idx < serverName.length) {
+        val cp1 = Character.codePointAt(serverName, idx)
+        val charCount1 = Character.charCount(cp1)
+        if (cp1 in 0x1F1E6..0x1F1FF && idx + charCount1 < serverName.length) {
+            val cp2 = Character.codePointAt(serverName, idx + charCount1)
+            if (cp2 in 0x1F1E6..0x1F1FF) {
+                return String(Character.toChars(cp1)) + String(Character.toChars(cp2))
+            }
+        }
+        idx += charCount1
     }
     val name = serverName.lowercase()
     

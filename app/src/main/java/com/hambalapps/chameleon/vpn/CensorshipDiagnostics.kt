@@ -44,6 +44,8 @@ object CensorshipDiagnostics {
         appContext = context.applicationContext
     }
 
+    fun getAppContext(): Context? = appContext
+
     fun setSocketProtector(protector: ((Socket) -> Boolean)?) {
         socketProtector = protector
     }

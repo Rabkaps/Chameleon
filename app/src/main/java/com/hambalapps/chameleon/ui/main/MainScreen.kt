@@ -80,6 +80,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.ui.platform.LocalDensity
@@ -246,9 +248,9 @@ private fun handleScannedQrResult(
                 } else {
                     val finalLink = if (jsonOutbounds.size == 1) {
                         jsonOutbounds[0]
-                    } else if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r")) {
-                        val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
-                        "openvpn://vpn?config=$b64#OpenVPN_Imported"
+                    } else if (trimmedImport.contains("dev tun") || trimmedImport.lowercase().startsWith("client") || trimmedImport.lowercase().contains("client\n") || trimmedImport.lowercase().contains("client\r") || trimmedImport.lowercase().startsWith("openvpn://") || trimmedImport.lowercase().startsWith("ovpn://")) {
+                        android.widget.Toast.makeText(context, "OpenVPN is not supported", android.widget.Toast.LENGTH_LONG).show()
+                        return@launch
                     } else if (trimmedImport.contains("[Interface]") && trimmedImport.contains("[Peer]")) {
                         val b64 = android.util.Base64.encodeToString(trimmedImport.toByteArray(), android.util.Base64.NO_WRAP)
                         "awg://vpn?config=$b64#AmneziaWG_Imported"
@@ -623,7 +625,6 @@ fun MainScreen(
         "VMess",
         "Hysteria",
         "TUIC",
-        "OpenVPN",
         "AmneziaWG",
         "MASQUE"
     )
@@ -718,8 +719,12 @@ fun MainScreen(
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             val newResolved = resolvedCountries.toMutableMap()
             var changed = false
+            var needsFlush = false
             serverList.forEach { link ->
-                val host = getHostAndPortFromLink(link)?.first
+                val nameFlag = getFlagEmoji(ProxyNameResolver.getProxyName(link, context), null)
+                if (nameFlag != "🌐") return@forEach
+
+                val host = getHostAndPortFromLink(link, settings.proxyChains)?.first
                 if (host != null) {
                     val cached = IpCountryResolver.getCachedCountryCode(host)
                     if (cached != null) {
@@ -728,12 +733,16 @@ fun MainScreen(
                             changed = true
                         }
                     } else {
-                        val cc = IpCountryResolver.resolveCountryCode(host)
+                        val cc = IpCountryResolver.resolveCountryCode(host, saveImmediately = false)
                         newResolved[link] = cc
                         changed = true
+                        if (cc != "🌐") needsFlush = true
                         kotlinx.coroutines.delay(120)
                     }
                 }
+            }
+            if (needsFlush) {
+                IpCountryResolver.flushCache()
             }
             if (changed) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -771,7 +780,6 @@ fun MainScreen(
                 "VMess" -> type == "VMESS"
                 "Hysteria" -> type == "HYSTERIA" || type == "HYSTERIA2" || type == "HY2"
                 "TUIC" -> type == "TUIC"
-                "OpenVPN" -> type == "OPENVPN"
                 "AmneziaWG" -> type == "AMNEZIAWG"
                 "MASQUE" -> type == "MASQUE"
                 else -> true
@@ -822,15 +830,19 @@ fun MainScreen(
         if (!isTestingPings) {
             scope.launch {
                 isTestingPings = true
+                val proxyChainsRaw = settings.proxyChains
+                val semaphore = Semaphore(16)
                 val targets = if (filteredServerList.isNotEmpty()) filteredServerList.map { it.link } else serverList
                 val jobs = targets.map { link ->
                     scope.async(kotlinx.coroutines.Dispatchers.IO) {
-                        val nodeInfo = getNodeConnectionInfo(link)
-                        if (nodeInfo != null) {
-                            val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
-                            Triple(link, res.delayMs, res.status)
-                        } else {
-                            Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                        semaphore.withPermit {
+                            val nodeInfo = getNodeConnectionInfo(link, proxyChainsRaw)
+                            if (nodeInfo != null) {
+                                val res = com.hambalapps.chameleon.vpn.CensorshipDiagnostics.diagnoseConnection(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
+                                Triple(link, res.delayMs, res.status)
+                            } else {
+                                Triple(link, -1, com.hambalapps.chameleon.vpn.CensorshipDiagnosticResult.UNKNOWN_ERROR)
+                            }
                         }
                     }
                 }
@@ -5034,15 +5046,6 @@ fun MainScreen(
 
                                             AnimatedVisibility(visible = enableFragment) {
                                                 Column(modifier = Modifier.fillMaxWidth()) {
-                                                    Spacer(modifier = Modifier.height(12.dp))
-                                                    // Fragment Length Input
-                                                    OutlinedTextField(
-                                                        value = fragmentLength,
-                                                        onValueChange = { scope.launch { settingsManager.setFragmentLength(it) } },
-                                                        label = { Text("Fragment Packet Length (e.g. 10-20)") },
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        shape = ExpressiveButtonShape
-                                                    )
                                                     Spacer(modifier = Modifier.height(12.dp))
                                                     // Fragment Interval Slider
                                                     val intervalVal = fragmentInterval.toIntOrNull() ?: 10

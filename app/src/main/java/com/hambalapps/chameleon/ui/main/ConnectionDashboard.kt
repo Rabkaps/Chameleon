@@ -540,6 +540,54 @@ fun ConnectionDashboard(
         }
     }
 
+    var realDelayMs by remember { mutableStateOf<Int?>(null) }
+    var isTestingRealDelay by remember { mutableStateOf(false) }
+
+    fun testRealTunnelDelay(initialDelayMs: Long = 0L) {
+        if (state != "CONNECTED" || isTestingRealDelay) return
+        isTestingRealDelay = true
+        scope.launch(Dispatchers.IO) {
+            if (initialDelayMs > 0L) delay(initialDelayMs)
+            val target = delayTestUrl.ifBlank { "https://cp.cloudflare.com/generate_204" }
+            var measured = -1
+            for (attempt in 1..2) {
+                var conn: java.net.HttpURLConnection? = null
+                try {
+                    val start = System.currentTimeMillis()
+                    conn = (java.net.URL(target).openConnection() as java.net.HttpURLConnection).apply {
+                        connectTimeout = 4000
+                        readTimeout = 4000
+                        requestMethod = "GET"
+                        useCaches = false
+                        instanceFollowRedirects = false
+                    }
+                    val code = conn.responseCode
+                    if (code in 200..399) {
+                        measured = (System.currentTimeMillis() - start).toInt()
+                        break
+                    }
+                } catch (_: Exception) {
+                    measured = -1
+                } finally {
+                    conn?.disconnect()
+                }
+                if (attempt == 1) delay(600)
+            }
+            withContext(Dispatchers.Main) {
+                realDelayMs = measured
+                isTestingRealDelay = false
+            }
+        }
+    }
+
+    LaunchedEffect(state, delayTestUrl) {
+        if (state == "CONNECTED") {
+            testRealTunnelDelay(initialDelayMs = 400L)
+        } else {
+            realDelayMs = null
+        }
+    }
+
     LaunchedEffect(state) {
         if (state == "CONNECTING" || state == "DISCONNECTING") {
             userIpAddress = "Detecting..."
@@ -912,16 +960,17 @@ fun ConnectionDashboard(
                         label = "AuraAlpha"
                     )
 
+                    val boxSize = if (state == "CONNECTED") 148.dp else 180.dp
                     Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(180.dp)
+                        modifier = Modifier.size(boxSize)
                     ) {
                         if (isActivityResumed && (state == "CONNECTED" || state == "CONNECTING")) {
                             WaveVisualizer(
                                 state = state,
                                 primaryColor = MaterialTheme.colorScheme.primary,
                                 secondaryColor = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(180.dp)
+                                modifier = Modifier.size(boxSize)
                             )
                         }
 
@@ -987,7 +1036,7 @@ fun ConnectionDashboard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(if (state == "CONNECTED") 8.dp else 16.dp))
 
                     AnimatedContent(
                         targetState = stateText,
@@ -1024,12 +1073,42 @@ fun ConnectionDashboard(
                         Text(
                             text = durationVal.value,
                             style = MaterialTheme.typography.headlineLarge.copy(
-                                fontSize = 32.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.Black,
                                 fontFamily = FontFamily.Monospace
                             ),
                             color = contentColor.copy(alpha = 0.9f)
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        val delayLabel = when {
+                            isTestingRealDelay -> "Testing delay..."
+                            realDelayMs == null -> "Tap to test delay"
+                            realDelayMs!! < 0 -> "Delay: Timeout (Tap to retry)"
+                            else -> "Real Delay: ${realDelayMs} ms"
+                        }
+                        Surface(
+                            shape = ExpressivePillShape,
+                            color = buttonColor.copy(alpha = 0.22f),
+                            modifier = Modifier.clickable { testRealTunnelDelay() }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = "Real Delay Test",
+                                    tint = contentColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = delayLabel,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = contentColor
+                                )
+                            }
+                        }
                     }
                 }
             }

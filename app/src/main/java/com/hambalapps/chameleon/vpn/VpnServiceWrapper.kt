@@ -23,6 +23,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 import java.nio.charset.StandardCharsets
 
@@ -202,17 +204,25 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                                 override fun writeLogs(logs: LogIterator?) {}
                                 
                                 var lastRxTotal = 0L
+                                var lastTxTotal = 0L
                                 var stallCount = 0
 
                                 override fun writeStatus(status: StatusMessage?) {
                                     if (status != null) {
                                         val currentRx = status.downlinkTotal
+                                        val currentTx = status.uplinkTotal
                                         _sessionDownBytes.value = currentRx
-                                        _sessionUpBytes.value = status.uplinkTotal
-                                        
-                                        if (currentRx == lastRxTotal && currentRx > 0) {
+                                        _sessionUpBytes.value = currentTx
+
+                                        val txDelta = currentTx - lastTxTotal
+                                        val rxDelta = currentRx - lastRxTotal
+                                        lastTxTotal = currentTx
+                                        lastRxTotal = currentRx
+
+                                        // Only count as stalled if uplink is actively sending (>1 KB/s) while downlink receives 0 bytes
+                                        if (currentRx > 0 && rxDelta == 0L && txDelta > 1024L) {
                                             stallCount++
-                                            if (stallCount >= 12) { // 12s of stall
+                                            if (stallCount >= 12) { // 12s of active-TX stall
                                                 stallCount = 0
                                                 serviceScope.launch {
                                                     val sm = SettingsManager(applicationContext)
@@ -232,9 +242,10 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                                                     }
                                                 }
                                             }
-                                        } else {
+                                        } else if (rxDelta > 0L) {
                                             stallCount = 0
-                                            lastRxTotal = currentRx
+                                        } else if (txDelta <= 256L && stallCount > 0) {
+                                            stallCount--
                                         }
                                     }
                                 }
@@ -653,16 +664,20 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     
                     val servers = activeSub?.servers?.split("\n")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
                     if (servers.isNotEmpty()) {
-                        log("Pinging ${servers.size} servers in parallel...")
+                        log("Pinging ${servers.size} servers in parallel (max 16 concurrent)...")
+                        val proxyChainsRaw = settingsManager.proxyChains.first()
+                        val semaphore = Semaphore(16)
                         val jobs = servers.map { server ->
                             async(Dispatchers.IO) {
-                                val hostPort = getHostAndPortFromLink(server)
-                                val delay = if (hostPort != null) {
-                                    measurePingDelay(hostPort.first, hostPort.second)
-                                } else {
-                                    -1
+                                semaphore.withPermit {
+                                    val nodeInfo = getNodeConnectionInfo(server, proxyChainsRaw)
+                                    val delay = if (nodeInfo != null) {
+                                        measurePingDelay(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
+                                    } else {
+                                        -1
+                                    }
+                                    server to delay
                                 }
-                                server to delay
                             }
                         }
                         val results = jobs.awaitAll()

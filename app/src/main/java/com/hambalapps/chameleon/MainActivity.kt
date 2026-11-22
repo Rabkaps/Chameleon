@@ -33,14 +33,15 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 
 class MainActivity : ComponentActivity() {
 
   override fun attachBaseContext(newBase: android.content.Context) {
-    val language = kotlinx.coroutines.runBlocking {
-      com.hambalapps.chameleon.data.SettingsManager(newBase).appLanguage.first()
-    }
+    val language = newBase.getSharedPreferences("locale_prefs", android.content.Context.MODE_PRIVATE)
+      .getString("app_language", "system") ?: "system"
     val locale = when (language) {
       "en" -> java.util.Locale.ENGLISH
       "fa" -> java.util.Locale("fa")
@@ -98,13 +99,20 @@ class MainActivity : ComponentActivity() {
       originalHandler?.uncaughtException(thread, throwable)
     }
 
-    // Check for previous crash log and load it on background thread
+    // Check for previous crash log and sync locale cache on background thread
     lifecycleScope.launch(Dispatchers.IO) {
       try {
         VpnServiceWrapper.checkAndLoadCrashLog(applicationContext)
       } catch (e: Exception) {
         // Ignore
       }
+      try {
+        val lang = SettingsManager(applicationContext).appLanguage.first()
+        applicationContext.getSharedPreferences("locale_prefs", android.content.Context.MODE_PRIVATE)
+          .edit()
+          .putString("app_language", lang)
+          .apply()
+      } catch (_: Exception) {}
     }
 
     // Request notification permission on Android 13+ (API 33+)
@@ -191,15 +199,12 @@ class MainActivity : ComponentActivity() {
     if (action == "com.hambalapps.chameleon.ACTION_SHORTCUT_CONNECT") {
       Toast.makeText(context, "Finding fastest node and connecting...", Toast.LENGTH_SHORT).show()
       activityScope.launch {
-        val serverListStr = settingsManager.subscriptionServers.first()
-        val manualStr = settingsManager.manualServers.first()
-        val list = mutableListOf<String>()
-        if (serverListStr.isNotEmpty()) {
-          list.addAll(serverListStr.split("\u001e"))
-        }
-        if (manualStr.isNotEmpty()) {
-          list.addAll(manualStr.split("\n").filter { it.trim().isNotEmpty() })
-        }
+        val currentSettings = settingsManager.settings.first()
+        val list = currentSettings.deserializedSubscriptions
+          .flatMap { it.servers.split("\n") }
+          .map { it.trim() }
+          .filter { it.isNotEmpty() }
+          .distinct()
 
         if (list.isEmpty()) {
           Toast.makeText(context, "No server nodes available to connect", Toast.LENGTH_LONG).show()
@@ -208,21 +213,22 @@ class MainActivity : ComponentActivity() {
 
         var bestLink: String? = null
         var bestLatency = Int.MAX_VALUE
-        val delayUrl = settingsManager.settings.first().delayTestUrl
+        val proxyChainsRaw = currentSettings.proxyChains
 
-        // Ping all servers concurrently (not sequentially) to stay within the
-        // ForegroundService exemption window on Android 12+. Sequential pings on
-        // a large server list could take 100+ seconds, expiring the window and
-        // causing ForegroundServiceStartNotAllowedException.
+        // Ping servers with bounded concurrency to stay within the
+        // ForegroundService exemption window on Android 12+ without saturating NAT.
         kotlinx.coroutines.withContext(Dispatchers.IO) {
+          val semaphore = Semaphore(16)
           val scope = this
           val results = list.map { link ->
             scope.async {
-              val nodeInfo = getNodeConnectionInfo(link)
-              if (nodeInfo != null) {
-                val latency = measurePingDelay(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
-                if (latency >= 0) Pair(link, latency) else null
-              } else null
+              semaphore.withPermit {
+                val nodeInfo = getNodeConnectionInfo(link, proxyChainsRaw)
+                if (nodeInfo != null) {
+                  val latency = measurePingDelay(nodeInfo.host, nodeInfo.port, nodeInfo.sni)
+                  if (latency >= 0) Pair(link, latency) else null
+                } else null
+              }
             }
           }.awaitAll().filterNotNull()
           val best = results.minByOrNull { it.second }

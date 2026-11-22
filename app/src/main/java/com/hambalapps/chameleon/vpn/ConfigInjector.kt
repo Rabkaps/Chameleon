@@ -820,17 +820,9 @@ object ConfigInjector {
         val directDomains = mutableListOf<String>()
         val proxyHosts = getProxyServerHosts(config)
 
-        val directDnsAddr = extractHostFromUrl(settings.secureDns) ?: ""
-        if (directDnsAddr.isNotEmpty() && isIpAddress(directDnsAddr)) {
-            directIps.add(directDnsAddr)
-        }
         val systemDnsAddr = getSystemDnsAddress(context, settings)
         if (systemDnsAddr.isNotEmpty() && isIpAddress(systemDnsAddr)) {
             directIps.add(systemDnsAddr)
-        }
-        val bootstrapDnsAddr = "8.8.8.8"
-        if (bootstrapDnsAddr.isNotEmpty() && isIpAddress(bootstrapDnsAddr)) {
-            directIps.add(bootstrapDnsAddr)
         }
 
         if (settings.bypassIran || settings.vpnMode == "gaming") {
@@ -1372,13 +1364,13 @@ object ConfigInjector {
         tls.put("fragment", true)
         tls.put("record_fragment", true)
         val intervalRaw = settings.fragmentInterval.trim()
-        val delayStr = if (intervalRaw.isNotEmpty()) {
-            val num = intervalRaw.filter { it.isDigit() }
-            if (num.isNotEmpty()) "${num}ms" else "500ms"
-        } else {
-            "500ms"
-        }
-        tls.put("fragment_fallback_delay", delayStr)
+        val parsedMs = intervalRaw
+            .substringBefore("-")
+            .trim()
+            .filter { it.isDigit() }
+            .toIntOrNull()
+            ?.coerceIn(1, 1000) ?: 10
+        tls.put("fragment_fallback_delay", "${parsedMs}ms")
     }
 
     private fun injectEndpoints(context: Context, config: JSONObject, settings: InjectorSettings) {
@@ -2562,171 +2554,6 @@ object ConfigInjector {
         }
 
         return outbound
-    }
-
-    private fun parseOpenVpnConfDetails(outbound: JSONObject, configText: String) {
-        val serversArray = JSONArray()
-        val dnsServersArray = JSONArray()
-        var protoVal = "udp"
-        var cipherVal = "AES-256-GCM"
-        var authVal = "SHA512"
-        var tlsCryptText = ""
-        var tlsCryptV2Text = ""
-        var tlsAuthText = ""
-        var keyDir: Int? = null
-        var usernameVal = ""
-        var passwordVal = ""
-        var verifyX509NameVal = ""
-        var verifyX509NameModeVal = ""
-        
-        fun extractTag(text: String, tag: String): String {
-            val start = "<$tag>"
-            val end = "</$tag>"
-            val startIdx = text.indexOf(start)
-            val endIdx = text.indexOf(end)
-            if (startIdx >= 0 && endIdx > startIdx) {
-                return text.substring(startIdx + start.length, endIdx).trim()
-            }
-            return ""
-        }
-        
-        fun cleanOpenVpnBlock(text: String): String {
-            if (text.isEmpty()) return ""
-            val lines = text.split("\n")
-            val cleanedLines = lines.filter { line ->
-                val trimmed = line.trim()
-                !trimmed.startsWith("#") && !trimmed.startsWith(";")
-            }
-            return cleanedLines.joinToString("\n").trim()
-        }
-        
-        tlsCryptText = cleanOpenVpnBlock(extractTag(configText, "tls-crypt"))
-        tlsCryptV2Text = cleanOpenVpnBlock(extractTag(configText, "tls-crypt-v2"))
-        tlsAuthText = cleanOpenVpnBlock(extractTag(configText, "tls-auth"))
-        val caText = cleanOpenVpnBlock(extractTag(configText, "ca"))
-        val certText = cleanOpenVpnBlock(extractTag(configText, "cert"))
-        val keyText = cleanOpenVpnBlock(extractTag(configText, "key"))
-        
-        configText.split("\n").forEach { line ->
-            val trimmedLine = line.trim()
-            if (trimmedLine.isEmpty()) return@forEach
-            if (trimmedLine.startsWith("#") || trimmedLine.startsWith(";")) {
-                if (trimmedLine.contains("EXT-USER:") || trimmedLine.contains("username:")) {
-                    usernameVal = trimmedLine.substringAfter(":").trim()
-                }
-                if (trimmedLine.contains("EXT-PASS:") || trimmedLine.contains("password:")) {
-                    passwordVal = trimmedLine.substringAfter(":").trim()
-                }
-                return@forEach
-            }
-            val tokens = trimmedLine.split(Regex("\\s+"))
-            if (tokens.isEmpty()) return@forEach
-            
-            when (tokens[0].lowercase()) {
-                "remote" -> {
-                    if (tokens.size >= 2) {
-                        val sHost = tokens[1]
-                        val sPort = if (tokens.size >= 3) tokens[2].toIntOrNull() ?: 1194 else 1194
-                        val sObj = JSONObject().apply {
-                            put("server", sHost)
-                            put("server_port", sPort)
-                        }
-                        serversArray.put(sObj)
-                    }
-                }
-                "proto" -> {
-                    if (tokens.size >= 2) {
-                        val p = tokens[1].lowercase()
-                        protoVal = if (p.contains("tcp")) "tcp" else "udp"
-                    }
-                }
-                "tls-auth" -> {
-                    if (tokens.size >= 3) {
-                        keyDir = tokens[2].toIntOrNull()
-                    } else if (tokens.size >= 2) {
-                        val possibleDir = tokens[1].toIntOrNull()
-                        if (possibleDir != null) {
-                            keyDir = possibleDir
-                        }
-                    }
-                }
-                "cipher" -> {
-                    if (tokens.size >= 2) {
-                        cipherVal = tokens[1]
-                    }
-                }
-                "auth" -> {
-                    if (tokens.size >= 2) {
-                        authVal = tokens[1]
-                    }
-                }
-                "key-direction" -> {
-                    if (tokens.size >= 2) {
-                        keyDir = tokens[1].toIntOrNull()
-                    }
-                }
-                "verify-x509-name" -> {
-                    if (tokens.size >= 2) {
-                        val name = tokens[1].replace("\"", "")
-                        val mode = if (tokens.size >= 3) tokens[2] else "name"
-                        verifyX509NameVal = name
-                        verifyX509NameModeVal = mode
-                    }
-                }
-                "dhcp-option" -> {
-                    if (tokens.size >= 3 && tokens[1].lowercase() == "dns") {
-                        val dnsIp = tokens[2].replace("\"", "").replace("'", "")
-                        if (isIpAddress(dnsIp)) {
-                            dnsServersArray.put(dnsIp)
-                        }
-                    }
-                }
-            }
-        }
-        
-        outbound.put("servers", serversArray)
-        outbound.put("proto", protoVal)
-        outbound.put("cipher", cipherVal)
-        outbound.put("auth", authVal)
-        
-        if (usernameVal.isNotEmpty()) outbound.put("username", usernameVal)
-        if (passwordVal.isNotEmpty()) outbound.put("password", passwordVal)
-        
-        val tls = JSONObject().apply {
-            if (caText.isNotEmpty()) put("ca", caText)
-            if (certText.isNotEmpty()) put("certificate", certText)
-            if (keyText.isNotEmpty()) put("key", keyText)
-            if (verifyX509NameVal.isNotEmpty()) {
-                put("verify_x509_name", verifyX509NameVal)
-                put("verify_x509_name_mode", verifyX509NameModeVal)
-            }
-        }
-        outbound.put("tls", tls)
-        
-        if (tlsCryptText.isNotEmpty()) {
-            outbound.put("tls_crypt", tlsCryptText)
-        }
-        if (tlsCryptV2Text.isNotEmpty()) {
-            outbound.put("tls_crypt_v2", tlsCryptV2Text)
-        }
-        if (tlsAuthText.isNotEmpty()) {
-            outbound.put("tls_auth", tlsAuthText)
-            if (keyDir != null) {
-                outbound.put("key_direction", keyDir)
-            }
-        }
-        val lowerProfile = configText.lowercase()
-        val isAntiZapret = lowerProfile.contains("antizapret") || 
-                           lowerProfile.contains("prostovpn") || 
-                           lowerProfile.contains("31337.lol")
-        if (isAntiZapret) {
-            dnsServersArray.put("10.224.0.1")
-            outbound.put("_is_antizapret", true)
-        }
-
-        if (dnsServersArray.length() > 0) {
-            outbound.put("_dns_servers", dnsServersArray)
-        }
     }
 
     private fun parseQueryParams(query: String): Map<String, String> {

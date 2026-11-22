@@ -1142,5 +1142,64 @@ class ConfigInjectorTest {
         }
         org.junit.Assert.assertTrue(foundDetourTarget)
     }
+
+    @Test
+    fun testFragmentIntervalRangeAndDirectDnsLeakFix() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "https://8.8.8.8/dns-query",
+            tunStack = "system",
+            enableFragment = true,
+            fragmentLength = "10-20",
+            fragmentInterval = "10-20",
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "normal"
+        )
+
+        val uri = "vless://uuid@example.com:443?security=tls&sni=example.com#TestFrag"
+        val configStr = ConfigInjector.injectConfig(mockContext, uri, settings)
+        val json = org.json.JSONObject(configStr)
+
+        // 1. Verify fragment_fallback_delay is "10ms" and NOT "1020ms"
+        val outbounds = json.getJSONArray("outbounds")
+        val proxyOut = outbounds.getJSONObject(0)
+        val tls = proxyOut.getJSONObject("tls")
+        org.junit.Assert.assertEquals("10ms", tls.getString("fragment_fallback_delay"))
+
+        // 2. Verify 8.8.8.8 is NOT leaked into direct ip_cidr routing rules
+        val routeRules = json.getJSONObject("route").getJSONArray("rules")
+        val directCidrs = mutableSetOf<String>()
+        for (i in 0 until routeRules.length()) {
+            val rule = routeRules.getJSONObject(i)
+            if (rule.optString("outbound") == "direct" && rule.has("ip_cidr")) {
+                val arr = rule.getJSONArray("ip_cidr")
+                for (j in 0 until arr.length()) {
+                    directCidrs.add(arr.getString(j))
+                }
+            }
+        }
+        org.junit.Assert.assertFalse("8.8.8.8/32 should not be bypassed to direct", directCidrs.contains("8.8.8.8/32"))
+    }
+
+    @Test
+    fun testChainPingResolution() {
+        val proxyChainsRaw = "chain-1\u001fMy Chain\u001fvless://uuid@relay.example.com:8443?security=tls&sni=cdn.example.com#Relay\u001fvless://uuid@exit.example.com:443?security=tls#Exit"
+        val chainUri = "chain://chain-1#My%20Chain"
+
+        val info = getNodeConnectionInfo(chainUri, proxyChainsRaw)
+        org.junit.Assert.assertNotNull(info)
+        org.junit.Assert.assertEquals("relay.example.com", info!!.host)
+        org.junit.Assert.assertEquals(8443, info.port)
+        org.junit.Assert.assertEquals("cdn.example.com", info.sni)
+
+        val hostPort = getHostAndPortFromLink(chainUri, proxyChainsRaw)
+        org.junit.Assert.assertNotNull(hostPort)
+        org.junit.Assert.assertEquals("relay.example.com", hostPort!!.first)
+        org.junit.Assert.assertEquals(8443, hostPort.second)
+    }
 }
 
