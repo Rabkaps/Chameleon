@@ -781,6 +781,7 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                 val enableDebugLoggingVal = settingsManager.enableDebugLogging.first()
                 val vpnMtuVal = settingsManager.vpnMtu.first()
                 val ipVersionVal = settingsManager.ipVersion.first()
+                val blockQuicVal = settingsManager.blockQuic.first()
                 rootModeVal = settingsManager.rootMode.first()
 
                 if (!rootModeVal) {
@@ -829,7 +830,8 @@ class VpnServiceWrapper : VpnService(), PlatformInterface, CommandServerHandler 
                     mtProxyPort = mtProxyPortVal,
                     mtProxySecret = mtProxySecretVal,
                     localProxyOnly = localProxyOnlyMode,
-                    ipVersion = ipVersionVal
+                    ipVersion = ipVersionVal,
+                    blockQuic = blockQuicVal
                 )
 
                 // Inject our custom bypass-Iran rules, split DNS, and advanced parameters

@@ -1201,5 +1201,103 @@ class ConfigInjectorTest {
         org.junit.Assert.assertEquals("relay.example.com", hostPort!!.first)
         org.junit.Assert.assertEquals(8443, hostPort.second)
     }
+
+    @Test
+    fun testConnectionQualityDefaultsAndBlockQuic() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "https://8.8.8.8/dns-query",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10",
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "standard",
+            blockQuic = true
+        )
+
+        val uri = "vless://uuid@example.com:443?security=tls&sni=example.com&alpn=http/1.1#TestQuality"
+        val configStr = ConfigInjector.injectConfig(mockContext, uri, settings)
+        val json = org.json.JSONObject(configStr)
+
+        // 1. Verify TUN MTU 1500 and no deprecated endpoint_independent_nat
+        val inbounds = json.getJSONArray("inbounds")
+        var tunInbound: org.json.JSONObject? = null
+        for (i in 0 until inbounds.length()) {
+            val inb = inbounds.getJSONObject(i)
+            if (inb.optString("type") == "tun") {
+                tunInbound = inb
+                break
+            }
+        }
+        org.junit.Assert.assertNotNull(tunInbound)
+        org.junit.Assert.assertEquals(1500, tunInbound!!.getInt("mtu"))
+        org.junit.Assert.assertFalse(tunInbound.has("endpoint_independent_nat"))
+
+        // 2. Verify DNS independent_cache & cache_capacity
+        val dns = json.getJSONObject("dns")
+        org.junit.Assert.assertTrue(dns.getBoolean("independent_cache"))
+        org.junit.Assert.assertEquals(4096, dns.getInt("cache_capacity"))
+
+        // 3. Verify dialer keep-alive/timeouts and ALPN on VLESS TLS
+        val proxyOut = json.getJSONArray("outbounds").getJSONObject(0)
+        org.junit.Assert.assertEquals("5s", proxyOut.getString("connect_timeout"))
+        org.junit.Assert.assertEquals("30s", proxyOut.getString("tcp_keep_alive"))
+        org.junit.Assert.assertEquals("10s", proxyOut.getString("tcp_keep_alive_interval"))
+        val alpn = proxyOut.getJSONObject("tls").getJSONArray("alpn")
+        org.junit.Assert.assertEquals("http/1.1", alpn.getString(0))
+
+        // 4. Verify UDP:443 QUIC block rule
+        val rules = json.getJSONObject("route").getJSONArray("rules")
+        var foundQuicReject = false
+        for (i in 0 until rules.length()) {
+            val r = rules.getJSONObject(i)
+            if (r.optString("network") == "udp" && r.optString("action") == "reject") {
+                val ports = r.optJSONArray("port")
+                if (ports != null && ports.length() > 0 && ports.getInt(0) == 443) {
+                    foundQuicReject = true
+                    break
+                }
+            }
+        }
+        org.junit.Assert.assertTrue(foundQuicReject)
+    }
+
+    @Test
+    fun testGrpcKeepAliveAndXhttpExtraNormalization() {
+        val mockContext = Mockito.mock(Context::class.java)
+        Mockito.`when`(mockContext.cacheDir).thenReturn(File(System.getProperty("java.io.tmpdir") ?: "/tmp"))
+
+        val settings = InjectorSettings(
+            bypassIran = true,
+            secureDns = "https://8.8.8.8/dns-query",
+            tunStack = "system",
+            enableFragment = false,
+            fragmentLength = "10-20",
+            fragmentInterval = "10",
+            enableMux = false,
+            bypassLan = true,
+            vpnMode = "standard"
+        )
+
+        val grpcUri = "vless://uuid@example.com:443?type=grpc&serviceName=mygrpc&security=tls#TestGrpc"
+        val grpcJson = org.json.JSONObject(ConfigInjector.injectConfig(mockContext, grpcUri, settings))
+        val grpcTransport = grpcJson.getJSONArray("outbounds").getJSONObject(0).getJSONObject("transport")
+        org.junit.Assert.assertEquals("15s", grpcTransport.getString("idle_timeout"))
+        org.junit.Assert.assertEquals("15s", grpcTransport.getString("ping_timeout"))
+
+        val xhttpUri = "vless://uuid@example.com:443?type=xhttp&path=%2Fxhttp&security=tls&extra=%7B%22xPaddingBytes%22%3A%22100-500%22%2C%22xmux%22%3A%7B%22maxConcurrency%22%3A%224-8%22%7D%7D#TestXhttp"
+        val xhttpJson = org.json.JSONObject(ConfigInjector.injectConfig(mockContext, xhttpUri, settings))
+        val xhttpTransport = xhttpJson.getJSONArray("outbounds").getJSONObject(0).getJSONObject("transport")
+        org.junit.Assert.assertEquals("100-500", xhttpTransport.getString("x_padding_bytes"))
+        org.junit.Assert.assertFalse(xhttpTransport.has("xPaddingBytes"))
+        val xmux = xhttpTransport.getJSONObject("xmux")
+        org.junit.Assert.assertEquals("4-8", xmux.getString("max_concurrency"))
+        org.junit.Assert.assertFalse(xmux.has("maxConcurrency"))
+    }
 }
 

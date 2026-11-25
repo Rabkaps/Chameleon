@@ -79,6 +79,7 @@ class SettingsManager(private val context: Context) {
         val DASHBOARD_CARD_SIZES = stringPreferencesKey("dashboard_card_sizes")
         val APP_ICON = stringPreferencesKey("app_icon")
         val IP_VERSION = stringPreferencesKey("ip_version")
+        val BLOCK_QUIC = booleanPreferencesKey("block_quic")
         
         private val defaultThemeKey = if (Config.IS_SPECIAL) "cherry_blossom" else "dynamic"
 
@@ -94,7 +95,7 @@ class SettingsManager(private val context: Context) {
             fragmentLength = "10-20",
             fragmentInterval = "10",
             enableMux = false,
-            vpnMtu = 1280,
+            vpnMtu = 1500,
             autoUpdateIntervalHours = 1,
             activeProfile = "",
             subscriptionUrl = "",
@@ -174,7 +175,7 @@ class SettingsManager(private val context: Context) {
             fragmentLength = prefs[FRAGMENT_LENGTH] ?: "10-20",
             fragmentInterval = prefs[FRAGMENT_INTERVAL] ?: "10",
             enableMux = prefs[ENABLE_MUX] ?: false,
-            vpnMtu = prefs[VPN_MTU] ?: 1280,
+            vpnMtu = prefs[VPN_MTU] ?: 1500,
             autoUpdateIntervalHours = prefs[AUTO_UPDATE_INTERVAL_HOURS] ?: 1,
             activeProfile = prefs[ACTIVE_PROFILE] ?: "",
             subscriptionUrl = prefs[SUBSCRIPTION_URL] ?: "",
@@ -223,7 +224,8 @@ class SettingsManager(private val context: Context) {
             mtProxyPort = prefs[MTPROXY_PORT] ?: "19999",
             mtProxySecret = prefs[MTPROXY_SECRET] ?: "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
             favoriteServers = prefs[FAVORITE_SERVERS] ?: emptySet(),
-            ipVersion = prefs[IP_VERSION] ?: "ipv4_only"
+            ipVersion = prefs[IP_VERSION] ?: "ipv4_only",
+            blockQuic = prefs[BLOCK_QUIC] ?: false
         )
     }.flowOn(Dispatchers.Default).distinctUntilChanged()
 
@@ -240,7 +242,8 @@ class SettingsManager(private val context: Context) {
     val fragmentLength: Flow<String> = context.dataStore.data.map { it[FRAGMENT_LENGTH] ?: "10-20" }.distinctUntilChanged()
     val fragmentInterval: Flow<String> = context.dataStore.data.map { it[FRAGMENT_INTERVAL] ?: "10" }.distinctUntilChanged()
     val enableMux: Flow<Boolean> = context.dataStore.data.map { it[ENABLE_MUX] ?: false }.distinctUntilChanged()
-    val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1280 }.distinctUntilChanged()
+    val blockQuic: Flow<Boolean> = context.dataStore.data.map { it[BLOCK_QUIC] ?: false }.distinctUntilChanged()
+    val vpnMtu: Flow<Int> = context.dataStore.data.map { it[VPN_MTU] ?: 1500 }.distinctUntilChanged()
     val autoUpdateIntervalHours: Flow<Int> = context.dataStore.data.map { it[AUTO_UPDATE_INTERVAL_HOURS] ?: 1 }.distinctUntilChanged()
     val activeProfile: Flow<String> = context.dataStore.data.map { it[ACTIVE_PROFILE] ?: "" }.distinctUntilChanged()
     val subscriptionUrl: Flow<String> = context.dataStore.data.map { it[SUBSCRIPTION_URL] ?: "" }.distinctUntilChanged()
@@ -300,6 +303,7 @@ class SettingsManager(private val context: Context) {
     suspend fun setFragmentLength(value: String) { context.dataStore.edit { it[FRAGMENT_LENGTH] = value } }
     suspend fun setFragmentInterval(value: String) { context.dataStore.edit { it[FRAGMENT_INTERVAL] = value } }
     suspend fun setEnableMux(value: Boolean) { context.dataStore.edit { it[ENABLE_MUX] = value } }
+    suspend fun setBlockQuic(value: Boolean) { context.dataStore.edit { it[BLOCK_QUIC] = value } }
     suspend fun setVpnMtu(value: Int) { context.dataStore.edit { it[VPN_MTU] = value } }
     suspend fun setAutoUpdateIntervalHours(value: Int) { context.dataStore.edit { it[AUTO_UPDATE_INTERVAL_HOURS] = value } }
     suspend fun setActiveProfile(value: String) { context.dataStore.edit { it[ACTIVE_PROFILE] = value } }
@@ -484,7 +488,8 @@ data class UserSettings(
     val mtProxyPort: String,
     val mtProxySecret: String,
     val favoriteServers: Set<String>,
-    val ipVersion: String = "ipv4_only"
+    val ipVersion: String = "ipv4_only",
+    val blockQuic: Boolean = false
 )
 
 data class Subscription(

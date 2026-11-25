@@ -329,6 +329,7 @@ fun MainScreen(
     val fragmentLength = settings.fragmentLength
     val fragmentInterval = settings.fragmentInterval
     val enableMux = settings.enableMux
+    val blockQuic = settings.blockQuic
     val enableDebugLogging = settings.enableDebugLogging
     val activeProfile = settings.activeProfile
     val subscriptionUrl = settings.subscriptionUrl
@@ -5099,6 +5100,23 @@ fun MainScreen(
                                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                             Spacer(modifier = Modifier.height(16.dp))
 
+                                            // Block QUIC (Force TCP)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text("Block QUIC (Force TCP)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                    Text("Reject UDP port 443 to force fast TCP/HTTP2 fallback on throttled ISPs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                }
+                                                Switch(checked = blockQuic, onCheckedChange = { scope.launch { settingsManager.setBlockQuic(it); if (vpnState == "CONNECTED") startVpnService(context) } })
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            Spacer(modifier = Modifier.height(16.dp))
+
                                             // Enable Debug Logging
                                             Row(
                                                 modifier = Modifier.fillMaxWidth(),
@@ -5121,13 +5139,14 @@ fun MainScreen(
                                                 onClick = {
                                                     scope.launch {
                                                         settingsManager.setTunStack("system")
-                                                        settingsManager.setVpnMtu(1280)
-                                                        localMtu = 1280f
+                                                        settingsManager.setVpnMtu(1500)
+                                                        localMtu = 1500f
                                                         settingsManager.setEnableFragment(false)
                                                         settingsManager.setFragmentLength("10-20")
                                                         settingsManager.setFragmentInterval("10")
                                                         localFragmentInterval = 10f
                                                         settingsManager.setEnableMux(false)
+                                                        settingsManager.setBlockQuic(false)
                                                         settingsManager.setEnableDebugLogging(false)
                                                         settingsManager.setRootMode(false)
                                                         settingsManager.setSecureDns("https://8.8.8.8/dns-query")

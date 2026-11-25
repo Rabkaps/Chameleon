@@ -48,8 +48,9 @@ data class InjectorSettings(
     val mtProxySecret: String = "ee000102030405060708090a0b0c0d0e0f7370656564746573742e6e6574",
     val localProxyOnly: Boolean = false,
     val enableDebugLogging: Boolean = false,
-    val vpnMtu: Int = 1280,
-    val ipVersion: String = "ipv4_only"
+    val vpnMtu: Int = 1500,
+    val ipVersion: String = "ipv4_only",
+    val blockQuic: Boolean = false
 )
 
 object ConfigInjector {
@@ -385,7 +386,6 @@ object ConfigInjector {
             put("mtu", settings.vpnMtu)
             put("auto_route", true)
             put("strict_route", false)
-            put("endpoint_independent_nat", true)
             put("address", JSONArray(tunAddresses))
         }
         newInbounds.put(tunInbound)
@@ -581,6 +581,8 @@ object ConfigInjector {
         val dns = JSONObject()
         dns.put("reverse_mapping", true)
         dns.put("strategy", settings.ipVersion)
+        dns.put("independent_cache", true)
+        dns.put("cache_capacity", 4096)
         val servers = JSONArray()
 
         // 1. Parsed DNS servers from outbounds (e.g. OpenVPN dhcp-options / AntiZapret)
@@ -791,6 +793,16 @@ object ConfigInjector {
             put("method", "default")
         }
         newRules.put(blockDotRule)
+
+        if (settings.blockQuic) {
+            val blockQuicRule = JSONObject().apply {
+                put("network", "udp")
+                put("port", JSONArray(listOf(443)))
+                put("action", "reject")
+                put("method", "default")
+            }
+            newRules.put(blockQuicRule)
+        }
 
         // 4. Reject Iranian DPI Censorship IPs (10.10.34.34/31 and 10.10.34.36/32)
         // Prevents leaked/cached censorship blockpage IPs from falsely falling into the 10.0.0.0/8 LAN bypass rule
@@ -1120,6 +1132,15 @@ object ConfigInjector {
                 out.remove("multiplex")
             }
 
+            val dialerTypes = setOf(
+                "vless", "vmess", "trojan", "shadowsocks", "shadowsocksr",
+                "hysteria2", "tuic", "socks", "http", "shadowtls", "mieru", "snell", "ssh"
+            )
+            if ((isProxyOrRelay || tag.startsWith("proxy-")) && dialerTypes.contains(type)) {
+                if (!out.has("connect_timeout")) out.put("connect_timeout", "5s")
+                if (!out.has("tcp_keep_alive")) out.put("tcp_keep_alive", "30s")
+                if (!out.has("tcp_keep_alive_interval")) out.put("tcp_keep_alive_interval", "10s")
+            }
             if ((isProxyOrRelay || tag.startsWith("proxy-")) && settings.ipVersion.isNotEmpty()) {
                 out.put("domain_strategy", settings.ipVersion)
             }
@@ -1403,7 +1424,7 @@ object ConfigInjector {
                 put("type", "wireguard")
                 put("tag", "warp-endpoint")
                 put("system", false)
-                put("mtu", settings.vpnMtu)
+                put("mtu", settings.vpnMtu.coerceAtMost(1280))
                 
                 val ipAddress = settings.warpIpAddress.ifEmpty { "172.16.0.2/32" }
                 val formattedIp = when {
@@ -1820,6 +1841,14 @@ object ConfigInjector {
                         reality.put("short_id", sid)
                         tls.put("reality", reality)
                         tls.remove("alpn")
+                    } else {
+                        val alpnVal = queryParams["alpn"]
+                        if (!alpnVal.isNullOrEmpty()) {
+                            val alpnList = alpnVal.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            if (alpnList.isNotEmpty()) {
+                                tls.put("alpn", JSONArray(alpnList))
+                            }
+                        }
                     }
                     outbound.put("tls", tls)
                 }
@@ -1861,6 +1890,14 @@ object ConfigInjector {
                     reality.put("short_id", sid)
                     tls.put("reality", reality)
                     tls.remove("alpn")
+                } else {
+                    val alpnVal = queryParams["alpn"]
+                    if (!alpnVal.isNullOrEmpty()) {
+                        val alpnList = alpnVal.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                        if (alpnList.isNotEmpty()) {
+                            tls.put("alpn", JSONArray(alpnList))
+                        }
+                    }
                 }
                 outbound.put("tls", tls)
 
@@ -1997,6 +2034,8 @@ object ConfigInjector {
                             }
                         } else if (net == "grpc") {
                             transport.put("service_name", path)
+                            transport.put("idle_timeout", "15s")
+                            transport.put("ping_timeout", "15s")
                         } else if (net == "httpupgrade" || net == "http" || net == "h2") {
                             transport.put("path", if (path.startsWith("/")) path else "/$path")
                             if (fallbackHost.isNotEmpty()) {
@@ -2004,6 +2043,8 @@ object ConfigInjector {
                                     val hostArray = JSONArray()
                                     hostArray.put(fallbackHost)
                                     transport.put("host", hostArray)
+                                    transport.put("idle_timeout", "15s")
+                                    transport.put("ping_timeout", "15s")
                                 } else {
                                     transport.put("host", fallbackHost)
                                 }
@@ -2603,12 +2644,72 @@ object ConfigInjector {
         }
     }
 
+    private fun normalizeXhttpObject(obj: JSONObject) {
+        val keyMap = mapOf(
+            "xPaddingBytes" to "x_padding_bytes",
+            "noGRPCHeader" to "no_grpc_header",
+            "noSSEHeader" to "no_sse_header",
+            "scMaxEachPostBytes" to "sc_max_each_post_bytes",
+            "scMinPostsIntervalMs" to "sc_min_posts_interval_ms",
+            "scMaxBufferedPosts" to "sc_max_buffered_posts",
+            "scStreamUpServerSecs" to "sc_stream_up_server_secs",
+            "xPaddingObfsMode" to "x_padding_obfs_mode",
+            "xPaddingKey" to "x_padding_key",
+            "xPaddingHeader" to "x_padding_header",
+            "xPaddingPlacement" to "x_padding_placement",
+            "xPaddingMethod" to "x_padding_method",
+            "uplinkHTTPMethod" to "uplink_http_method",
+            "sessionPlacement" to "session_placement",
+            "sessionKey" to "session_key",
+            "seqPlacement" to "seq_placement",
+            "seqKey" to "seq_key",
+            "uplinkDataPlacement" to "uplink_data_placement",
+            "uplinkDataKey" to "uplink_data_key",
+            "uplinkChunkSize" to "uplink_chunk_size",
+            "downloadSettings" to "download"
+        )
+        for ((camel, snake) in keyMap) {
+            if (obj.has(camel)) {
+                val value = obj.get(camel)
+                obj.remove(camel)
+                if (!obj.has(snake)) {
+                    obj.put(snake, value)
+                }
+            }
+        }
+        val xmuxObj = obj.optJSONObject("xmux")
+        if (xmuxObj != null) {
+            val xmuxMap = mapOf(
+                "maxConcurrency" to "max_concurrency",
+                "maxConnections" to "max_connections",
+                "cMaxReuseTimes" to "c_max_reuse_times",
+                "hMaxRequestTimes" to "h_max_request_times",
+                "hMaxReusableSecs" to "h_max_reusable_secs",
+                "hKeepAlivePeriod" to "h_keep_alive_period"
+            )
+            for ((camel, snake) in xmuxMap) {
+                if (xmuxObj.has(camel)) {
+                    val value = xmuxObj.get(camel)
+                    xmuxObj.remove(camel)
+                    if (!xmuxObj.has(snake)) {
+                        xmuxObj.put(snake, value)
+                    }
+                }
+            }
+        }
+        val downloadObj = obj.optJSONObject("download")
+        if (downloadObj != null) {
+            normalizeXhttpObject(downloadObj)
+        }
+    }
+
     private fun sanitizeXhttpTransport(config: JSONObject) {
         val outbounds = config.optJSONArray("outbounds") ?: return
         for (i in 0 until outbounds.length()) {
             val outbound = outbounds.optJSONObject(i) ?: continue
             val transport = outbound.optJSONObject("transport") ?: continue
             if (transport.optString("type") == "xhttp") {
+                normalizeXhttpObject(transport)
                 // Ensure x_padding_bytes is present and valid for sing-box-extended
                 if (!transport.has("x_padding_bytes") || transport.optString("x_padding_bytes").isEmpty()) {
                     transport.put("x_padding_bytes", "100-1000")
@@ -2665,6 +2766,8 @@ object ConfigInjector {
             } else if (type == "grpc") {
                 val serviceName = queryParams["serviceName"] ?: queryParams["service_name"] ?: ""
                 transport.put("service_name", serviceName)
+                if (!transport.has("idle_timeout")) transport.put("idle_timeout", "15s")
+                if (!transport.has("ping_timeout")) transport.put("ping_timeout", "15s")
             } else if (type == "httpupgrade") {
                 val path = queryParams["path"] ?: "/"
                 transport.put("path", path)
@@ -2689,6 +2792,8 @@ object ConfigInjector {
                 }
                 val method = queryParams["method"] ?: "GET"
                 transport.put("method", method)
+                if (!transport.has("idle_timeout")) transport.put("idle_timeout", "15s")
+                if (!transport.has("ping_timeout")) transport.put("ping_timeout", "15s")
             } else if (type == "kcp" || type == "mkcp") {
                 val seed = queryParams["seed"]
                 if (seed != null && seed.isNotEmpty()) {
@@ -2710,8 +2815,10 @@ object ConfigInjector {
                 }
                 val mode = queryParams["mode"] ?: "stream-one"
                 transport.put("mode", mode)
-                val paddingBytes = queryParams["x_padding_bytes"] ?: queryParams["padding"] ?: "100-1000"
-                transport.put("x_padding_bytes", paddingBytes)
+                val paddingBytes = queryParams["x_padding_bytes"] ?: queryParams["padding"]
+                if (!paddingBytes.isNullOrEmpty()) {
+                    transport.put("x_padding_bytes", paddingBytes)
+                }
                 
                 val extraStr = queryParams["extra"]
                 if (extraStr != null && extraStr.isNotEmpty()) {
@@ -2725,6 +2832,10 @@ object ConfigInjector {
                     } catch (e: Exception) {
                         // Ignore
                     }
+                }
+                normalizeXhttpObject(transport)
+                if (!transport.has("x_padding_bytes") || transport.optString("x_padding_bytes").isEmpty()) {
+                    transport.put("x_padding_bytes", "100-1000")
                 }
             }
             outbound.put("transport", transport)
